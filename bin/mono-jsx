@@ -28,7 +28,7 @@ async function setup() {
     jsxImportSource: "mono-jsx",
   };
   if (!globalThis.Deno) {
-    tsConfig.compilerOptions.alllowJs = true
+    tsConfig.compilerOptions.allowJs = true
   }
   await writeFile(tsConfigPath, JSON.stringify(tsConfig, null, 2));
 }
