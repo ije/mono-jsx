@@ -210,7 +210,15 @@ function App() {
 ```
 
 > [!WARNING]
-> The `html` tag function is **unsafe** and can cause [**XSS**](https://en.wikipedia.org/wiki/Cross-site_scripting) vulnerabilities.
+> The `html` tag function is **unsafe** and can cause [**XSS**](https://en.wikipedia.org/wiki/Cross-site_scripting) vulnerabilities. Consider using the `safeHtml` tag to excape some kinds of XSS attacks.
+> ```jsx
+> const unsafeInput = '<script>alert("xss")</script>';
+> const App = () => (
+>   <div>
+>     {safeHtml`User input: ${unsafeInput}`}
+>   </div>
+> );
+> ```
 
 ### Event Handlers
 

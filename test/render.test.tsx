@@ -769,6 +769,26 @@ Deno.test("[ssr] XSS", async () => {
   );
 });
 
+Deno.test("[ssr] Excaped XSS", async () => {
+  const payload = '<script>alert("xss")</script>';
+  const App = () => (
+    <div>
+      {safeHtml`User input: ${payload}`}
+    </div>
+  );
+  assertEquals(
+    await renderToString(<App />),
+    [
+      `<!DOCTYPE html>`,
+      `<html lang="en"><body>`,
+      `<div>`,
+      `User input: &lt;script&gt;alert(&quot;xss&quot;)&lt;/script&gt;`,
+      `</div>`,
+      `</body></html>`,
+    ].join(""),
+  );
+});
+
 Deno.test("[ssr] htmx", async () => {
   assertEquals(
     await renderToString(

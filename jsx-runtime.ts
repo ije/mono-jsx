@@ -1,6 +1,7 @@
 import type { FC, VNode } from "./types/jsx.d.ts";
 import { $fragment, $html, $vnode } from "./symbols.ts";
 import { render } from "./render.ts";
+import { escapeHTML } from "./runtime/utils.ts";
 
 const jsx = (tag: string | FC, props: Record<string, unknown> = Object.create(null), key?: string | number): VNode => {
   const vnode = new Array(3).fill(null);
@@ -27,15 +28,29 @@ const jsx = (tag: string | FC, props: Record<string, unknown> = Object.create(nu
 
 const Fragment = $fragment as unknown as FC;
 
-const html = (raw: string, ...values: unknown[]): VNode => [
+const html = (raw: TemplateStringsArray, ...values: unknown[]): VNode => [
   $html,
   { innerHTML: String.raw({ raw }, ...values) },
   $vnode,
 ];
 
+const safeHtml = (raw: TemplateStringsArray, ...values: unknown[]): VNode => {
+  const fullHtml = raw.reduce((acc, str, i) => {
+    const value = values[i - 1];
+    return acc + (value !== undefined ? escapeHTML(String(value)) : "") + str;
+  });
+
+  return [
+    $html,
+    { innerHTML: fullHtml },
+    $vnode,
+  ];
+};
+
 // global variables
 Object.assign(globalThis, {
   html,
+  safeHtml,
   css: html,
   js: html,
 });

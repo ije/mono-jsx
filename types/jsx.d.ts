@@ -32,5 +32,5 @@ declare global {
     interface IntrinsicAttributes extends Mono.BaseAttributes, Mono.AsyncComponentAttributes {}
     interface IntrinsicElements extends HTML.Elements, HTML.SVGElements, Mono.Elements {}
   }
-  var html: TC, css: TC, js: TC;
+  var html: TC, css: TC, js: TC, safeHtml: TC;
 }
