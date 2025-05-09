@@ -50,6 +50,10 @@ export namespace HTML {
     class?: HTMLClass | HTMLClass[];
     /** Contains [CSS](https://developer.mozilla.org/en-US/docs/Web/CSS) styling declarations to be applied to the element. Note that it is recommended for styles to be defined in a separate file or files. This attribute and the [`<style>`](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/style) element have mainly the purpose of allowing for quick styling, for example for testing purposes. */
     style?: string | Mono.CSSProperties;
+    /**
+     * @mono-jsx
+     */
+    for?: unknown[];
     /** An enumerated attribute indicating that the element is not yet, or is no longer, relevant. For example, it can be used to hide elements of the page that can't be used until the login process has been completed. The browser won't render such elements. This attribute must not be used to hide content that could legitimately be shown. */
     hidden?: boolean | "hidden" | "until-found";
     /** An enumerated attribute indicating whether the element can be dragged, using the Drag and Drop API. */
@@ -136,7 +140,7 @@ export namespace HTML {
 
   interface FormAttributes<T extends EventTarget> extends GlobalAttributes<T> {
     "accept-charset"?: string;
-    action: string | (/* mono-jsx specific */ (data: FormData, event: SubmitEvent) => unknown | Promise<unknown>);
+    action: string | (/* @mono-jsx */ (data: FormData, event: SubmitEvent) => unknown | Promise<unknown>);
     autoComplete?: "on" | "off";
     encType?: "application/x-www-form-urlencoded" | "multipart/form-data" | "text/plain";
     method?: "GET" | "POST" | "dialog";
@@ -349,9 +353,9 @@ export namespace HTML {
     name?: string;
   }
 
-  interface LabelAttributes<T extends EventTarget> extends GlobalAttributes<T> {
+  interface LabelAttributes<T extends EventTarget> extends Omit<GlobalAttributes<T>, "for"> {
+    for?: string | unknown[];
     form?: string;
-    for?: string;
   }
 
   interface LiAttributes<T extends EventTarget> extends GlobalAttributes<T> {
@@ -460,9 +464,9 @@ export namespace HTML {
     label?: string;
   }
 
-  interface OutputAttributes<T extends EventTarget> extends GlobalAttributes<T> {
+  interface OutputAttributes<T extends EventTarget> extends Omit<GlobalAttributes<T>, "for"> {
+    for?: string | unknown[];
     form?: string;
-    for?: string;
     name?: string;
   }
 
@@ -821,7 +825,7 @@ export namespace HTML {
   }
 
   interface EventAttributes<T extends EventTarget> {
-    // mono-jsx specific
+    // @mono-jsx
     onMount?: (event: { type: "mount"; target: T }) => void | Promise<void>;
 
     // Input Events
