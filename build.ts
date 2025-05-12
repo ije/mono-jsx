@@ -1,4 +1,4 @@
-import { build, stop } from "https://deno.land/x/esbuild@v0.25.0/mod.js";
+import { build, stop } from "https://deno.land/x/esbuild@v0.25.4/mod.js";
 
 async function buildRuntime(name: string): Promise<string> {
   const ret = await build({
