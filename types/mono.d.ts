@@ -2,8 +2,8 @@
 
 import type * as CSS from "./css.d.ts";
 
-type Num1_9 = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9;
-type Num0_100 = 0 | Num1_9 | `${Num1_9}${0 | Num1_9}` | 100;
+type D9 = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9;
+type D100 = 0 | D9 | `${D9}${0 | D9}` | 100;
 
 export interface BaseCSSProperties extends CSS.Properties<string | number> {}
 
@@ -12,7 +12,7 @@ export interface AtRuleCSSProperties {
   [key: `@media${" " | "("}${string}`]: BaseCSSProperties;
   [key: `@supports${" " | "("}${string}`]: BaseCSSProperties;
   [key: `@keyframes ${string}`]: {
-    [key in "from" | "to" | `${Num0_100}%`]?: BaseCSSProperties;
+    [key in "from" | "to" | `${D100}%`]?: BaseCSSProperties;
   };
 }
 
@@ -66,11 +66,11 @@ export interface CSSProperties extends BaseCSSProperties, AtRuleCSSProperties, P
   [key: `&${" " | "." | "["}${string}`]: CSSProperties;
 }
 
-export type ChildType = JSX.Element | (JSX.Element | null)[] | string | number | bigint | boolean | null;
+export type MaybeArray<T> = T | T[];
+export type ChildType = MaybeArray<JSX.Element | string | number | bigint | boolean | null>;
 
 export interface BaseAttributes {
-  children?: ChildType | ChildType[];
-  key?: string | number;
+  children?: MaybeArray<ChildType>;
   slot?: string;
 }
 
@@ -92,17 +92,16 @@ export interface AsyncComponentAttributes {
 
 export interface Elements {
   /**
-   * The `<toggle>` element is a custom element that represents a toggle switch.
+   * The `toggle` element is a custom element that represents a toggle switch.
    */
   toggle: BaseAttributes & {
-    value?: boolean | string | number | null;
+    show?: boolean | 0 | 1;
   };
   /**
-   * The `<switch>` element is a custom element that represents a switch.
+   * The `switch` element is a custom element that represents a switch.
    */
   switch: BaseAttributes & {
-    value?: string;
-    defaultValue?: string;
+    value?: string | number | boolean | null;
   };
 }
 
@@ -110,29 +109,37 @@ declare global {
   /**
    * The `html` function is used to create XSS-unsafe HTML elements.
    */
-  var html: JSX.Raw, css: JSX.Raw, js: JSX.Raw;
+  var html: JSX.Raw;
+  var css: JSX.Raw;
+  var js: JSX.Raw;
 
   /**
    * mono-jsx `this` object that is bound to the function component.
    */
-  type FC<State = {}, AppState = {}, Context = {}> = {
+  type FC<Signals = {}, AppSignals = {}, Context = {}> = {
     /**
-     * Application state.
-     * This is the state that is shared across the entire application.
+     * Application signals.
+     * Application signals is shared across the entire application.
      */
-    readonly app: AppState;
+    readonly app: AppSignals;
     /**
      * Context object.
+     * **This is a server-side only API.**
      */
     readonly context: Context;
     /**
      * Current request object.
+     * **This is a server-side only API.**
      */
     readonly request: Request;
     /**
-     * The `computed` function is used to create a computed property.
-     * It takes a function that returns a value and returns the value.
+     * The `computed` method is used to create a computed signal.
      */
-    readonly computed: <V = unknown>(computeFn: () => V) => V;
-  } & Omit<State, "app" | "context" | "request" | "computed">;
+    readonly computed: <T = unknown>(fn: () => T) => T;
+    /**
+     * The `effect` method is used to create a side effect.
+     * **The effect function is only called on client side.**
+     */
+    readonly effect: (fn: () => void | (() => void)) => void;
+  } & Omit<Signals, "app" | "context" | "request" | "computed" | "effect">;
 }

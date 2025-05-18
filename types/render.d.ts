@@ -14,9 +14,9 @@ type HtmxExts = {
  */
 export interface RenderOptions extends Partial<HtmxExts> {
   /**
-   * Initial state of the application.
+   * Initial signals of the application.
    */
-  appState?: Record<string, unknown>;
+  app?: Record<string, unknown>;
   /**
    * The context object to be passed to components.
    */

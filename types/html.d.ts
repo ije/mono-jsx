@@ -50,10 +50,6 @@ export namespace HTML {
     class?: HTMLClass | HTMLClass[];
     /** Contains [CSS](https://developer.mozilla.org/en-US/docs/Web/CSS) styling declarations to be applied to the element. Note that it is recommended for styles to be defined in a separate file or files. This attribute and the [`<style>`](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/style) element have mainly the purpose of allowing for quick styling, for example for testing purposes. */
     style?: string | Mono.CSSProperties;
-    /**
-     * @mono-jsx
-     */
-    for?: unknown[];
     /** An enumerated attribute indicating that the element is not yet, or is no longer, relevant. For example, it can be used to hide elements of the page that can't be used until the login process has been completed. The browser won't render such elements. This attribute must not be used to hide content that could legitimately be shown. */
     hidden?: boolean | "hidden" | "until-found";
     /** An enumerated attribute indicating whether the element can be dragged, using the Drag and Drop API. */
@@ -129,7 +125,7 @@ export namespace HTML {
     decoding?: "async" | "auto" | "sync";
     height?: number | string;
     isMap?: boolean;
-    loading?: "eager" | "lazy";
+    loading?: "lazy";
     referRerpolicy?: ReferrerPolicy;
     sizes?: string;
     src?: string;
@@ -329,7 +325,7 @@ export namespace HTML {
     allowFullScreen?: boolean;
     allowTransparency?: boolean;
     height?: number | string;
-    loading?: "eager" | "lazy";
+    loading?: "lazy";
     name?: string;
     referrerPolicy?: ReferrerPolicy;
     sandbox?: string;
@@ -353,8 +349,8 @@ export namespace HTML {
     name?: string;
   }
 
-  interface LabelAttributes<T extends EventTarget> extends Omit<GlobalAttributes<T>, "for"> {
-    for?: string | unknown[];
+  interface LabelAttributes<T extends EventTarget> extends GlobalAttributes<T> {
+    for?: string;
     form?: string;
   }
 
@@ -464,8 +460,8 @@ export namespace HTML {
     label?: string;
   }
 
-  interface OutputAttributes<T extends EventTarget> extends Omit<GlobalAttributes<T>, "for"> {
-    for?: string | unknown[];
+  interface OutputAttributes<T extends EventTarget> extends GlobalAttributes<T> {
+    for?: string;
     form?: string;
     name?: string;
   }

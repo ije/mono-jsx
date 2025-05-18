@@ -45,11 +45,11 @@ const cssBareUnitProps = new Set([
 ]);
 
 export const isString = (v: unknown): v is string => typeof v === "string";
-export const isObject = (v: unknown): v is object => typeof v === "object" && v !== null;
+export const isObject = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null;
 export const toHyphenCase = (k: string) => k.replace(/[a-z][A-Z]/g, (m) => m.charAt(0) + "-" + m.charAt(1).toLowerCase());
 
 /** merge class names. */
-export function cx(className: unknown): string {
+export const cx = (className: unknown): string => {
   if (isString(className)) {
     return className;
   }
@@ -60,35 +60,52 @@ export function cx(className: unknown): string {
     return Object.entries(className).filter(([, v]) => !!v).map(([k]) => k).join(" ");
   }
   return "";
-}
+};
 
 /** converts style object to css string. */
-export function styleToCSS(style: unknown): string {
-  if (isString(style)) {
-    return style;
+export const styleToCSS = (style: Record<string, unknown>): { inline?: string; css?: Array<string | null> } => {
+  const inline: [string, string | number][] = [];
+  const css: Array<string | null> = [];
+  const ret: ReturnType<typeof styleToCSS> = {};
+  for (const [k, v] of Object.entries(style)) {
+    switch (k.charCodeAt(0)) {
+      case /* ':' */ 58:
+        css.push(null, k + "{" + renderStyle(v) + "}");
+        break;
+      case /* '@' */ 64:
+        css.push(k + "{", null, "{" + renderStyle(v) + "}}");
+        break;
+      case /* '&' */ 38:
+        css.push(null, k.slice(1) + "{" + renderStyle(v) + "}");
+        break;
+      default:
+        inline.push([k, v as string | number]);
+    }
   }
+  if (inline.length > 0) {
+    ret.inline = renderStyle(inline);
+  }
+  if (css.length > 0) {
+    ret.css = css;
+  }
+  return ret;
+};
+
+// @internal
+const renderStyle = (style: unknown): string => {
   if (isObject(style)) {
     let css = "";
     for (const [k, v] of Array.isArray(style) ? style : Object.entries(style)) {
-      if (isString(k) && (isString(v) || typeof v === "number")) {
+      if (isString(v) || typeof v === "number") {
         const cssKey = toHyphenCase(k);
-        const cssValue = typeof v === "number" ? (cssBareUnitProps.has(cssKey) ? "" + v : v + "px") : escapeCSSText("" + v);
-        css += (css ? ";" : "") + escapeCSSText(cssKey) + ":" + (cssKey === "content" ? JSON.stringify(cssValue) : cssValue);
+        const cssValue = typeof v === "number" ? (cssBareUnitProps.has(cssKey) ? "" + v : v + "px") : "" + v;
+        css += (css ? ";" : "") + cssKey + ":" + (cssKey === "content" ? JSON.stringify(cssValue) : cssValue);
       }
     }
     return css;
   }
   return "";
-}
-
-/** escapes special characters in a given css string. */
-export function escapeCSSText(str: string): string {
-  return str.replace(/["<>]/g, (m) => {
-    if (m === "<") return "&lt;";
-    if (m === ">") return "&gt;";
-    return "'";
-  });
-}
+};
 
 /**
  * Escapes special characters and HTML entities in a given html string.
@@ -101,7 +118,7 @@ export function escapeCSSText(str: string): string {
  * MIT License
  */
 const regexpHtmlSafe = /["'&<>]/;
-export function escapeHTML(str: string): string {
+export const escapeHTML = (str: string): string => {
   const match = regexpHtmlSafe.exec(str);
   if (!match) {
     return str;
@@ -145,4 +162,4 @@ export function escapeHTML(str: string): string {
   }
 
   return lastIndex !== index ? html + str.slice(lastIndex, index) : html;
-}
+};

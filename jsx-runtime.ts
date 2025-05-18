@@ -1,6 +1,6 @@
 import type { FC, VNode } from "./types/jsx.d.ts";
-import { $fragment, $html, $vnode } from "./symbols.ts";
 import { JSX, render } from "./render.ts";
+import { $fragment, $html, $vnode } from "./symbols.ts";
 
 const jsx = (tag: string | FC, props: Record<string, unknown> = Object.create(null), key?: string | number): VNode => {
   const vnode = new Array(3).fill(null);
@@ -13,7 +13,7 @@ const jsx = (tag: string | FC, props: Record<string, unknown> = Object.create(nu
   // if the tag name is `html`, render it to a `Response` object
   if (tag === "html") {
     const renderOptions = Object.create(null);
-    const optionsKeys = new Set(["appState", "context", "request", "status", "headers", "rendering", "htmx"]);
+    const optionsKeys = new Set(["app", "context", "request", "status", "headers", "rendering", "htmx"]);
     for (const [key, value] of Object.entries(props)) {
       if (optionsKeys.has(key) || key.startsWith("htmx-ext-")) {
         renderOptions[key] = value;
@@ -33,7 +33,7 @@ const html = (raw: string, ...values: unknown[]): VNode => [
   $vnode,
 ];
 
-// global variables
+// inject global variables
 Object.assign(globalThis, {
   JSX,
   html,

@@ -1,6 +1,6 @@
 // deno-lint-ignore-file jsx-key jsx-curly-braces
 import { assert, assertEquals } from "jsr:@std/assert";
-import { STATE_JS, SUSPENSE_JS, UTILS_JS } from "../runtime/index.ts";
+import { SIGNALS_JS, SUSPENSE_JS, UTILS_JS } from "../runtime/index.ts";
 import { RenderOptions } from "../types/render.d.ts";
 
 const renderToString = (node: JSX.Element, renderOptions?: RenderOptions) => {
@@ -98,7 +98,7 @@ Deno.test("[ssr] style to css", async () => {
 
   "pseudo class";
   {
-    const id = hashCode("background-color:#fff|:hover>background-color:#eee").toString(36);
+    const id = hashCode(":hover{background-color:#eee}").toString(36);
     assertEquals(
       await renderToString(
         <button type="button" role="button" style={{ backgroundColor: "#fff", ":hover": { backgroundColor: "#eee" } }}>Click me</button>,
@@ -106,8 +106,8 @@ Deno.test("[ssr] style to css", async () => {
       [
         `<!DOCTYPE html>`,
         `<html lang="en"><body>`,
-        `<style id="css-${id}">[data-css-${id}]{background-color:#fff}[data-css-${id}]:hover{background-color:#eee}</style>`,
-        `<button type="button" role="button" data-css-${id}>Click me</button>`,
+        `<style id="css-${id}">[data-css-${id}]:hover{background-color:#eee}</style>`,
+        `<button type="button" role="button" style="background-color:#fff" data-css-${id}>Click me</button>`,
         `</body></html>`,
       ].join(""),
     );
@@ -115,7 +115,7 @@ Deno.test("[ssr] style to css", async () => {
 
   "pseudo element";
   {
-    const id = hashCode('color:blue|::after>content:"↩"').toString(36);
+    const id = hashCode('::after{content:"↩"}').toString(36);
     assertEquals(
       await renderToString(
         <a class="link" style={{ color: "blue", "::after": { content: "↩" } }}>Link</a>,
@@ -123,8 +123,8 @@ Deno.test("[ssr] style to css", async () => {
       [
         `<!DOCTYPE html>`,
         `<html lang="en"><body>`,
-        `<style id="css-${id}">[data-css-${id}]{color:blue}[data-css-${id}]::after{content:"↩"}</style>`,
-        `<a class="link" data-css-${id}>Link</a>`,
+        `<style id="css-${id}">[data-css-${id}]::after{content:"↩"}</style>`,
+        `<a class="link" style="color:blue" data-css-${id}>Link</a>`,
         `</body></html>`,
       ].join(""),
     );
@@ -132,7 +132,7 @@ Deno.test("[ssr] style to css", async () => {
 
   "@media query";
   {
-    const id = hashCode("color:black|@media (prefers-color-scheme: dark)>color:white").toString(36);
+    const id = hashCode("@media (prefers-color-scheme: dark){{color:white}}").toString(36);
     assertEquals(
       await renderToString(
         <h1 class="title" style={{ color: "black", "@media (prefers-color-scheme: dark)": { color: "white" } }}>
@@ -142,8 +142,8 @@ Deno.test("[ssr] style to css", async () => {
       [
         `<!DOCTYPE html>`,
         `<html lang="en"><body>`,
-        `<style id="css-${id}">[data-css-${id}]{color:black}@media (prefers-color-scheme: dark){[data-css-${id}]{color:white}}</style>`,
-        `<h1 class="title" data-css-${id}>Hello World!</h1>`,
+        `<style id="css-${id}">@media (prefers-color-scheme: dark){[data-css-${id}]{color:white}}</style>`,
+        `<h1 class="title" style="color:black" data-css-${id}>Hello World!</h1>`,
         `</body></html>`,
       ].join(""),
     );
@@ -151,7 +151,7 @@ Deno.test("[ssr] style to css", async () => {
 
   "nesting style";
   {
-    const id = hashCode("color:black|&.title>font-size:20px|& strong>color:grey").toString(36);
+    const id = hashCode(".title{font-size:20px} strong{color:grey}").toString(36);
     assertEquals(
       await renderToString(
         <h1 class="title" style={{ color: "black", "&.title": { fontSize: 20 }, "& strong": { color: "grey" } }}>
@@ -161,8 +161,8 @@ Deno.test("[ssr] style to css", async () => {
       [
         `<!DOCTYPE html>`,
         `<html lang="en"><body>`,
-        `<style id="css-${id}">[data-css-${id}]{color:black}[data-css-${id}].title{font-size:20px}[data-css-${id}] strong{color:grey}</style>`,
-        `<h1 class="title" data-css-${id}><strong>Hello</strong> World!</h1>`,
+        `<style id="css-${id}">[data-css-${id}].title{font-size:20px}[data-css-${id}] strong{color:grey}</style>`,
+        `<h1 class="title" style="color:black" data-css-${id}><strong>Hello</strong> World!</h1>`,
         `</body></html>`,
       ].join(""),
     );
@@ -458,7 +458,7 @@ Deno.test("[ssr] async component", async () => {
     assertEquals(
       await renderToString(
         <>
-          {indexes.map((i) => <List key={i} delay={i * 50} />)}
+          {indexes.map((i) => <List delay={i * 50} />)}
         </>,
       ),
       [
@@ -582,7 +582,7 @@ Deno.test("[ssr] catch error", async () => {
   );
 });
 
-Deno.test("[ssr] component state", async () => {
+Deno.test("[ssr] signals", async () => {
   function Foo(this: FC<{ foo: string }>) {
     return <span>{this.foo}</span>;
   }
@@ -593,13 +593,13 @@ Deno.test("[ssr] component state", async () => {
       `<!DOCTYPE html>`,
       `<html lang="en"><body>`,
       `<span>`,
-      `<m-state fc="1" key="foo"></m-state>`,
+      `<m-signal scope="1" key="foo"></m-signal>`,
       `</span>`,
       `</body></html>`,
       `<script>`,
       `/* runtime.js (generated by mono-jsx) */`,
       `(()=>{`,
-      STATE_JS,
+      SIGNALS_JS,
       `})()</script>`,
       `<script>/* app.js (generated by mono-jsx) */`,
       `$MS("1:foo");`,
@@ -617,14 +617,14 @@ Deno.test("[ssr] component state", async () => {
       `<!DOCTYPE html>`,
       `<html lang="en"><body>`,
       `<span title="bar">`,
-      `<m-state mode="[title]" fc="1" key="foo"></m-state>`,
-      `<m-state fc="1" key="foo">bar</m-state>`,
+      `<m-signal mode="[title]" scope="1" key="foo"></m-signal>`,
+      `<m-signal scope="1" key="foo">bar</m-signal>`,
       `</span>`,
       `</body></html>`,
       `<script>`,
       `/* runtime.js (generated by mono-jsx) */`,
       `(()=>{`,
-      STATE_JS,
+      SIGNALS_JS,
       `})()</script>`,
       `<script>/* app.js (generated by mono-jsx) */`,
       `$MS("1:foo","bar");`,
@@ -643,13 +643,13 @@ Deno.test("[ssr] component state", async () => {
       `<html lang="en"><body>`,
       `<input value="Welcome to mono-jsx!">`,
       `<m-group>`,
-      `<m-state mode="[value]" fc="1" key="value"></m-state>`,
+      `<m-signal mode="[value]" scope="1" key="value"></m-signal>`,
       `</m-group>`,
       `</body></html>`,
       `<script>`,
       `/* runtime.js (generated by mono-jsx) */`,
       `(()=>{`,
-      STATE_JS,
+      SIGNALS_JS,
       `})()</script>`,
       `<script>/* app.js (generated by mono-jsx) */`,
       `$MS("1:value","Welcome to mono-jsx!");`,
@@ -670,7 +670,7 @@ Deno.test("[ssr] component state", async () => {
         [
           `<input type="number" value="${i}">`,
           `<m-group>`,
-          `<m-state mode="[value]" fc="${i}" key="value"></m-state>`,
+          `<m-signal mode="[value]" scope="${i}" key="value"></m-signal>`,
           `</m-group>`,
         ].join("")
       ).join(""),
@@ -678,7 +678,7 @@ Deno.test("[ssr] component state", async () => {
       `<script>`,
       `/* runtime.js (generated by mono-jsx) */`,
       `(()=>{`,
-      STATE_JS,
+      SIGNALS_JS,
       `})()</script>`,
       `<script>/* app.js (generated by mono-jsx) */`,
       [1, 2, 3].map((i) => `$MS("${i}:value",${i});`).join(""),
@@ -687,7 +687,48 @@ Deno.test("[ssr] component state", async () => {
   );
 });
 
-Deno.test("[ssr] app state", async () => {
+Deno.test("[ssr] signal as a prop", async () => {
+  function Foo(props: { foo: string }) {
+    return <span>{props.foo}</span>;
+  }
+
+  function App(this: FC<{ foo: string }>) {
+    this.foo = "bar";
+    return (
+      <div>
+        <Foo foo={this.foo} />
+        <button type="button" onClick={() => this.foo = "baz"}>Click Me</button>
+      </div>
+    );
+  }
+
+  assertEquals(
+    await renderToString(<App />),
+    [
+      `<!DOCTYPE html>`,
+      `<html lang="en"><body>`,
+      `<div>`,
+      `<span>`,
+      `<m-signal scope="1" key="foo">bar</m-signal>`,
+      `</span>`,
+      `<button type="button" onclick="$emit(event,$MF_0,1)">Click Me</button>`,
+      `</div>`,
+      `</body></html>`,
+      `<script>`,
+      `/* runtime.js (generated by mono-jsx) */`,
+      `(()=>{`,
+      UTILS_JS.event,
+      SIGNALS_JS,
+      `})()</script>`,
+      `<script>/* app.js (generated by mono-jsx) */`,
+      `function $MF_0(){(()=>this.foo = "baz").apply(this,arguments)};`,
+      `$MS("1:foo","bar");`,
+      `</script>`,
+    ].join(""),
+  );
+});
+
+Deno.test("[ssr] app signals", async () => {
   function Header(this: FC<{}, { title: string }>) {
     return (
       <header>
@@ -720,30 +761,30 @@ Deno.test("[ssr] app state", async () => {
         <Main />
         <Footer />
       </>,
-      { appState: { title: "Welcome to mono-jsx!" } },
+      { app: { title: "Welcome to mono-jsx!" } },
     ),
     [
       `<!DOCTYPE html>`,
       `<html lang="en"><body>`,
       `<header><h1>`,
-      `<m-state fc="0" key="title">Welcome to mono-jsx!</m-state>`,
+      `<m-signal scope="0" key="title">Welcome to mono-jsx!</m-signal>`,
       `</h1></header>`,
       `<main>`,
       `<form onsubmit="$onsubmit(event,$MF_0,2)">`,
       `<input name="title" value="Welcome to mono-jsx!">`,
-      `<m-group><m-state mode="[value]" fc="0" key="title"></m-state></m-group>`,
+      `<m-group><m-signal mode="[value]" scope="0" key="title"></m-signal></m-group>`,
       `</form>`,
       `</main>`,
       `<footer><p>`,
       `(c)2025 `,
-      `<m-state fc="0" key="title">Welcome to mono-jsx!</m-state>`,
+      `<m-signal scope="0" key="title">Welcome to mono-jsx!</m-signal>`,
       `</p></footer>`,
       `</body></html>`,
       `<script>`,
       `/* runtime.js (generated by mono-jsx) */`,
       `(()=>{`,
       UTILS_JS.event,
-      STATE_JS,
+      SIGNALS_JS,
       `})()</script>`,
       `<script>/* app.js (generated by mono-jsx) */`,
       `function $MF_0(){((fd)=>this.app.title = fd.get("title")).apply(this,arguments)};`,
@@ -753,7 +794,7 @@ Deno.test("[ssr] app state", async () => {
   );
 });
 
-Deno.test("[ssr] computed state", async () => {
+Deno.test("[ssr] computed signals", async () => {
   function FooBar(this: FC<{ foo: string; bar: string }, { themeColor: string; tailing: string }>) {
     this.foo = "foo";
     this.bar = "bar";
@@ -764,15 +805,15 @@ Deno.test("[ssr] computed state", async () => {
   }
 
   assertEquals(
-    await renderToString(<FooBar />, { appState: { themeColor: "black", tailing: "!" } }),
+    await renderToString(<FooBar />, { app: { themeColor: "black", tailing: "!" } }),
     [
       `<!DOCTYPE html>`,
       `<html lang="en"><body>`,
       `<span class="foo bar" style="color:black" title="foobar!">`,
-      `<m-state mode="[class]" fc="1" computed="0"></m-state>`,
-      `<m-state mode="[style]" fc="1" computed="1"></m-state>`,
-      `<m-state mode="[title]" fc="1" computed="2"></m-state>`,
-      `<m-state fc="1" computed="2">foobar!</m-state>`,
+      `<m-signal mode="[class]" scope="1" computed="0"></m-signal>`,
+      `<m-signal mode="[style]" scope="1" computed="1"></m-signal>`,
+      `<m-signal mode="[title]" scope="1" computed="2"></m-signal>`,
+      `<m-signal scope="1" computed="2">foobar!</m-signal>`,
       `</span>`,
       `</body></html>`,
       `<script>`,
@@ -780,7 +821,7 @@ Deno.test("[ssr] computed state", async () => {
       `(()=>{`,
       UTILS_JS.cx,
       UTILS_JS.styleToCSS,
-      STATE_JS,
+      SIGNALS_JS,
       `})()</script>`,
       `<script>/* app.js (generated by mono-jsx) */`,
       `$MS("1:foo","foo");`,
@@ -796,6 +837,91 @@ Deno.test("[ssr] computed state", async () => {
       `$MC(2,function(){return(${
         // @ts-ignore this
         String(() => this.foo + this.bar + this.app.tailing)}).call(this)},["1:foo","1:bar","0:tailing"]);`,
+      `</script>`,
+    ].join(""),
+  );
+});
+
+Deno.test("[ssr] signals effect", async () => {
+  function Effect(this: FC<{ count: number }>) {
+    this.count = 0;
+    this.effect(() => console.log("Welcome to mono-jsx!"));
+    this.effect(() => console.log("count changed", this.count));
+    return (
+      <div>
+        <h1>{this.count}</h1>
+        <button type="button" onClick={() => this.count++}>Click Me</button>
+      </div>
+    );
+  }
+
+  assertEquals(
+    await renderToString(<Effect />),
+    [
+      `<!DOCTYPE html>`,
+      `<html lang="en"><body>`,
+      `<div>`,
+      `<h1>`,
+      `<m-signal scope="1" key="count">0</m-signal>`,
+      `</h1>`,
+      `<button type="button" onclick="$emit(event,$MF_0,1)">Click Me</button>`,
+      `</div>`,
+      `<m-effect scope="1" n="2"></m-effect>`,
+      `</body></html>`,
+      `<script>`,
+      `/* runtime.js (generated by mono-jsx) */`,
+      `(()=>{`,
+      UTILS_JS.event,
+      SIGNALS_JS,
+      `})()</script>`,
+      `<script>/* app.js (generated by mono-jsx) */`,
+      `function $MF_0(){(()=>this.count++).apply(this,arguments)};`,
+      `function $ME_1_0(){return(()=>console.log("Welcome to mono-jsx!")).call(this)};`,
+      `function $ME_1_1(){return(()=>console.log("count changed", this.count)).call(this)};`,
+      `$MS("1:count",0);`,
+      `</script>`,
+    ].join(""),
+  );
+
+  function App(this: FC<{ show: boolean }>) {
+    this.show = true;
+    return (
+      <>
+        <toggle show={this.show}>
+          <Effect />
+        </toggle>
+        <button type="button" onClick={() => this.show = !this.show}>Toggle</button>
+      </>
+    );
+  }
+
+  assertEquals(
+    await renderToString(<App />),
+    [
+      `<!DOCTYPE html>`,
+      `<html lang="en"><body>`,
+      `<m-signal mode="toggle" scope="1" key="show">`,
+      `<div>`,
+      `<h1><m-signal scope="2" key="count">0</m-signal></h1>`,
+      `<button type="button" onclick="$emit(event,$MF_0,2)">Click Me</button>`,
+      `</div>`,
+      `<m-effect scope="2" n="2"></m-effect>`,
+      `</m-signal>`,
+      `<button type="button" onclick="$emit(event,$MF_1,1)">Toggle</button>`,
+      `</body></html>`,
+      `<script>`,
+      `/* runtime.js (generated by mono-jsx) */`,
+      `(()=>{`,
+      UTILS_JS.event,
+      SIGNALS_JS,
+      `})()</script>`,
+      `<script>/* app.js (generated by mono-jsx) */`,
+      `function $MF_0(){(()=>this.count++).apply(this,arguments)};`,
+      `function $MF_1(){(()=>this.show = !this.show).apply(this,arguments)};`,
+      `function $ME_2_0(){return(()=>console.log("Welcome to mono-jsx!")).call(this)};`,
+      `function $ME_2_1(){return(()=>console.log("count changed", this.count)).call(this)};`,
+      `$MS("1:show",true);`,
+      `$MS("2:count",0);`,
       `</script>`,
     ].join(""),
   );
@@ -834,7 +960,7 @@ Deno.test("[ssr] stateful async component", async () => {
       `<m-chunk chunk-id="0"><template>`,
       `<div onmount="$emit(event,$MF_0,1)">`,
       `<h1>`,
-      `<m-state fc="1" computed="0">Hello, me</m-state>`,
+      `<m-signal scope="1" computed="0">Hello, me</m-signal>`,
       `!</h1>`,
       `<button type="button" onclick="$emit(event,$MF_1,1)">Logout</button>`,
       `</div>`,
@@ -843,7 +969,7 @@ Deno.test("[ssr] stateful async component", async () => {
       `/* runtime.js (generated by mono-jsx) */`,
       `(()=>{`,
       UTILS_JS.event,
-      STATE_JS,
+      SIGNALS_JS,
       `})()</script>`,
       `<script>/* app.js (generated by mono-jsx) */`,
       `function $MF_0(){((e)=>console.log("onmount", e.target, "logined as", this.username)).apply(this,arguments)};`,
@@ -902,10 +1028,37 @@ Deno.test("[ssr] use `this.context`", async () => {
 });
 
 Deno.test("[ssr] <toggle> element", async () => {
+  assertEquals(
+    await renderToString(
+      <toggle>
+        <h1>👋</h1>
+      </toggle>,
+    ),
+    [
+      `<!DOCTYPE html>`,
+      `<html lang="en"><body>`,
+      `</body></html>`,
+    ].join(""),
+  );
+
+  assertEquals(
+    await renderToString(
+      <toggle show>
+        <h1>👋</h1>
+      </toggle>,
+    ),
+    [
+      `<!DOCTYPE html>`,
+      `<html lang="en"><body>`,
+      `<h1>👋</h1>`,
+      `</body></html>`,
+    ].join(""),
+  );
+
   function Toggle(this: FC<{ show: boolean }>, props: { show?: boolean }) {
     this.show = !!props.show;
     return (
-      <toggle value={this.show}>
+      <toggle show={this.show}>
         <h1>👋</h1>
       </toggle>
     );
@@ -916,14 +1069,14 @@ Deno.test("[ssr] <toggle> element", async () => {
     [
       `<!DOCTYPE html>`,
       `<html lang="en"><body>`,
-      `<m-state mode="toggle" fc="1" key="show">`,
+      `<m-signal mode="toggle" scope="1" key="show">`,
       `<template m-slot><h1>👋</h1></template>`,
-      `</m-state>`,
+      `</m-signal>`,
       `</body></html>`,
       `<script>`,
       `/* runtime.js (generated by mono-jsx) */`,
       `(()=>{`,
-      STATE_JS,
+      SIGNALS_JS,
       `})()</script>`,
       `<script>/* app.js (generated by mono-jsx) */`,
       `$MS("1:show",false);`,
@@ -936,14 +1089,14 @@ Deno.test("[ssr] <toggle> element", async () => {
     [
       `<!DOCTYPE html>`,
       `<html lang="en"><body>`,
-      `<m-state mode="toggle" fc="1" key="show">`,
+      `<m-signal mode="toggle" scope="1" key="show">`,
       `<h1>👋</h1>`,
-      `</m-state>`,
+      `</m-signal>`,
       `</body></html>`,
       `<script>`,
       `/* runtime.js (generated by mono-jsx) */`,
       `(()=>{`,
-      STATE_JS,
+      SIGNALS_JS,
       `})()</script>`,
       `<script>/* app.js (generated by mono-jsx) */`,
       `$MS("1:show",true);`,
@@ -953,9 +1106,62 @@ Deno.test("[ssr] <toggle> element", async () => {
 });
 
 Deno.test("[ssr] <switch> element", async () => {
-  function Switch(this: FC<{ select?: string }>, props: { defaultValue?: string }) {
+  assertEquals(
+    await renderToString(
+      <switch value={"a"}>
+        <span slot="a">A</span>
+        <span slot="b">B</span>
+        <span>C</span>
+        <span>D</span>
+      </switch>,
+    ),
+    [
+      `<!DOCTYPE html>`,
+      `<html lang="en"><body>`,
+      `<span>A</span>`,
+      `</body></html>`,
+    ].join(""),
+  );
+
+  assertEquals(
+    await renderToString(
+      <switch value={"b"}>
+        <span slot="a">A</span>
+        <span slot="b">B</span>
+        <span>C</span>
+        <span>D</span>
+      </switch>,
+    ),
+    [
+      `<!DOCTYPE html>`,
+      `<html lang="en"><body>`,
+      `<span>B</span>`,
+      `</body></html>`,
+    ].join(""),
+  );
+
+  assertEquals(
+    await renderToString(
+      <switch value={"c"}>
+        <span slot="a">A</span>
+        <span slot="b">B</span>
+        <span>C</span>
+        <span>D</span>
+      </switch>,
+    ),
+    [
+      `<!DOCTYPE html>`,
+      `<html lang="en"><body>`,
+      `<span>C</span>`,
+      `<span>D</span>`,
+      `</body></html>`,
+    ].join(""),
+  );
+
+  function Switch(this: FC<{ select?: string }>, props: { value?: string }) {
+    this.select = props.value;
     return (
-      <switch value={this.select} defaultValue={props.defaultValue}>
+      <switch value={this.select}>
         <span slot="a">A</span>
         <span slot="b">B</span>
         <span>C</span>
@@ -965,19 +1171,19 @@ Deno.test("[ssr] <switch> element", async () => {
   }
 
   assertEquals(
-    await renderToString(<Switch defaultValue="a" />),
+    await renderToString(<Switch value="a" />),
     [
       `<!DOCTYPE html>`,
       `<html lang="en"><body>`,
-      `<m-state mode="switch" fc="1" key="select" match="a">`,
+      `<m-signal mode="switch" scope="1" key="select" match="a">`,
       `<span>A</span>`,
       `<template m-slot><span slot="b">B</span><span>C</span><span>D</span></template>`,
-      `</m-state>`,
+      `</m-signal>`,
       `</body></html>`,
       `<script>`,
       `/* runtime.js (generated by mono-jsx) */`,
       `(()=>{`,
-      STATE_JS,
+      SIGNALS_JS,
       `})()</script>`,
       `<script>/* app.js (generated by mono-jsx) */`,
       `$MS("1:select","a");`,
@@ -986,19 +1192,19 @@ Deno.test("[ssr] <switch> element", async () => {
   );
 
   assertEquals(
-    await renderToString(<Switch defaultValue="b" />),
+    await renderToString(<Switch value="b" />),
     [
       `<!DOCTYPE html>`,
       `<html lang="en"><body>`,
-      `<m-state mode="switch" fc="1" key="select" match="b">`,
+      `<m-signal mode="switch" scope="1" key="select" match="b">`,
       `<span>B</span>`,
       `<template m-slot><span slot="a">A</span><span>C</span><span>D</span></template>`,
-      `</m-state>`,
+      `</m-signal>`,
       `</body></html>`,
       `<script>`,
       `/* runtime.js (generated by mono-jsx) */`,
       `(()=>{`,
-      STATE_JS,
+      SIGNALS_JS,
       `})()</script>`,
       `<script>/* app.js (generated by mono-jsx) */`,
       `$MS("1:select","b");`,
@@ -1011,15 +1217,15 @@ Deno.test("[ssr] <switch> element", async () => {
     [
       `<!DOCTYPE html>`,
       `<html lang="en"><body>`,
-      `<m-state mode="switch" fc="1" key="select">`,
+      `<m-signal mode="switch" scope="1" key="select">`,
       `<span>C</span><span>D</span>`,
       `<template m-slot><span slot="a">A</span><span slot="b">B</span></template>`,
-      `</m-state>`,
+      `</m-signal>`,
       `</body></html>`,
       `<script>`,
       `/* runtime.js (generated by mono-jsx) */`,
       `(()=>{`,
-      STATE_JS,
+      SIGNALS_JS,
       `})()</script>`,
       `<script>/* app.js (generated by mono-jsx) */`,
       `$MS("1:select");`,
@@ -1058,7 +1264,7 @@ Deno.test("[ssr] XSS", async () => {
     [
       `<!DOCTYPE html>`,
       `<html lang="en"><body>`,
-      `<h1 title="&quot;&gt;&lt;script&gt;&lt;/script&gt;" class="&quot;&gt; &lt;script&gt; &lt;/script&gt;" style="&lt;script&gt;&lt;/script&gt;:'&gt;&lt;script&gt;&lt;/script&gt;">`,
+      `<h1 title="&quot;&gt;&lt;script&gt;&lt;/script&gt;" class="&quot;&gt; &lt;script&gt; &lt;/script&gt;" style="&lt;script&gt;&lt;/script&gt;:&quot;&gt;&lt;script&gt;&lt;/script&gt;">`,
       `&lt;script&gt;&lt;/script&gt;`,
       `</h1>`,
       `</body></html>`,
