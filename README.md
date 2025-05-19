@@ -257,24 +257,14 @@ function Button(this: FC<{ count: 0 }>, props: { role: string }) {
 }
 ```
 
-Additionally, mono-jsx supports the `mount` event for when elements are mounted in the client-side DOM:
+### Using `<form>` Element
 
-```jsx
-function App() {
-  return (
-    <div onMount={(evt) => console.log(evt.target, "Mounted!")}>
-      <h1>Welcome to mono-jsx!</h1>
-    </div>
-  )
-}
-```
-
-mono-jsx also accepts functions for the `action` property on `form` elements, which will be called on form submission:
+mono-jsx supports `<form>` elements with the `action` attribute. The `action` attribute can be a string URL or a function that accepts a `FormData` object. The function will be called on form submission, and the `FormData` object will contain the form data.
 
 ```tsx
 function App() {
   return (
-    <form action={(data: FormData, event: SubmitEvent) => console.log(data.get("name"))}>
+    <form action={(data: FormData) => console.log(data.get("name"))}>
       <input type="text" name="name" />
       <button type="submit">Submit</button>
     </form>
@@ -628,7 +618,8 @@ The `this` object has the following built-in properties:
 - `app`: The app signals defined on the root `<html>` element.
 - `context`: The context defined on the root `<html>` element.
 - `request`: The request object from the `fetch` handler.
-- `computed`: A method to create computed signal.
+- `refs`: A map of refs defined in the component.
+- `computed`: A method to create a computed signal.
 - `effect`: A method to create side effects.
 
 ```ts
@@ -636,6 +627,7 @@ type FC<Signals = {}, AppSignals = {}, Context = {}> = {
   readonly app: AppSignals;
   readonly context: Context;
   readonly request: Request;
+  readonly refs: Record<string, HTMLElement | null>;
   readonly computed: <T = unknown>(fn: () => T) => T;
   readonly effect: (fn: () => void | (() => void)) => void;
 } & Omit<Signals, "app" | "context" | "request" | "computed" | "effect">;
@@ -643,7 +635,28 @@ type FC<Signals = {}, AppSignals = {}, Context = {}> = {
 
 ### Using Signals
 
-Check the [Using Signals](#using-signals) section for more details on how to use signals in your components.
+See the [Using Signals](#using-signals) section for more details on how to use signals in your components.
+
+### Using Refs
+
+You can use `this.refs` to access refs in your components. Define refs in your component using the `ref` attribute:
+
+```tsx
+function App(this: FC) {
+  this.effect(() => {
+    this.refs.input?.addEventListener("input", (evt) => {
+      console.log("Input changed:", evt.target.value);
+    });
+  });
+
+  return (
+    <div>
+      <input ref={this.refs.input} type="text" />
+      <button onClick={() => this.refs.input?.focus()}>Focus</button>
+    </div>
+  )
+}
+```
 
 ### Using Context
 
