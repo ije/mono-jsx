@@ -497,7 +497,7 @@ Deno.test("[runtime] 'action' function prop", sanitizeFalse, async () => {
   await page.close();
 });
 
-Deno.test("[runtime] refs", async () => {
+Deno.test("[runtime] refs", sanitizeFalse, async () => {
   function App(this: FC) {
     this.effect(() => {
       this.refs.h1!.textContent = "Welcome to mono-jsx!";

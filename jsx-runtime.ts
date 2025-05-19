@@ -1,6 +1,9 @@
 import type { FC, VNode } from "./types/jsx.d.ts";
 import { JSX, render } from "./render.ts";
 import { $fragment, $html, $vnode } from "./symbols.ts";
+import { escapeHTML } from "./runtime/utils.ts";
+
+const Fragment = $fragment as unknown as FC;
 
 const jsx = (tag: string | FC, props: Record<string, unknown> = Object.create(null), key?: string | number): VNode => {
   const vnode = new Array(3).fill(null);
@@ -25,11 +28,19 @@ const jsx = (tag: string | FC, props: Record<string, unknown> = Object.create(nu
   return vnode as unknown as VNode;
 };
 
-const Fragment = $fragment as unknown as FC;
+const jsxEscape = (value: unknown): string => {
+  if (value === null || value === undefined || typeof value === "boolean") {
+    return "";
+  }
+  if (typeof value === "number" || typeof value === "bigint") {
+    return String(value);
+  }
+  return escapeHTML(String(value));
+};
 
 const html = (raw: string, ...values: unknown[]): VNode => [
   $html,
-  { innerHTML: String.raw({ raw }, ...values) },
+  { innerHTML: String.raw({ raw }, ...values.map(jsxEscape)) },
   $vnode,
 ];
 
