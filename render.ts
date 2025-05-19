@@ -23,7 +23,7 @@ interface RenderContext {
 interface RenderStatus {
   scopeIndex: number;
   chunkIndex: number;
-  onmounts: number;
+  refs: number;
   cx?: boolean;
   styleToCSS?: boolean;
 }
@@ -71,6 +71,14 @@ class Signal {
     // todo: render list
     return [];
   }
+}
+
+// @internal
+class Ref {
+  constructor(
+    public scope: number,
+    public name: string,
+  ) {}
 }
 
 // @internal
@@ -130,7 +138,7 @@ export function render(node: VNode, renderOptions: RenderOptions = {}): Response
           effects,
           mcs: new IdGenImpl<Signal>(),
           mfs: new IdGenImpl<CallableFunction>(),
-          status: { scopeIndex: 0, chunkIndex: 0, onmounts: 0 },
+          status: { scopeIndex: 0, chunkIndex: 0, refs: 0 },
         };
         // finalize creates runtime JS for client
         // it may be called recursively when thare are unresolved suspenses
@@ -149,7 +157,7 @@ export function render(node: VNode, renderOptions: RenderOptions = {}): Response
             runtimeJSFlags |= RUNTIME_EVENT;
             js += UTILS_JS.event;
           }
-          if (signals.size > 0 && !(runtimeJSFlags & RUNTIME_SIGNALS)) {
+          if ((signals.size + effects.length > 0) && !(runtimeJSFlags & RUNTIME_SIGNALS)) {
             runtimeJSFlags |= RUNTIME_SIGNALS;
             js += SIGNALS_JS;
           }
@@ -185,8 +193,8 @@ export function render(node: VNode, renderOptions: RenderOptions = {}): Response
             }
             rc.mcs.clear();
           }
-          if (rc.status.onmounts > 0) {
-            rc.status.onmounts = 0;
+          if (rc.status.refs > 0) {
+            rc.status.refs = 0;
             js += "$onstage();";
           }
           if (js) {
@@ -486,10 +494,12 @@ function renderAttr(
         }
       }
       break;
-    case "onMount":
+    case "ref":
       if (typeof attrValue === "function") {
-        rc.status.onmounts++;
+        rc.status.refs++;
         attr += ' onmount="$emit(event,$MF_' + rc.mfs.gen(attrValue) + toStr(rc.scope, (i) => "," + i) + ')"';
+      } else if (isObject(attrValue) && attrValue instanceof Ref) {
+        attr += " data-ref=" + toAttrStringLit(attrValue.scope + ":" + attrValue.name);
       }
       break;
     case "action":
@@ -640,6 +650,11 @@ function createSignals(
     if (value instanceof Promise || Object.keys(deps).length === 0) return value;
     return new Signal(scope, { compute, deps }, value);
   };
+  const refs = new Proxy(Object.create(null), {
+    get(_target, key) {
+      return new Ref(scope, key as string);
+    },
+  });
   const thisProxy = new Proxy(Object.create(null), {
     get(target, key, receiver) {
       switch (key) {
@@ -649,6 +664,8 @@ function createSignals(
           return context;
         case "request":
           return request;
+        case "refs":
+          return refs;
         case "computed":
           return computed;
         case "effect":

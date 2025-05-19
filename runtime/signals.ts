@@ -1,7 +1,6 @@
 interface Signals {
-  readonly store: Record<string, unknown>;
-  readonly define: (key: string, initialValue: unknown) => void;
-  readonly watch: (key: string, effect: () => void) => () => void;
+  readonly $init: (key: string, value: unknown) => void;
+  readonly $watch: (key: string, effect: () => void) => () => void;
 }
 
 // deno-lint-ignore no-explicit-any
@@ -17,47 +16,57 @@ const replaceChildren = (el: Element, children: Node[]) => el.replaceChildren(..
 
 const createSignals = (scope: number): Signals => {
   const store = Object.create(null);
-  const effectMap = new Map<string, Set<(() => void)>>();
-
-  const define = (key: string, initialValue: unknown) => {
-    let value: unknown = initialValue;
-    Object.defineProperty(store, key, {
-      get: () => {
-        collectDeps?.(scope, key);
-        return value;
-      },
-      set: (newValue: unknown) => {
-        if (newValue !== value) {
-          const effects = effectMap.get(key);
-          if (effects) {
-            queueMicrotask(() => effects.forEach((fn) => fn()));
-          }
-          value = newValue;
-        }
-      },
-    });
+  const init = (key: string, value: unknown) => {
+    store[key] = value;
   };
 
+  const watchers = new Map<string, Set<(() => void)>>();
   const watch = (key: string, effect: () => void) => {
-    let effects = effectMap.get(key);
+    let effects = watchers.get(key);
     if (!effects) {
       effects = new Set();
-      effectMap.set(key, effects);
+      watchers.set(key, effects);
     }
     effects.add(effect);
     return () => {
       effects.delete(effect);
       if (effects.size === 0) {
-        effectMap.delete(key);
+        watchers.delete(key);
       }
     };
   };
 
-  if (scope > 0) {
-    Object.defineProperty(store, "app", { get: () => Signals(0).store, enumerable: false, configurable: false });
-  }
+  const refs = new Proxy(Object.create(null), {
+    get: (_target, prop: string) => document.querySelector("[data-ref='" + scope + ":" + prop + "']"),
+  });
 
-  return { store, define, watch };
+  return new Proxy(store, {
+    get: (target, prop: string, receiver) => {
+      switch (prop) {
+        case "$init":
+          return init;
+        case "$watch":
+          return watch;
+        case "app":
+          return Signals(0);
+        case "refs":
+          return refs;
+        default:
+          collectDeps?.(scope, prop);
+          return Reflect.get(target, prop, receiver);
+      }
+    },
+    set: (target, prop: string, value, receiver) => {
+      if (value !== Reflect.get(target, prop, receiver)) {
+        const effects = watchers.get(prop);
+        if (effects) {
+          queueMicrotask(() => effects.forEach((fn) => fn()));
+        }
+        return Reflect.set(target, prop, value, receiver);
+      }
+      return false;
+    },
+  });
 };
 
 const createDomEffect = (el: Element, mode: string | null, getter: () => unknown) => {
@@ -145,101 +154,84 @@ const resolveSignalID = (id: string): [scope: number, key: string] => {
   throw new Error("Invalid  Singal ID");
 };
 
-const nextTick = () => new Promise((resolve) => setTimeout(resolve, 0));
+const defer = async <T>(getter: () => T | undefined) => {
+  const v = getter();
+  if (v !== undefined) {
+    return v;
+  }
+  // try to get the value again in the next tick
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  return defer(getter);
+};
 
-customElements.define(
-  "m-signal",
-  class extends HTMLElement {
-    disposes: (() => void)[] = [];
-    connectedCallback() {
-      const signals = Signals(Number(getAttr(this, "scope")));
-      const key = getAttr(this, "key");
-      if (key) {
-        this.disposes.push(signals.watch(key, createDomEffect(this, getAttr(this, "mode"), () => signals.store[key])));
-      } else {
-        const id = Number(getAttr(this, "computed"));
-        const getCompute = async () => {
-          const compute = mcs.get(id);
-          if (compute) {
-            return compute;
-          }
-          // next tick
-          await nextTick();
-          return getCompute();
-        };
-        getCompute().then(([compute, deps]) => {
-          const effect = createDomEffect(this, getAttr(this, "mode"), compute.bind(signals.store));
-          deps.forEach((dep) => {
-            const [scope, key] = resolveSignalID(dep);
-            this.disposes.push(Signals(scope).watch(key, effect));
-          });
-        });
+const defineElement = (tag: string, callback: (el: Element & { disposes: (() => void)[] }) => void) =>
+  customElements.define(
+    tag,
+    class extends HTMLElement {
+      disposes: (() => void)[] = [];
+      connectedCallback() {
+        callback(this);
       }
-    }
-    disconnectedCallback() {
-      const { disposes } = this;
-      disposes.forEach((dispose) => dispose());
-      disposes.length = 0;
-    }
-  },
-);
+      disconnectedCallback() {
+        this.disposes.forEach((dispose) => dispose());
+        this.disposes.length = 0;
+      }
+    },
+  );
+
+defineElement("m-signal", (el) => {
+  const signals = Signals(Number(getAttr(el, "scope")));
+  const key = getAttr(el, "key");
+  if (key) {
+    el.disposes.push(signals.$watch(key, createDomEffect(el, getAttr(el, "mode"), () => Reflect.get(signals, key))));
+  } else {
+    const id = Number(getAttr(el, "computed"));
+    defer(() => mcs.get(id)).then(([compute, deps]) => {
+      const effect = createDomEffect(el, getAttr(el, "mode"), compute.bind(signals));
+      deps.forEach((dep) => {
+        const [scope, key] = resolveSignalID(dep);
+        el.disposes.push(Signals(scope).$watch(key, effect));
+      });
+    });
+  }
+});
 
 let collectDeps: ((scope: number, key: string) => void) | undefined;
 
-customElements.define(
-  "m-effect",
-  class extends HTMLElement {
-    disposes: (() => void)[] = [];
-    connectedCallback() {
-      const scope = Number(getAttr(this, "scope"));
-      const n = Number(getAttr(this, "n"));
-      const cleanups: ((() => void) | undefined)[] = new Array(n);
-      const { disposes } = this;
-      disposes.push(() => {
-        cleanups.forEach((cleanup) => typeof cleanup === "function" && cleanup());
-        cleanups.length = 0;
-      });
-      for (let i = 0; i < n; i++) {
-        const fname = "$ME_" + scope + "_" + i;
-        const getFn = async () => {
-          const f = global[fname];
-          if (f) {
-            return f;
-          }
-          // next tick
-          await nextTick();
-          return getFn();
-        };
-        getFn().then((fn) => {
-          const deps: [number, string][] = [];
-          const signals = Signals(scope);
-          const effect = () => {
-            cleanups[i] = fn.call(signals.store);
-          };
-          collectDeps = (scope, key) => deps.push([scope, key]);
-          effect();
-          collectDeps = undefined;
-          for (const [scope, key] of deps) {
-            disposes.push(Signals(scope).watch(key, effect));
-          }
-        });
+defineElement("m-effect", (el) => {
+  const { disposes } = el;
+  const scope = Number(getAttr(el, "scope"));
+  const n = Number(getAttr(el, "n"));
+  const cleanups: ((() => void) | undefined)[] = new Array(n);
+  disposes.push(() => {
+    cleanups.forEach((cleanup) => typeof cleanup === "function" && cleanup());
+    cleanups.length = 0;
+  });
+  for (let i = 0; i < n; i++) {
+    const fname = "$ME_" + scope + "_" + i;
+    defer<Function>(() => global[fname]).then((fn) => {
+      const deps: [number, string][] = [];
+      const signals = Signals(scope);
+      const effect = () => {
+        cleanups[i] = fn.call(signals);
+      };
+      collectDeps = (scope, key) => deps.push([scope, key]);
+      effect();
+      collectDeps = undefined;
+      for (const [scope, key] of deps) {
+        disposes.push(Signals(scope).$watch(key, effect));
       }
-    }
-    disconnectedCallback() {
-      const { disposes } = this;
-      disposes.forEach((dispose) => dispose());
-      disposes.length = 0;
-    }
-  },
-);
+    }, () => {});
+  }
+});
 
-// get the signals store
-global.$signals = (scope?: number) => scope !== undefined ? Signals(scope).store : undefined;
+// get the signals
+global.$signals = (scope?: number) => scope !== undefined ? Signals(scope) : undefined;
 
 // define a signal
 global.$MS = (id: string, value: unknown) => {
   const [scope, key] = resolveSignalID(id);
-  Signals(scope).define(key, value);
+  Signals(scope).$init(key, value);
 };
 
 // define a computed signal

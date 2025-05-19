@@ -291,7 +291,7 @@ Deno.test("[runtime] computed class name", sanitizeFalse, async () => {
   await page.close();
 });
 
-Deno.test("[runtime] <toggle> element", sanitizeFalse, async () => {
+Deno.test("[runtime] effect", sanitizeFalse, async () => {
   function Effect(this: FC<{ count: number }, { themeColor: string }>) {
     this.count = 0;
 
@@ -370,6 +370,8 @@ Deno.test("[runtime] <toggle> element", sanitizeFalse, async () => {
   await toggle.click();
   log.push("Welcome to mono-jsx!", "2,blue");
   assertEquals(await console.evaluate((el: Element) => el.textContent), log.join("\n") + "\n");
+
+  await page.close();
 });
 
 Deno.test("[runtime] <toggle> element", sanitizeFalse, async () => {
@@ -495,11 +497,32 @@ Deno.test("[runtime] 'action' function prop", sanitizeFalse, async () => {
   await page.close();
 });
 
-Deno.test("[runtime] 'onMount' event handler", sanitizeFalse, async () => {
+Deno.test("[runtime] refs", async () => {
+  function App(this: FC) {
+    this.effect(() => {
+      this.refs.h1!.textContent = "Welcome to mono-jsx!";
+    });
+    return <h1 ref={this.refs.h1} />;
+  }
+  const testPageUrl = addTestPage(
+    <App />,
+  );
+
+  const page = await browser.newPage();
+  await page.goto(testPageUrl);
+
+  const h1 = await page.$("h1");
+  assert(h1);
+  assertEquals(await h1.evaluate((el: HTMLElement) => el.textContent), "Welcome to mono-jsx!");
+
+  await page.close();
+});
+
+Deno.test("[runtime] ref callback", sanitizeFalse, async () => {
   const testPageUrl = addTestPage(
     <div
-      onMount={(e) => {
-        e.target.innerHTML = "<h1>Welcome to mono-jsx!</h1>";
+      ref={(el) => {
+        el.innerHTML = "<h1>Welcome to mono-jsx!</h1>";
       }}
     />,
   );

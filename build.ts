@@ -48,7 +48,7 @@ async function buildPackageModule(name: string, format: "esm" | "cjs" = "esm") {
 }
 
 function stringLit(str: string): string {
-  return "`" + str + "`";
+  return "`{" + str + "}`";
 }
 
 function formatBytes(bytes: number): string {
@@ -62,10 +62,10 @@ if (import.meta.main) {
   const cx_js = await buildRuntimeUtils("cx");
   const styleToCSS_js = await buildRuntimeUtils("styleToCSS");
   const event_js = [
-    `var _w=window;`,
-    `_w.$emit=(e,fn,s)=>fn.call(_w.$signals?.(s)??e.target,e);`,
-    `_w.$onsubmit=(e,fn,s)=>{e.preventDefault();fn.call(_w.$signals?.(s)??e.target,new FormData(e.target),e)};`,
-    `_w.$onstage=()=>document.querySelectorAll("[onmount]").forEach(t=>{const k="onmount",j=t.getAttribute(k);t.removeAttribute(k);new Function("event",j)({type:"mount",target:t})});`,
+    `var w=window;`,
+    `w.$emit=(e,f,s)=>f.call(w.$signals?.(s)??e.target,e.type==="mount"?e.target:e);`,
+    `w.$onsubmit=(e,f,s)=>{e.preventDefault();f.call(w.$signals?.(s)??e.target,new FormData(e.target),e)};`,
+    `w.$onstage=()=>document.querySelectorAll("[onmount]").forEach(t=>{const k="onmount",j=t.getAttribute(k);t.removeAttribute(k);new Function("event",j)({type:"mount",target:t})});`,
   ].join("");
   const bin_js = [
     `#!/usr/bin/env node`,

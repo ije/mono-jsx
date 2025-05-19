@@ -133,6 +133,10 @@ declare global {
      */
     readonly request: Request;
     /**
+     * The `refs` object is used to store references to DOM elements.
+     */
+    readonly refs: Record<string, HTMLElement | null>;
+    /**
      * The `computed` method is used to create a computed signal.
      */
     readonly computed: <T = unknown>(fn: () => T) => T;
