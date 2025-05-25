@@ -1,7 +1,7 @@
 import type { ChildType } from "./types/mono.d.ts";
 import type { FC, VNode } from "./types/jsx.d.ts";
 import type { RenderOptions } from "./types/render.d.ts";
-import { LAZY_JS, SIGNALS_JS, SUSPENSE_JS, UTILS_JS } from "./runtime/index.ts";
+import { CX_JS, EVENT_JS, LAZY_JS, SIGNALS_JS, STYLE_TO_CSS_JS, SUSPENSE_JS } from "./runtime/index.ts";
 import { $effects, $fragment, $html, $vnode } from "./symbols.ts";
 import { cx, escapeHTML, isObject, isString, NullProtoObj, styleToCSS, toHyphenCase } from "./runtime/utils.ts";
 
@@ -42,12 +42,12 @@ interface ComputedSignal {
 }
 
 // runtime JS flags
-const RUNTIME_SIGNALS = 1;
-const RUNTIME_SUSPENSE = 2;
-const RUNTIME_CX = 4;
-const RUNTIME_STYLE_TO_CSS = 8;
-const RUNTIME_EVENT = 16;
-const RUNTIME_LAZY = 32;
+const RUNTIME_CX = 1;
+const RUNTIME_EVENT = 2;
+const RUNTIME_LAZY = 4;
+const RUNTIME_SIGNALS = 8;
+const RUNTIME_STYLE_TO_CSS = 16;
+const RUNTIME_SUSPENSE = 32;
 
 const cdn = "https://raw.esm.sh"; // the cdn for loading htmx and its extensions
 const encoder = new TextEncoder();
@@ -224,11 +224,11 @@ async function render(
     let js = "";
     if ((rc.flags.runtimeJS & RUNTIME_CX) && !(runtimeJSFlag & RUNTIME_CX)) {
       runtimeJSFlag |= RUNTIME_CX;
-      js += UTILS_JS.cx;
+      js += CX_JS;
     }
     if ((rc.flags.runtimeJS & RUNTIME_STYLE_TO_CSS) && !(runtimeJSFlag & RUNTIME_STYLE_TO_CSS)) {
       runtimeJSFlag |= RUNTIME_STYLE_TO_CSS;
-      js += UTILS_JS.styleToCSS;
+      js += STYLE_TO_CSS_JS;
     }
     if ((rc.flags.runtimeJS & RUNTIME_LAZY) && !(runtimeJSFlag & RUNTIME_LAZY)) {
       runtimeJSFlag |= RUNTIME_LAZY;
@@ -237,7 +237,7 @@ async function render(
     }
     if (rc.mfs.size > 0 && !(runtimeJSFlag & RUNTIME_EVENT)) {
       runtimeJSFlag |= RUNTIME_EVENT;
-      js += UTILS_JS.event;
+      js += EVENT_JS;
     }
     if ((signalMarks.size + effects.length > 0) && !(runtimeJSFlag & RUNTIME_SIGNALS)) {
       runtimeJSFlag |= RUNTIME_SIGNALS;
