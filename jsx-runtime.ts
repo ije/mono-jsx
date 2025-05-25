@@ -1,5 +1,5 @@
 import type { FC, VNode } from "./types/jsx.d.ts";
-import { JSX, render } from "./render.ts";
+import { JSX, renderHtml } from "./render.ts";
 import { escapeHTML, isString, NullProtoObj } from "./runtime/utils.ts";
 import { $fragment, $html, $vnode } from "./symbols.ts";
 
@@ -16,14 +16,14 @@ const jsx = (tag: string | FC, props: Record<string, unknown> = new NullProtoObj
   // if the tag name is `html`, render it to a `Response` object
   if (tag === "html") {
     const renderOptions = new NullProtoObj();
-    const optionsKeys = new Set(["app", "context", "request", "status", "headers", "rendering", "htmx"]);
+    const optionsKeys = new Set(["app", "context", "components", "request", "status", "headers", "htmx"]);
     for (const [key, value] of Object.entries(props)) {
       if (optionsKeys.has(key) || key.startsWith("htmx-ext-")) {
         renderOptions[key] = value;
         delete props[key];
       }
     }
-    return render(vnode as unknown as VNode, renderOptions) as unknown as VNode;
+    return renderHtml(vnode as unknown as VNode, renderOptions) as unknown as VNode;
   }
   return vnode as unknown as VNode;
 };

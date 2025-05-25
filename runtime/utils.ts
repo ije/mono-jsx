@@ -114,10 +114,7 @@ export const NullProtoObj = /* @__PURE__ */ (() => {
   function e() {}
   e.prototype = Object.freeze(Object.create(null));
   return e;
-})() as unknown as {
-  // deno-lint-ignore no-explicit-any
-  new(): Record<string, any>;
-};
+})() as unknown as { new(): Record<string, any> };
 
 /**
  * Escapes special characters and HTML entities in a given html string.

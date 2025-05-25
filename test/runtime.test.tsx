@@ -24,7 +24,17 @@ Deno.serve({ port: 8687, onListen: () => {} }, (request) => {
     );
   }
   return (
-    <html request={request} app={{ count: 0, themeColor: "" }} htmx={url.searchParams.get("htmx") ?? false}>
+    <html
+      request={request}
+      app={{ count: 0, themeColor: "" }}
+      components={{
+        greeting: async (props: { message: string }) => {
+          await new Promise((resolve) => setTimeout(resolve, 50));
+          return <h1>{props.message}</h1>;
+        },
+      }}
+      htmx={url.searchParams.get("htmx") ?? false}
+    >
       <head>
         <title>Test</title>
       </head>
@@ -374,7 +384,7 @@ Deno.test("[runtime] effect", sanitizeFalse, async () => {
   await page.close();
 });
 
-Deno.test("[runtime] <toggle> element", sanitizeFalse, async () => {
+Deno.test("[runtime] <toggle>", sanitizeFalse, async () => {
   function Toggle(this: FC<{ show: boolean }>) {
     this.show = false;
     return (
@@ -411,7 +421,7 @@ Deno.test("[runtime] <toggle> element", sanitizeFalse, async () => {
   await page.close();
 });
 
-Deno.test("[runtime] <switch> element", sanitizeFalse, async () => {
+Deno.test("[runtime] <switch>", sanitizeFalse, async () => {
   function Switch(this: FC<{ lang: string }>) {
     this.lang = "emoji";
     return (
@@ -465,7 +475,39 @@ Deno.test("[runtime] <switch> element", sanitizeFalse, async () => {
   await page.close();
 });
 
-Deno.test("[runtime] 'action' function prop", sanitizeFalse, async () => {
+Deno.test("[runtime] <lazy>", sanitizeFalse, async () => {
+  function App(this: FC<{ show: boolean }>) {
+    this.show = false;
+    return (
+      <div>
+        <toggle show={this.show}>
+          <lazy name="greeting" props={{ message: "Hello, world" }} placeholder={<p>loading...</p>} />
+        </toggle>
+        <button type="button" onClick={() => this.show = !this.show}>Show</button>
+      </div>
+    );
+  }
+  const testPageUrl = addTestPage(<App />);
+
+  const page = await browser.newPage();
+  await page.goto(testPageUrl);
+
+  const div = await page.$("h1");
+  assert(!div);
+
+  const button = await page.$("div button");
+  assert(button);
+  await button.click();
+
+  await page.waitForNetworkIdle();
+  const h1 = await page.$("h1");
+  assert(h1);
+  assertEquals(await h1.evaluate((el: HTMLElement) => el.textContent), "Hello, world");
+
+  await page.close();
+});
+
+Deno.test("[runtime] <form> action callback", sanitizeFalse, async () => {
   const testPageUrl = addTestPage(
     <>
       <p></p>
@@ -519,13 +561,16 @@ Deno.test("[runtime] refs", sanitizeFalse, async () => {
 });
 
 Deno.test("[runtime] ref callback", sanitizeFalse, async () => {
-  const testPageUrl = addTestPage(
-    <div
-      ref={(el) => {
-        el.innerHTML = "<h1>Welcome to mono-jsx!</h1>";
-      }}
-    />,
-  );
+  function App(this: FC) {
+    return (
+      <div
+        ref={(el) => {
+          el.innerHTML = "<h1>Welcome to mono-jsx!</h1>";
+        }}
+      />
+    );
+  }
+  const testPageUrl = addTestPage(<App />);
 
   const page = await browser.newPage();
   await page.goto(testPageUrl);
@@ -537,7 +582,7 @@ Deno.test("[runtime] ref callback", sanitizeFalse, async () => {
   await page.close();
 });
 
-Deno.test("[runtime] htmx", { ...sanitizeFalse, ignore: false }, async () => {
+Deno.test("[runtime] htmx integration", { ...sanitizeFalse, ignore: false }, async () => {
   const testPageUrl = addTestPage(
     <button type="button" hx-post="/clicked" hx-swap="outerHTML">
       Click Me

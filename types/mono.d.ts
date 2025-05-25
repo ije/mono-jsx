@@ -1,5 +1,3 @@
-// deno-lint-ignore-file no-explicit-any
-
 import type * as CSS from "./css.d.ts";
 
 type D9 = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9;
@@ -102,6 +100,14 @@ export interface Elements {
    */
   switch: BaseAttributes & {
     value?: string | number | boolean | null;
+  };
+  /**
+   * The `lazy` element is a custom element that represents a lazy-loaded component.
+   * It can be used to load components asynchronously.
+   */
+  lazy: BaseAttributes & AsyncComponentAttributes & {
+    name: string;
+    props?: Record<string, unknown>;
   };
 }
 

@@ -18,12 +18,13 @@
     ],
     "rules": {
       "exclude": [
-        "ban-types",
         "ban-ts-comment",
+        "ban-types",
         "no-empty-interface",
+        "no-explicit-any",
+        "no-slow-types",
         "no-this-alias",
-        "prefer-const",
-        "no-slow-types"
+        "prefer-const"
       ]
     }
   }

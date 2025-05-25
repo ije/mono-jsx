@@ -1,3 +1,5 @@
+import type { FC } from "./jsx.d.ts";
+
 /**
  * Htmx extensions.
  * @see https://htmx.org/docs/#extensions
@@ -21,6 +23,10 @@ export interface RenderOptions extends Partial<HtmxExts> {
    * The context object to be passed to components.
    */
   context?: Record<string, unknown>;
+  /**
+   * Components to be rendered by the `<lazy>` element.
+   */
+  components?: Record<string, FC<any>>;
   /**
    * Current `Request` object to be passed to components.
    */

@@ -5,7 +5,6 @@ interface Signals {
 
 let collectDeps: ((scope: number, key: string) => void) | undefined;
 
-// deno-lint-ignore no-explicit-any
 const global = globalThis as any;
 const mcs = new Map<number, [Function, string[]]>();
 const scopes = new Map<number, Signals>();
