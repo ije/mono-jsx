@@ -15,11 +15,15 @@ interface RenderContext {
   signalEntries: Map<string, unknown>;
   signalEffects: string[];
   suspenses: Promise<string>[];
-  scope?: number;
-  signals?: Record<symbol, unknown>;
-  slots?: ChildType[];
   context?: Record<string, unknown>;
   request?: Request;
+  fcCtx?: FCContext;
+}
+
+interface FCContext {
+  scopeId: number;
+  signals: Record<symbol, unknown>;
+  slots: ChildType[] | undefined;
 }
 
 interface Flags {
@@ -336,7 +340,7 @@ async function renderNode(rc: RenderContext, node: ChildType, stripSlotProp?: bo
 
           // `<slot>` element
           case "slot": {
-            const { slots: fcSlots } = rc;
+            const fcSlots = rc.fcCtx?.slots;
             if (fcSlots) {
               let slots: ChildType[];
               if (props.name) {
@@ -561,13 +565,14 @@ function renderAttr(
       break;
     case "ref":
       if (typeof attrValue === "function") {
-        if (!rc.signals) {
+        const signals = rc.fcCtx?.signals;
+        if (!signals) {
           console.error("Use `ref` outside of a component function");
         } else {
           const refId = rc.flags.refs++;
-          const effects = rc.signals[Symbol.for("effects")] as string[];
+          const effects = signals[Symbol.for("effects")] as string[];
           effects.push("()=>(" + attrValue.toString() + ')(this.refs["' + refId + '"])');
-          attr += " data-ref=" + toAttrStringLit(rc.scope + ":" + refId);
+          attr += " data-ref=" + toAttrStringLit(rc.fcCtx!.scopeId + ":" + refId);
         }
       } else if (isObject(attrValue) && attrValue instanceof Ref) {
         attr += " data-ref=" + toAttrStringLit(attrValue.scope + ":" + attrValue.name);
@@ -575,7 +580,7 @@ function renderAttr(
       break;
     case "action":
       if (typeof attrValue === "function") {
-        attr += ' onsubmit="$onsubmit(event,$MF_' + rc.mfs.gen(attrValue) + toStr(rc.scope, (i) => "," + i) + ')"';
+        attr += ' onsubmit="$onsubmit(event,$MF_' + rc.mfs.gen(attrValue) + toStr(rc.fcCtx?.scopeId, (i) => "," + i) + ')"';
       } else if (isString(attrValue)) {
         attr += " action=" + toAttrStringLit(attrValue);
       }
@@ -590,7 +595,7 @@ function renderAttr(
         if (attrName.startsWith("on") && typeof attrValue === "function") {
           attr += " " + escapeHTML(attrName.toLowerCase()) + '="$emit(event,$MF_'
             + rc.mfs.gen(attrValue)
-            + toStr(rc.scope, (i) => "," + i)
+            + toStr(rc.fcCtx?.scopeId, (i) => "," + i)
             + ')"';
         } else {
           attr += " " + escapeHTML(attrName);
@@ -607,17 +612,18 @@ function renderAttr(
 async function renderFC(rc: RenderContext, fc: FC, props: JSX.IntrinsicAttributes) {
   const { write } = rc;
   const { children } = props;
-  const scope = ++rc.flags.scope;
-  const signals = createSignals(scope, rc.appSignals, rc.context, rc.request);
+  const scopeId = ++rc.flags.scope;
+  const signals = createSignals(scopeId, rc.appSignals, rc.context, rc.request);
   const slots: ChildType[] | undefined = children !== undefined
     ? (Array.isArray(children) ? (isVNode(children) ? [children as ChildType] : children) : [children])
     : undefined;
+  const fcCtx: FCContext = { scopeId, signals, slots };
   try {
     const v = fc.call(signals, props);
     if (isObject(v) && !isVNode(v)) {
       if (v instanceof Promise) {
         if (rc.eager || (props.rendering ?? fc.rendering) === "eager") {
-          await renderNode({ ...rc, scope, signals, slots }, (await v) as ChildType);
+          await renderNode({ ...rc, fcCtx }, (await v) as ChildType);
           markSignals(rc, signals);
         } else {
           const chunkIdAttr = 'chunk-id="' + (rc.flags.chunk++).toString(36) + '"';
@@ -632,7 +638,7 @@ async function renderFC(rc: RenderContext, fc: FC, props: JSX.IntrinsicAttribute
               buf += chunk;
             };
             buf += "<m-chunk " + chunkIdAttr + "><template>";
-            await renderNode({ ...rc, scope, signals, slots, write }, node as ChildType);
+            await renderNode({ ...rc, fcCtx, write }, node as ChildType);
             markSignals({ ...rc, write }, signals);
             return buf + "</template></m-chunk>";
           }));
@@ -640,7 +646,7 @@ async function renderFC(rc: RenderContext, fc: FC, props: JSX.IntrinsicAttribute
       } else if (Symbol.asyncIterator in v) {
         if (rc.eager || (props.rendering ?? fc.rendering) === "eager") {
           for await (const c of v) {
-            await renderNode({ ...rc, scope, signals, slots }, c as ChildType);
+            await renderNode({ ...rc, fcCtx }, c as ChildType);
           }
           markSignals(rc, signals);
         } else {
@@ -663,7 +669,7 @@ async function renderFC(rc: RenderContext, fc: FC, props: JSX.IntrinsicAttribute
                   return buf + "</m-chunk>";
                 }
                 buf += " next><template>";
-                await renderNode({ ...rc, scope, slots, signals, write }, value as ChildType);
+                await renderNode({ ...rc, fcCtx, write }, value as ChildType);
                 iter();
                 return buf + "</template></m-chunk>";
               }),
@@ -672,12 +678,12 @@ async function renderFC(rc: RenderContext, fc: FC, props: JSX.IntrinsicAttribute
         }
       } else if (Symbol.iterator in v) {
         for (const node of v) {
-          await renderNode({ ...rc, scope, signals, slots }, node as ChildType);
+          await renderNode({ ...rc, fcCtx }, node as ChildType);
         }
         markSignals(rc, signals);
       }
     } else if (v) {
-      await renderNode({ ...rc, scope, signals, slots }, v as ChildType);
+      await renderNode({ ...rc, fcCtx }, v as ChildType);
       markSignals(rc, signals);
     }
   } catch (err) {
@@ -737,7 +743,7 @@ function Signal(
 
 // @internal
 function createSignals(
-  scope: number,
+  scopeId: number,
   appSignals: Record<string, unknown> | null,
   context: Record<string, unknown> = new NullProtoObj(),
   request?: Request,
@@ -751,11 +757,11 @@ function createSignals(
     const value = compute.call(thisProxy);
     collectDeps = undefined;
     if (value instanceof Promise || Object.keys(deps).length === 0) return value;
-    return Signal(scope, { compute, deps }, value);
+    return Signal(scopeId, { compute, deps }, value);
   };
   const refs = new Proxy(new NullProtoObj(), {
     get(_, key) {
-      return new Ref(scope, key as string);
+      return new Ref(scopeId, key as string);
     },
   });
   const mark = ({ signalEntries, signalEffects, write }: RenderContext) => {
@@ -764,14 +770,14 @@ function createSignals(
       if (n > 0) {
         const js = new Array<string>(n);
         for (let i = 0; i < n; i++) {
-          js[i] = "function $ME_" + scope + "_" + i + "(){return(" + effects[i] + ").call(this)};";
+          js[i] = "function $ME_" + scopeId + "_" + i + "(){return(" + effects[i] + ").call(this)};";
         }
-        write('<m-effect scope="' + scope + '" n="' + n + '"></m-effect>');
+        write('<m-effect scope="' + scopeId + '" n="' + n + '"></m-effect>');
         signalEffects.push(js.join(""));
       }
     }
     for (const [key, value] of Object.entries(store)) {
-      signalEntries.set(scope + ":" + key, value);
+      signalEntries.set(scopeId + ":" + key, value);
     }
   };
   const thisProxy = new Proxy(store, {
@@ -805,12 +811,12 @@ function createSignals(
               return value;
             }
             if (collectDeps) {
-              collectDeps(scope, key, value);
+              collectDeps(scopeId, key, value);
               return value;
             }
             let signal = signals.get(key);
             if (!signal) {
-              signal = Signal(scope, key, value);
+              signal = Signal(scopeId, key, value);
               signals.set(key, signal);
             }
             return signal;
