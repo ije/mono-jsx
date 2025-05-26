@@ -95,7 +95,7 @@ if (import.meta.main) {
         const exportName = name.replace(/([a-z])([A-Z])/g, "$1_$2").replace(".", "_").toUpperCase();
         const comment = `/** ${name} (${formatBytes(js.length)}) */`;
         console.log(`· *${name} %c(${formatBytes(js.length)})`, "color:grey");
-        return comment + "\n" + `export const ${exportName} = ${stringLit(js)};`;
+        return comment + "\n" + `export const ${exportName} = ${stringLit(js)};` + "\n";
       }),
       "",
     ].join("\n"),
