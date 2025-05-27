@@ -1,3 +1,4 @@
+const regexpHtmlSafe = /["'&<>]/;
 const cssBareUnitProps = new Set([
   "animation-iteration-count",
   "aspect-ratio",
@@ -66,7 +67,7 @@ export const cx = (className: unknown): string => {
 export const styleToCSS = (style: Record<string, unknown>): { inline?: string; css?: Array<string | null> } => {
   const inline: [string, string | number][] = [];
   const css: Array<string | null> = [];
-  const ret: ReturnType<typeof styleToCSS> = {};
+  const ret: ReturnType<typeof styleToCSS> = new NullProtoObj();
   for (const [k, v] of Object.entries(style)) {
     switch (k.charCodeAt(0)) {
       case /* ':' */ 58:
@@ -126,7 +127,6 @@ export const NullProtoObj = /* @__PURE__ */ (() => {
  * Copyright(c) 2015 Tiancheng "Timothy" Gu
  * MIT License
  */
-const regexpHtmlSafe = /["'&<>]/;
 export const escapeHTML = (str: string): string => {
   const match = regexpHtmlSafe.exec(str);
   if (!match) {

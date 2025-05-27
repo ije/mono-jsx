@@ -1,4 +1,3 @@
-// deno-lint-ignore-file jsx-key jsx-curly-braces
 import { assert, assertEquals } from "jsr:@std/assert";
 import { CX_JS, EVENT_JS, LAZY_JS, SIGNALS_JS, STYLE_TO_CSS_JS, SUSPENSE_JS } from "../runtime/index.ts";
 import { RenderOptions } from "../types/render.d.ts";
@@ -84,21 +83,21 @@ Deno.test("[ssr] merge class names", async () => {
 
 Deno.test("[ssr] style to css(inline)", async () => {
   assertEquals(
-    await renderToString(<div style="display:block" />),
+    await renderToString(<div style="display:flex" />),
     [
       `<!DOCTYPE html>`,
       `<html lang="en"><body>`,
-      `<div style="display:block"></div>`,
+      `<div style="display:flex"></div>`,
       `</body></html>`,
     ].join(""),
   );
 
   assertEquals(
-    await renderToString(<div style={{ display: "block", border: 1, lineHeight: 1 }} />),
+    await renderToString(<div style={{ display: "flex", border: 1, lineHeight: 1 }} />),
     [
       `<!DOCTYPE html>`,
       `<html lang="en"><body>`,
-      `<div style="display:block;border:1px;line-height:1"></div>`,
+      `<div style="display:flex;border:1px;line-height:1"></div>`,
       `</body></html>`,
     ].join(""),
   );
@@ -109,7 +108,7 @@ Deno.test("[ssr] style to css(as style element)", async () => {
 
   "pseudo class";
   {
-    const id = hashCode(":hover{background-color:#eee}").toString(36);
+    const id = hashCode("background-color:#fff:hover{background-color:#eee}").toString(36);
     assertEquals(
       await renderToString(
         <button type="button" role="button" style={{ backgroundColor: "#fff", ":hover": { backgroundColor: "#eee" } }}>Click me</button>,
@@ -117,8 +116,8 @@ Deno.test("[ssr] style to css(as style element)", async () => {
       [
         `<!DOCTYPE html>`,
         `<html lang="en"><body>`,
-        `<style id="css-${id}">[data-css-${id}]:hover{background-color:#eee}</style>`,
-        `<button type="button" role="button" style="background-color:#fff" data-css-${id}>Click me</button>`,
+        `<style id="css-${id}">[data-css-${id}]{background-color:#fff}[data-css-${id}]:hover{background-color:#eee}</style>`,
+        `<button type="button" role="button" data-css-${id}>Click me</button>`,
         `</body></html>`,
       ].join(""),
     );
@@ -126,7 +125,7 @@ Deno.test("[ssr] style to css(as style element)", async () => {
 
   "pseudo element";
   {
-    const id = hashCode('::after{content:"↩"}').toString(36);
+    const id = hashCode('color:blue::after{content:"↩"}').toString(36);
     assertEquals(
       await renderToString(
         <a class="link" style={{ color: "blue", "::after": { content: "↩" } }}>Link</a>,
@@ -134,8 +133,8 @@ Deno.test("[ssr] style to css(as style element)", async () => {
       [
         `<!DOCTYPE html>`,
         `<html lang="en"><body>`,
-        `<style id="css-${id}">[data-css-${id}]::after{content:"↩"}</style>`,
-        `<a class="link" style="color:blue" data-css-${id}>Link</a>`,
+        `<style id="css-${id}">[data-css-${id}]{color:blue}[data-css-${id}]::after{content:"↩"}</style>`,
+        `<a class="link" data-css-${id}>Link</a>`,
         `</body></html>`,
       ].join(""),
     );
@@ -143,7 +142,7 @@ Deno.test("[ssr] style to css(as style element)", async () => {
 
   "@media query";
   {
-    const id = hashCode("@media (prefers-color-scheme: dark){{color:white}}").toString(36);
+    const id = hashCode("color:black@media (prefers-color-scheme: dark){{color:white}}").toString(36);
     assertEquals(
       await renderToString(
         <h1 class="title" style={{ color: "black", "@media (prefers-color-scheme: dark)": { color: "white" } }}>
@@ -153,8 +152,8 @@ Deno.test("[ssr] style to css(as style element)", async () => {
       [
         `<!DOCTYPE html>`,
         `<html lang="en"><body>`,
-        `<style id="css-${id}">@media (prefers-color-scheme: dark){[data-css-${id}]{color:white}}</style>`,
-        `<h1 class="title" style="color:black" data-css-${id}>Hello World!</h1>`,
+        `<style id="css-${id}">[data-css-${id}]{color:black}@media (prefers-color-scheme: dark){[data-css-${id}]{color:white}}</style>`,
+        `<h1 class="title" data-css-${id}>Hello World!</h1>`,
         `</body></html>`,
       ].join(""),
     );
@@ -162,7 +161,7 @@ Deno.test("[ssr] style to css(as style element)", async () => {
 
   "nesting style";
   {
-    const id = hashCode(".title{font-size:20px} strong{color:grey}").toString(36);
+    const id = hashCode("color:black.title{font-size:20px} strong{color:grey}").toString(36);
     assertEquals(
       await renderToString(
         <h1 class="title" style={{ color: "black", "&.title": { fontSize: 20 }, "& strong": { color: "grey" } }}>
@@ -172,8 +171,8 @@ Deno.test("[ssr] style to css(as style element)", async () => {
       [
         `<!DOCTYPE html>`,
         `<html lang="en"><body>`,
-        `<style id="css-${id}">[data-css-${id}].title{font-size:20px}[data-css-${id}] strong{color:grey}</style>`,
-        `<h1 class="title" style="color:black" data-css-${id}><strong>Hello</strong> World!</h1>`,
+        `<style id="css-${id}">[data-css-${id}]{color:black}[data-css-${id}].title{font-size:20px}[data-css-${id}] strong{color:grey}</style>`,
+        `<h1 class="title" data-css-${id}><strong>Hello</strong> World!</h1>`,
         `</body></html>`,
       ].join(""),
     );
@@ -833,10 +832,10 @@ Deno.test("[ssr] computed signals", async () => {
       SIGNALS_JS,
       `})();</script>`,
       `<script>/* app.js (generated by mono-jsx) */`,
-      `$MS("0:themeColor","black");`,
-      `$MS("0:tailing","!");`,
       `$MS("1:foo","foo");`,
       `$MS("1:bar","bar");`,
+      `$MS("0:themeColor","black");`,
+      `$MS("0:tailing","!");`,
       `$MC(0,function(){return(${
         // @ts-ignore this
         String(() => [this.foo, this.bar])}).call(this)},["1:foo","1:bar"]);`,
@@ -846,6 +845,75 @@ Deno.test("[ssr] computed signals", async () => {
       `$MC(2,function(){return(${
         // @ts-ignore this
         String(() => this.foo + this.bar + this.app.tailing)}).call(this)},["1:foo","1:bar","0:tailing"]);`,
+      `</script>`,
+    ].join(""),
+  );
+
+  function ComputedClassName(this: FC<{ color: string }, { themeColor: string }>) {
+    this.color = "blue";
+    return (
+      <div
+        class={[this.color, this.app.themeColor]}
+      />
+    );
+  }
+
+  assertEquals(
+    await renderToString(<ComputedClassName />, { app: { themeColor: "black" } }),
+    [
+      `<!DOCTYPE html>`,
+      `<html lang="en"><body>`,
+      `<div class="blue black">`,
+      `<m-signal mode="[class]" scope="1" computed="0"></m-signal>`,
+      `</div>`,
+      `</body></html>`,
+      `<script>`,
+      `/* runtime.js (generated by mono-jsx) */`,
+      `window.$runtimeJSFlag=${RUNTIME_CX | RUNTIME_SIGNALS};`,
+      `(()=>{`,
+      CX_JS,
+      SIGNALS_JS,
+      `})();</script>`,
+      `<script>/* app.js (generated by mono-jsx) */`,
+      `$MS("1:color","blue");`,
+      `$MS("0:themeColor","black");`,
+      `$MC(0,function(){return(()=>$merge(["blue","black"],[this["color"],0],[$signals(0)["themeColor"],1])).call(this)},["1:color","0:themeColor"]);`,
+      `</script>`,
+    ].join(""),
+  );
+
+  function ComputedStyle(this: FC<{ color: string }, { themeColor: string }>) {
+    this.color = "blue";
+    return (
+      <div
+        style={{
+          color: this.color,
+          backgroundColor: this.app.themeColor,
+        }}
+      />
+    );
+  }
+
+  assertEquals(
+    await renderToString(<ComputedStyle />, { app: { themeColor: "black" } }),
+    [
+      `<!DOCTYPE html>`,
+      `<html lang="en"><body>`,
+      `<div style="color:blue;background-color:black">`,
+      `<m-signal mode="[style]" scope="1" computed="0"></m-signal>`,
+      `</div>`,
+      `</body></html>`,
+      `<script>`,
+      `/* runtime.js (generated by mono-jsx) */`,
+      `window.$runtimeJSFlag=${RUNTIME_STYLE_TO_CSS | RUNTIME_SIGNALS};`,
+      `(()=>{`,
+      STYLE_TO_CSS_JS,
+      SIGNALS_JS,
+      `})();</script>`,
+      `<script>/* app.js (generated by mono-jsx) */`,
+      `$MS("1:color","blue");`,
+      `$MS("0:themeColor","black");`,
+      `$MC(0,function(){return(()=>$merge({"color":"blue","backgroundColor":"black"},[this["color"],"color"],[$signals(0)["themeColor"],"backgroundColor"])).call(this)},["1:color","0:themeColor"]);`,
       `</script>`,
     ].join(""),
   );
@@ -1309,28 +1377,160 @@ Deno.test("[ssr] <lazy>", async () => {
     return <h1>{this.message}</h1>;
   }
 
-  function LazyApp() {
+  function LazyAppWithSingalName(this: FC<{ name: string }>) {
+    this.name = "App";
     return (
-      <lazy name="App" props={{ foo: "bar" }}>
+      <lazy name={this.name} props={{ foo: "bar" }}>
+        <p>loading...</p>
+      </lazy>
+    );
+  }
+
+  function LazyAppWithSignalProps(this: FC<{ props: { foo: string } }>) {
+    this.props = { foo: "bar" };
+    return (
+      <lazy name="App" props={this.props}>
+        <p>loading...</p>
+      </lazy>
+    );
+  }
+
+  function LazyAppWithComputedProps(this: FC<{ foo: string }>) {
+    this.foo = "bar";
+    const props = this.computed(() => ({ foo: this.foo }));
+    return (
+      <lazy name="App" props={props}>
+        <p>loading...</p>
+      </lazy>
+    );
+  }
+
+  function LazyAppWithImplicitComputedProps(this: FC<{ foo: string }>) {
+    this.foo = "bar";
+    return (
+      <lazy name="App" props={{ foo: this.foo, color: "blue" }}>
         <p>loading...</p>
       </lazy>
     );
   }
 
   assertEquals(
-    await renderToString(<LazyApp />),
+    await renderToString(
+      <lazy name="App" props={{ foo: "bar" }}>
+        <p>loading...</p>
+      </lazy>,
+    ),
     [
       `<!DOCTYPE html>`,
       `<html lang="en"><body>`,
-      `<m-lazy name="App"><template data-props>{"foo":"bar"}</template><p>loading...</p></m-lazy>`,
+      `<m-component name="App"><template data-props>{"foo":"bar"}</template><p>loading...</p></m-component>`,
       `</body></html>`,
       `<script>`,
       `/* runtime.js (generated by mono-jsx) */`,
       `window.$runtimeJSFlag=${RUNTIME_LAZY};`,
       `(()=>{`,
       LAZY_JS,
-      `window.$scopeFlag=1;`,
       `})();</script>`,
+      `<script>`,
+      `/* app.js (generated by mono-jsx) */`,
+      `window.$scopeFlag=0;`,
+      `</script>`,
+    ].join(""),
+  );
+
+  assertEquals(
+    await renderToString(<LazyAppWithSingalName />),
+    [
+      `<!DOCTYPE html>`,
+      `<html lang="en"><body>`,
+      `<m-component name="App"><template data-props>{"foo":"bar"}</template><p>loading...</p></m-component>`,
+      `<m-group><m-signal mode="[name]" scope="1" key="name"></m-signal></m-group>`,
+      `</body></html>`,
+      `<script>`,
+      `/* runtime.js (generated by mono-jsx) */`,
+      `window.$runtimeJSFlag=${RUNTIME_LAZY | RUNTIME_SIGNALS};`,
+      `(()=>{`,
+      LAZY_JS,
+      SIGNALS_JS,
+      `})();</script>`,
+      `<script>`,
+      `/* app.js (generated by mono-jsx) */`,
+      `$MS("1:name","App");`,
+      `window.$scopeFlag=1;`,
+      `</script>`,
+    ].join(""),
+  );
+
+  assertEquals(
+    await renderToString(<LazyAppWithSignalProps />),
+    [
+      `<!DOCTYPE html>`,
+      `<html lang="en"><body>`,
+      `<m-component name="App"><template data-props>{"foo":"bar"}</template><p>loading...</p></m-component>`,
+      `<m-group><m-signal mode="[props]" scope="1" key="props"></m-signal></m-group>`,
+      `</body></html>`,
+      `<script>`,
+      `/* runtime.js (generated by mono-jsx) */`,
+      `window.$runtimeJSFlag=${RUNTIME_LAZY | RUNTIME_SIGNALS};`,
+      `(()=>{`,
+      LAZY_JS,
+      SIGNALS_JS,
+      `})();</script>`,
+      `<script>`,
+      `/* app.js (generated by mono-jsx) */`,
+      `$MS("1:props",{"foo":"bar"});`,
+      `window.$scopeFlag=1;`,
+      `</script>`,
+    ].join(""),
+  );
+
+  assertEquals(
+    await renderToString(<LazyAppWithComputedProps />),
+    [
+      `<!DOCTYPE html>`,
+      `<html lang="en"><body>`,
+      `<m-component name="App"><template data-props>{"foo":"bar"}</template><p>loading...</p></m-component>`,
+      `<m-group><m-signal mode="[props]" scope="1" computed="0"></m-signal></m-group>`,
+      `</body></html>`,
+      `<script>`,
+      `/* runtime.js (generated by mono-jsx) */`,
+      `window.$runtimeJSFlag=${RUNTIME_LAZY | RUNTIME_SIGNALS};`,
+      `(()=>{`,
+      LAZY_JS,
+      SIGNALS_JS,
+      `})();</script>`,
+      `<script>`,
+      `/* app.js (generated by mono-jsx) */`,
+      `$MS("1:foo","bar");`,
+      `$MC(0,function(){return(${
+        // @ts-ignore this
+        String(() => ({ foo: this.foo }))}).call(this)},["1:foo"]);`,
+      `window.$scopeFlag=1;`,
+      `</script>`,
+    ].join(""),
+  );
+
+  assertEquals(
+    await renderToString(<LazyAppWithImplicitComputedProps />),
+    [
+      `<!DOCTYPE html>`,
+      `<html lang="en"><body>`,
+      `<m-component name="App"><template data-props>{"foo":"bar","color":"blue"}</template><p>loading...</p></m-component>`,
+      `<m-group><m-signal mode="[props]" scope="1" computed="0"></m-signal></m-group>`,
+      `</body></html>`,
+      `<script>`,
+      `/* runtime.js (generated by mono-jsx) */`,
+      `window.$runtimeJSFlag=${RUNTIME_LAZY | RUNTIME_SIGNALS};`,
+      `(()=>{`,
+      LAZY_JS,
+      SIGNALS_JS,
+      `})();</script>`,
+      `<script>`,
+      `/* app.js (generated by mono-jsx) */`,
+      `$MS("1:foo","bar");`,
+      `$MC(0,function(){return(()=>$merge({"foo":"bar","color":"blue"},[this["foo"],"foo"])).call(this)},["1:foo"]);`,
+      `window.$scopeFlag=1;`,
+      `</script>`,
     ].join(""),
   );
 
@@ -1358,6 +1558,7 @@ Deno.test("[ssr] <lazy>", async () => {
         `})();`,
         `/* app.js (generated by mono-jsx) */`,
         `$MS("2:message","Welcome to mono-jsx!");`,
+        `window.$scopeFlag=2;`,
       ].join(""),
     ],
   );

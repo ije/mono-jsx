@@ -1,14 +1,18 @@
-interface Signals {
-  readonly $init: (key: string, value: unknown) => void;
-  readonly $watch: (key: string, effect: () => void) => () => void;
+declare global {
+  var $cx: (className: unknown) => string;
+  var $styleToCSS: (style: unknown) => { inline?: string; css?: Array<string | null> };
+  interface Signals {
+    readonly $init: (key: string, value: unknown) => void;
+    readonly $watch: (key: string, effect: () => void) => () => void;
+  }
 }
 
-let collectDeps: ((scope: number, key: string) => void) | undefined;
+let collectDeps: ((scopeId: number, key: string) => void) | undefined;
 
 const global = globalThis as any;
 const mcs = new Map<number, [Function, string[]]>();
 const scopes = new Map<number, Signals>();
-const Signals = (scope: number) => scopes.get(scope) ?? scopes.set(scope, createSignals(scope)).get(scope)!;
+const Signals = (scopeId: number) => scopes.get(scopeId) ?? scopes.set(scopeId, createSignals(scopeId)).get(scopeId)!;
 
 const getAttr = (el: Element, name: string) => el.getAttribute(name);
 const hasAttr = (el: Element, name: string) => el.hasAttribute(name);
@@ -16,7 +20,7 @@ const setAttr = (el: Element, name: string, value: string) => el.setAttribute(na
 const replaceChildren = (el: Element, children: Node[]) => el.replaceChildren(...children);
 const createNullObject = () => Object.create(null);
 
-const createSignals = (scope: number): Signals => {
+const createSignals = (scopeId: number): Signals => {
   const store = createNullObject();
   const init = (key: string, value: unknown) => {
     store[key] = value;
@@ -39,7 +43,7 @@ const createSignals = (scope: number): Signals => {
   };
 
   const refs = new Proxy(createNullObject(), {
-    get: (_target, prop: string) => document.querySelector("[data-ref='" + scope + ":" + prop + "']"),
+    get: (_target, prop: string) => document.querySelector("[data-ref='" + scopeId + ":" + prop + "']"),
   });
 
   return new Proxy(store, {
@@ -54,7 +58,7 @@ const createSignals = (scope: number): Signals => {
         case "refs":
           return refs;
         default:
-          collectDeps?.(scope, prop);
+          collectDeps?.(scopeId, prop);
           return Reflect.get(target, prop, receiver);
       }
     },
@@ -129,18 +133,24 @@ const createDomEffect = (el: Element, mode: string | null, getter: () => unknown
       const value = getter();
       if (value === false) {
         target.removeAttribute(attrName);
-      } else if ((attrName === "class" || attrName === "style") && typeof value === "object" && value !== null) {
+      } else if (typeof value === "object" && value !== null && (attrName === "class" || attrName === "style" || attrName === "props")) {
+        let attrValue: string | undefined;
         if (attrName === "class") {
-          // @ts-ignore - `$cx` is injected at ssr time
-          setAttr(target, attrName, $cx(value));
-        } else {
-          // @ts-ignore - `$styleToCSS` is injected at ssr time
-          const { inline } = $styleToCSS(value);
-          if (inline) {
-            setAttr(target, attrName, inline);
+          attrValue = $cx(value);
+        } else if (attrName === "style") {
+          const { inline, css } = $styleToCSS(value);
+          if (css) {
+            // todo: create a style element with the css rules
+          } else if (inline) {
+            attrValue = inline;
           }
+        } else {
+          attrValue = JSON.stringify(value);
         }
-      } else {
+        if (attrValue) {
+          setAttr(target, attrName, attrValue);
+        }
+      } else if (value != null) {
         setAttr(target, attrName, value === true ? "" : "" + value);
       }
     };
@@ -181,7 +191,7 @@ defineElement("m-signal", (el) => {
   const signals = Signals(Number(getAttr(el, "scope")));
   const key = getAttr(el, "key");
   if (key) {
-    el.disposes.push(signals.$watch(key, createDomEffect(el, getAttr(el, "mode"), () => Reflect.get(signals, key))));
+    el.disposes.push(signals.$watch(key, createDomEffect(el, getAttr(el, "mode"), () => (signals as any)[key])));
   } else {
     const id = Number(getAttr(el, "computed"));
     defer(() => mcs.get(id)).then(([compute, deps]) => {
@@ -233,4 +243,17 @@ global.$MS = (id: string, value: unknown) => {
 // define a computed signal
 global.$MC = (id: number, compute: Function, deps: string[]) => {
   mcs.set(id, [compute, deps]);
+};
+
+// merge an object with patches
+global.$merge = (obj: Record<string, unknown>, ...patches: unknown[][]) => {
+  for (const [value, ...path] of patches) {
+    let target = obj;
+    const key = path.pop()!;
+    for (const p of path) {
+      target = (target as any)[p as string];
+    }
+    target[key as string] = value;
+  }
+  return obj;
 };

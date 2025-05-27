@@ -10,7 +10,7 @@
   "tasks": {
     "build": "deno run -A --no-lock build.ts",
     "test": "deno task build && deno test -A --no-lock test/",
-    "fmt":"dprint fmt"
+    "fmt": "dprint fmt"
   },
   "lint": {
     "exclude": [
@@ -20,6 +20,8 @@
       "exclude": [
         "ban-ts-comment",
         "ban-types",
+        "jsx-curly-braces",
+        "jsx-key",
         "no-empty-interface",
         "no-explicit-any",
         "no-slow-types",

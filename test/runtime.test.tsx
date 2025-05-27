@@ -11,6 +11,10 @@ function addTestPage(page: JSX.Element, query?: string) {
   return `http://localhost:8687${pathname}${query ? `?${query}` : ""}`;
 }
 
+function sleep(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 Deno.serve({ port: 8687, onListen: () => {} }, (request) => {
   const url = new URL(request.url);
   if (url.pathname === "/favicon.ico") {
@@ -29,8 +33,20 @@ Deno.serve({ port: 8687, onListen: () => {} }, (request) => {
       app={{ count: 0, themeColor: "" }}
       components={{
         greeting: async (props: { message: string }) => {
-          await new Promise((resolve) => setTimeout(resolve, 50));
+          await sleep(50);
           return <h1>{props.message}</h1>;
+        },
+        a: async (props: { name: string }) => {
+          await sleep(50);
+          return <strong>{props.name.toUpperCase()}</strong>;
+        },
+        b: async (props: { name: string }) => {
+          await sleep(50);
+          return <strong>{props.name.toUpperCase()}</strong>;
+        },
+        c: async (props: { name: string }) => {
+          await sleep(50);
+          return <strong>{props.name.toUpperCase()}</strong>;
         },
       }}
       htmx={url.searchParams.get("htmx") ?? false}
@@ -487,8 +503,8 @@ Deno.test("[runtime] <lazy>", sanitizeFalse, async () => {
       </div>
     );
   }
-  const testPageUrl = addTestPage(<App />);
 
+  const testPageUrl = addTestPage(<App />);
   const page = await browser.newPage();
   await page.goto(testPageUrl);
 
@@ -503,6 +519,93 @@ Deno.test("[runtime] <lazy>", sanitizeFalse, async () => {
   const h1 = await page.$("h1");
   assert(h1);
   assertEquals(await h1.evaluate((el: HTMLElement) => el.textContent), "Hello, world");
+
+  await page.close();
+});
+
+Deno.test("[runtime] <lazy> controled by <toggle>", sanitizeFalse, async () => {
+  function App(this: FC<{ show: boolean }>) {
+    this.show = false;
+    return (
+      <div>
+        <toggle show={this.show}>
+          <lazy name="greeting" props={{ message: "Hello, world" }} placeholder={<p>loading...</p>} />
+        </toggle>
+        <button type="button" onClick={() => this.show = !this.show}>Show</button>
+      </div>
+    );
+  }
+
+  const testPageUrl = addTestPage(<App />);
+  const page = await browser.newPage();
+  await page.goto(testPageUrl);
+
+  let h1 = await page.$("h1");
+  assert(!h1);
+
+  const button = await page.$("div button");
+  assert(button);
+  await button.click();
+  await page.waitForNetworkIdle();
+  h1 = await page.$("h1");
+  assert(h1);
+  assertEquals(await h1.evaluate((el: HTMLElement) => el.textContent), "Hello, world");
+
+  await button.click();
+  h1 = await page.$("h1");
+  assert(!h1);
+
+  await page.close();
+});
+
+Deno.test("[runtime] <lazy> with signal name&props", sanitizeFalse, async () => {
+  function App(this: FC<{ tab: "a" | "b" | "c" }>) {
+    this.tab = "a";
+    return (
+      <div>
+        <lazy name={this.tab} props={{ name: this.tab }} placeholder={<span>loading...</span>} />
+        <select value={this.tab} onChange={(e) => this.tab = e.target.value as "c" | "b" | "a"}>
+          <option value="a">A</option>
+          <option value="b">B</option>
+          <option value="c">C</option>
+        </select>
+      </div>
+    );
+  }
+
+  const testPageUrl = addTestPage(<App />);
+  const page = await browser.newPage();
+  await page.goto(testPageUrl);
+
+  let span = await page.$("div span");
+  assert(span);
+  assertEquals(await span.evaluate((el: HTMLElement) => el.textContent), "loading...");
+
+  await page.waitForNetworkIdle();
+  let strong = await page.$("div strong");
+  assert(strong);
+  assertEquals(await strong.evaluate((el: HTMLElement) => el.textContent), "A");
+
+  const select = await page.$("div select");
+  assert(select);
+
+  await select.select("b");
+  await page.waitForNetworkIdle();
+  strong = await page.$("div strong");
+  assert(strong);
+  assertEquals(await strong.evaluate((el: HTMLElement) => el.textContent), "B");
+
+  await select.select("c");
+  await page.waitForNetworkIdle();
+  strong = await page.$("div strong");
+  assert(strong);
+  assertEquals(await strong.evaluate((el: HTMLElement) => el.textContent), "C");
+
+  await select.select("a");
+  await page.waitForNetworkIdle();
+  strong = await page.$("div strong");
+  assert(strong);
+  assertEquals(await strong.evaluate((el: HTMLElement) => el.textContent), "A");
 
   await page.close();
 });
