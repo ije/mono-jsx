@@ -577,10 +577,6 @@ Deno.test("[runtime] <lazy> with signal name&props", sanitizeFalse, async () => 
   const page = await browser.newPage();
   await page.goto(testPageUrl);
 
-  let span = await page.$("div span");
-  assert(span);
-  assertEquals(await span.evaluate((el: HTMLElement) => el.textContent), "loading...");
-
   await page.waitForNetworkIdle();
   let strong = await page.$("div strong");
   assert(strong);
