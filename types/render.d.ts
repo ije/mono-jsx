@@ -57,7 +57,4 @@ export interface RenderOptions extends Partial<HtmxExts> {
    * @defaultValue `false`
    */
   htmx?: number | string | boolean;
-
-  // @internal
-  __routeFC?: FC<any>;
 }

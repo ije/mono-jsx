@@ -110,40 +110,46 @@ export function renderHtml(node: VNode, options: RenderOptions): Response {
   const reqHeaders = request?.headers;
   const componentHeader = reqHeaders?.get("x-component");
 
+  let routeFC: FC<any> | undefined = request ? Reflect.get(request, "x-route") : undefined;
   let component = componentHeader ? components?.[componentHeader] : null;
   let status = options.status;
 
-  if (routes && !options.__routeFC && request) {
-    const patterns = Object.keys(routes);
-    const dynamicPatterns = [];
-    for (const pattern of patterns) {
-      if (pattern.includes(":") || pattern.includes("*")) {
-        dynamicPatterns.push(pattern);
-      } else if (new URL(request.url).pathname === pattern) {
-        options.__routeFC = routes[pattern];
-        break;
-      }
-    }
-    if (!options.__routeFC) {
-      for (const path of dynamicPatterns) {
-        const match = new URLPattern({ pathname: path }).exec(request.url);
-        if (match) {
-          options.__routeFC = routes[path];
-          Object.assign(request, { params: match.pathname.groups });
+  if (routes && !routeFC) {
+    if (request) {
+      const patterns = Object.keys(routes);
+      const dynamicPatterns = [];
+      for (const pattern of patterns) {
+        if (pattern.includes(":") || pattern.includes("*")) {
+          dynamicPatterns.push(pattern);
+        } else if (new URL(request.url).pathname === pattern) {
+          routeFC = routes[pattern];
           break;
         }
       }
+      if (!routeFC) {
+        for (const path of dynamicPatterns) {
+          const match = new URLPattern({ pathname: path }).exec(request.url);
+          if (match) {
+            routeFC = routes[path];
+            Object.assign(request, { params: match.pathname.groups });
+            break;
+          }
+        }
+      }
+    } else {
+      console.error("The `request` prop in the `<html>` element is required for routing.");
     }
-    if (!options.__routeFC) {
+    if (!routeFC) {
       status = 404;
     }
   }
 
   if (reqHeaders?.get("x-route") === "true") {
-    if (!options.__routeFC) {
-      return new Response("Route not found", { status: 404 });
+    if (!routeFC) {
+      return new Response("Route not found", { status });
     }
-    component = options.__routeFC;
+    Reflect.set(options, "routeFC", routeFC);
+    component = routeFC;
   }
 
   if (headersInit) {
@@ -192,6 +198,8 @@ export function renderHtml(node: VNode, options: RenderOptions): Response {
       }),
       { headers },
     );
+  } else if (componentHeader) {
+    return new Response("Component not found: " + component, { status: 404 });
   }
 
   const etag = headers.get("etag");
@@ -232,12 +240,12 @@ export function renderHtml(node: VNode, options: RenderOptions): Response {
 // @internal
 async function render(
   node: VNode,
-  renderOptions: RenderOptions,
+  options: RenderOptions & { routeFC?: FC<any> },
   write: (chunk: string) => void,
   writeJS: (chunk: string) => void,
   componentMode?: boolean,
 ) {
-  const { app, context, request, __routeFC: routeFC } = renderOptions;
+  const { app, context, request, routeFC } = options;
   const suspenses: Promise<string>[] = [];
   const signals: SignalsContext = {
     app: Object.assign(createSignals(0, null, context, request), app),
@@ -795,8 +803,8 @@ async function renderFC(rc: RenderContext, fc: FC, props: JSX.IntrinsicAttribute
       if (props.catch) {
         await renderNode(rc, props.catch(err));
       } else {
-        write('<pre style="color:red;font-size:1rem"><code>' + escapeHTML(err.message) + "</code></pre>");
         console.error(err);
+        write('<pre style="color:red;font-size:1rem"><code>' + escapeHTML(err.message) + "</code></pre>");
       }
     }
   }
