@@ -16,7 +16,7 @@ Deno.test("[jsx] jsx transform", () => {
   // attributes
   assertEquals(
     (
-      <h1 class={["title", "h1"]} style={{ fontSize: 24, fontFamily: "serif", ":hover": { color: "purple" } }}>
+      <h1 class={["title", "h1"]} style={{ "--color": "blue", fontSize: 24, fontFamily: "serif", ":hover": { color: "purple" } }}>
         Welcome to mono-jsx!
       </h1>
     ) as VNode,
@@ -24,7 +24,7 @@ Deno.test("[jsx] jsx transform", () => {
       "h1",
       {
         class: ["title", "h1"],
-        style: { fontSize: 24, fontFamily: "serif", ":hover": { color: "purple" } },
+        style: { "--color": "blue", fontSize: 24, fontFamily: "serif", ":hover": { color: "purple" } },
         children: "Welcome to mono-jsx!",
       },
       $vnode,

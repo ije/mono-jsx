@@ -71,36 +71,6 @@ Deno.serve({ port: 8687, onListen: () => {} }, (request) => {
   );
 });
 
-const testPageUrl = addTestPage(
-  <div>
-    <header>
-      <nav>
-        <ul>
-          <li>
-            <a href="/">Home</a>
-          </li>
-          <li>
-            <a href="/about">About</a>
-          </li>
-          <li>
-            <a href="/post/hello-world">Hello World</a>
-          </li>
-          <li>
-            <a href="/test_0">E404</a>
-          </li>
-        </ul>
-      </nav>
-      <router>
-        <p>Page not found</p>
-      </router>
-    </header>
-  </div>,
-);
-
-console.log("Test page URL:", testPageUrl);
-
-await new Promise(() => {});
-
 const browser = await puppeteer.launch({
   executablePath: (await chrome()).executablePath,
   args: ["--no-sandbox", "--disable-gpu", "--disable-extensions", "--disable-sync", "--disable-background-networking"],
@@ -171,7 +141,7 @@ Deno.test("[runtime] async generator component", sanitizeFalse, async () => {
   await page.close();
 });
 
-Deno.test("[runtime] component state(text)", sanitizeFalse, async () => {
+Deno.test("[runtime] component signals(text)", sanitizeFalse, async () => {
   function Hello(this: FC<{ text: string }>, props: { text: string }) {
     this.text = props.text;
     return (
@@ -201,7 +171,7 @@ Deno.test("[runtime] component state(text)", sanitizeFalse, async () => {
   await page.close();
 });
 
-Deno.test("[runtime] component state(number)", sanitizeFalse, async () => {
+Deno.test("[runtime] component signals(number)", sanitizeFalse, async () => {
   function Counter(this: FC<{ count: number }>, props: { initialValue: number }) {
     this.count = props.initialValue;
     return (
@@ -239,7 +209,7 @@ Deno.test("[runtime] component state(number)", sanitizeFalse, async () => {
   await page.close();
 });
 
-Deno.test("[runtime] app state", sanitizeFalse, async () => {
+Deno.test("[runtime] app signals", sanitizeFalse, async () => {
   function Display(this: FC<{}, { count: number }>, props: { bold?: boolean }) {
     if (props.bold) {
       return <strong>{this.app.count}</strong>;
@@ -292,7 +262,7 @@ Deno.test("[runtime] app state", sanitizeFalse, async () => {
   await page.close();
 });
 
-Deno.test("[runtime] computed state", sanitizeFalse, async () => {
+Deno.test("[runtime] computed signals", sanitizeFalse, async () => {
   function FooBar(this: FC<{ count: number }, { count: number }>) {
     this.count = 0;
     return (
@@ -600,7 +570,7 @@ Deno.test("[runtime] <lazy> controled by <toggle>", sanitizeFalse, async () => {
   await page.close();
 });
 
-Deno.test("[runtime] <lazy> with signal name&props", sanitizeFalse, async () => {
+Deno.test("[runtime] <lazy> with signal name/props", sanitizeFalse, async () => {
   function App(this: FC<{ tab: "a" | "b" | "c" }>) {
     this.tab = "a";
     return (
@@ -644,6 +614,85 @@ Deno.test("[runtime] <lazy> with signal name&props", sanitizeFalse, async () => 
   strong = await page.$("div strong");
   assert(strong);
   assertEquals(await strong.evaluate((el: HTMLElement) => el.textContent), "A");
+
+  await page.close();
+});
+
+Deno.test("[runtime] <router>", sanitizeFalse, async () => {
+  const testPageUrl = addTestPage(
+    <div>
+      <header>
+        <nav style={{ "& .active": { fontWeight: "bold" } }}>
+          <ul>
+            <li>
+              <a href="/">Home</a>
+            </li>
+            <li>
+              <a href="/about">About</a>
+            </li>
+            <li>
+              <a href="/post/hello-world">Hello World</a>
+            </li>
+            <li>
+              <a href="/e404">E404</a>
+            </li>
+          </ul>
+        </nav>
+        <router>
+          <p>Page not found</p>
+        </router>
+      </header>
+    </div>,
+  );
+
+  const page = await browser.newPage();
+  await page.goto(testPageUrl);
+
+  let p = await page.$("p");
+  assert(p);
+  assertEquals(await p.evaluate((el: HTMLElement) => el.textContent), "Page not found");
+
+  let link = await page.$("nav a[href='/']");
+  assert(link);
+  await link.click();
+  await page.waitForNetworkIdle();
+
+  p = await page.$("p");
+  assert(!p);
+
+  let h1 = await page.$("h1");
+  assert(h1);
+  assertEquals(await h1.evaluate((el: HTMLElement) => el.textContent), "Home");
+
+  link = await page.$("nav a[href='/about']");
+  assert(link);
+  await link.click();
+  await page.waitForNetworkIdle();
+
+  h1 = await page.$("h1");
+  assert(h1);
+  assertEquals(await h1.evaluate((el: HTMLElement) => el.textContent), "About");
+
+  link = await page.$("nav a[href='/post/hello-world']");
+  assert(link);
+  await link.click();
+  await page.waitForNetworkIdle();
+
+  h1 = await page.$("h1");
+  assert(h1);
+  assertEquals(await h1.evaluate((el: HTMLElement) => el.textContent), "Post: hello-world");
+
+  link = await page.$("nav a[href='/e404']");
+  assert(link);
+  await link.click();
+  await page.waitForNetworkIdle();
+
+  h1 = await page.$("h1");
+  assert(!h1);
+
+  p = await page.$("p");
+  assert(p);
+  assertEquals(await p.evaluate((el: HTMLElement) => el.textContent), "Page not found");
 
   await page.close();
 });

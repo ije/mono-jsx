@@ -1,5 +1,5 @@
 import { assert, assertEquals } from "jsr:@std/assert";
-import { CX_JS, EVENT_JS, LAZY_JS, SIGNALS_JS, STYLE_TO_CSS_JS, SUSPENSE_JS, VERSION } from "../runtime/index.ts";
+import { CX_JS, EVENT_JS, LAZY_JS, ROUTER_JS, SIGNALS_JS, STYLE_TO_CSS_JS, SUSPENSE_JS, VERSION } from "../runtime/index.ts";
 import { RenderOptions } from "../types/render.d.ts";
 
 const RUNTIME_CX = 1;
@@ -16,10 +16,17 @@ const renderToString = (node: JSX.Element, renderOptions?: RenderOptions) => {
       <body>{node}</body>
     </html>
   );
+  const reqHeaders = renderOptions?.request?.headers;
   assert(res instanceof Response, "Response is not a Response object");
-  assertEquals(res.status, 200);
-  if (renderOptions?.request?.headers.has("x-component")) {
+  if (reqHeaders?.has("x-component")) {
     assertEquals(res.headers.get("content-type"), "application/json; charset=utf-8");
+  } else if (reqHeaders?.has("x-route")) {
+    if (res.status === 200) {
+      assertEquals(res.headers.get("content-type"), "application/json; charset=utf-8");
+    } else {
+      // the `content-type` header set by `Response.json()`
+      assertEquals(res.headers.get("content-type"), "application/json");
+    }
   } else {
     assertEquals(res.headers.get("content-type"), "text/html; charset=utf-8");
   }
@@ -1520,6 +1527,162 @@ Deno.test("[ssr] <lazy>", async () => {
         `$MS("2:message","Welcome to mono-jsx!");`,
       ].join(""),
     ],
+  );
+});
+
+Deno.test("[ssr] <router>", async () => {
+  function Router(this: FC) {
+    return (
+      <router>
+        <p>Page not found</p>
+      </router>
+    );
+  }
+
+  assertEquals(
+    await renderToString(<Router />, {
+      routes: {
+        "/": () => <h1>Home</h1>,
+        "/about": () => <h1>About</h1>,
+      },
+      request: new Request("https://example.com/"),
+    }),
+    [
+      `<!DOCTYPE html>`,
+      `<html lang="en"><body>`,
+      `<m-router status="200">`,
+      `<h1>Home</h1>`,
+      `<template m-slot><p>Page not found</p></template>`,
+      `</m-router>`,
+      `</body></html>`,
+      `<script data-mono-jsx="${VERSION}">`,
+      `(()=>{`,
+      ROUTER_JS,
+      `})();`,
+      `/* --- */`,
+      `window.$runtimeJSFlag=${RUNTIME_ROUTER};`,
+      `window.$scopeSeq=2;`,
+      `</script>`,
+    ].join(""),
+  );
+
+  assertEquals(
+    await renderToString(<Router />, {
+      routes: {
+        "/": () => <h1>Home</h1>,
+        "/about": () => <h1>About</h1>,
+      },
+      request: new Request("https://example.com/about"),
+    }),
+    [
+      `<!DOCTYPE html>`,
+      `<html lang="en"><body>`,
+      `<m-router status="200">`,
+      `<h1>About</h1>`,
+      `<template m-slot><p>Page not found</p></template>`,
+      `</m-router>`,
+      `</body></html>`,
+      `<script data-mono-jsx="${VERSION}">`,
+      `(()=>{`,
+      ROUTER_JS,
+      `})();`,
+      `/* --- */`,
+      `window.$runtimeJSFlag=${RUNTIME_ROUTER};`,
+      `window.$scopeSeq=2;`,
+      `</script>`,
+    ].join(""),
+  );
+
+  assertEquals(
+    await renderToString(<Router />, {
+      routes: {
+        "/": () => <h1>Home</h1>,
+        "/about": () => <h1>About</h1>,
+      },
+      request: new Request("https://example.com/404"),
+    }),
+    [
+      `<!DOCTYPE html>`,
+      `<html lang="en"><body>`,
+      `<m-router status="404">`,
+      `<p>Page not found</p>`,
+      `</m-router>`,
+      `</body></html>`,
+      `<script data-mono-jsx="${VERSION}">`,
+      `(()=>{`,
+      ROUTER_JS,
+      `})();`,
+      `/* --- */`,
+      `window.$runtimeJSFlag=${RUNTIME_ROUTER};`,
+      `window.$scopeSeq=1;`,
+      `</script>`,
+    ].join(""),
+  );
+
+  assertEquals(
+    JSON.parse(
+      await renderToString(<div />, {
+        routes: {
+          "/": () => <h1>Home</h1>,
+          "/about": () => <h1>About</h1>,
+        },
+        request: new Request("https://example.com", {
+          headers: {
+            "x-route": "true",
+            "x-runtimejs-flag": RUNTIME_ROUTER.toString(),
+            "x-scope-seq": "1",
+          },
+        }),
+      }),
+    ),
+    [
+      `<h1>Home</h1>`,
+      `window.$scopeSeq=2;`,
+    ],
+  );
+
+  assertEquals(
+    JSON.parse(
+      await renderToString(<div />, {
+        routes: {
+          "/": () => <h1>Home</h1>,
+          "/about": () => <h1>About</h1>,
+        },
+        request: new Request("https://example.com/about", {
+          headers: {
+            "x-route": "true",
+            "x-runtimejs-flag": RUNTIME_ROUTER.toString(),
+            "x-scope-seq": "1",
+          },
+        }),
+      }),
+    ),
+    [
+      `<h1>About</h1>`,
+      `window.$scopeSeq=2;`,
+    ],
+  );
+
+  assertEquals(
+    JSON.parse(
+      await renderToString(<div />, {
+        routes: {
+          "/": () => <h1>Home</h1>,
+          "/about": () => <h1>About</h1>,
+        },
+        request: new Request("https://example.com/404", {
+          headers: {
+            "x-route": "true",
+            "x-runtimejs-flag": RUNTIME_ROUTER.toString(),
+            "x-scope-seq": "1",
+          },
+        }),
+      }),
+    ),
+    {
+      error: { message: "Route not found" },
+      status: 404,
+    },
   );
 });
 
