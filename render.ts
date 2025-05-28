@@ -144,20 +144,19 @@ export function renderHtml(node: VNode, options: RenderOptions): Response {
     }
   }
 
-  if (reqHeaders?.get("x-route") === "true") {
-    if (!routeFC) {
-      return new Response("Route not found", { status });
-    }
-    Reflect.set(options, "routeFC", routeFC);
-    component = routeFC;
-  }
-
   if (headersInit) {
     for (const [key, value] of Object.entries(headersInit)) {
       if (value) {
         headers.set(toHyphenCase(key), value);
       }
     }
+  }
+
+  if (reqHeaders?.get("x-route") === "true") {
+    if (!routeFC) {
+      return Response.json({ error: { message: "Route not found" }, status }, { headers, status });
+    }
+    component = routeFC;
   }
 
   if (component) {
@@ -217,6 +216,7 @@ export function renderHtml(node: VNode, options: RenderOptions): Response {
       async start(controller) {
         const { htmx } = options;
         const write = (chunk: string) => controller.enqueue(encoder.encode(chunk));
+        Reflect.set(options, "routeFC", routeFC);
         try {
           write("<!DOCTYPE html>");
           await render(node, options, write, (js) => write('<script data-mono-jsx="' + VERSION + '">' + js + "</script>"));
