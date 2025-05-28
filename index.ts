@@ -2,7 +2,7 @@ import type { FC } from "./types/jsx.d.ts";
 
 type ServerHandler = (req: Request) => Response;
 
-export function bunRoutes(
+export function monoRoutes(
   routes: Record<string, FC<any> | Promise<{ default: FC<any> }>>,
   handler: ServerHandler,
 ): Record<string, ServerHandler> {
