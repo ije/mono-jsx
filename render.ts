@@ -1,6 +1,6 @@
 import type { ChildType } from "./types/mono.d.ts";
 import type { FC, VNode } from "./types/jsx.d.ts";
-import type { RenderOptions } from "./types/render.d.ts";
+import type { FCModule, RenderOptions } from "./types/render.d.ts";
 import { CX_JS, EVENT_JS, LAZY_JS, ROUTER_JS, SIGNALS_JS, STYLE_TO_CSS_JS, SUSPENSE_JS, VERSION } from "./runtime/index.ts";
 import { cx, escapeHTML, isObject, isString, NullProtoObj, styleToCSS, toHyphenCase } from "./runtime/utils.ts";
 import { $fragment, $html, $signal, $vnode } from "./symbols.ts";
@@ -15,7 +15,7 @@ interface RenderContext {
   eager?: boolean;
   context?: Record<string, unknown>;
   request?: Request;
-  routeFC?: FC<any>;
+  routeFC?: FCModule;
   fcCtx?: FCContext;
 }
 
@@ -110,7 +110,7 @@ export function renderHtml(node: VNode, options: RenderOptions): Response {
   const reqHeaders = request?.headers;
   const componentHeader = reqHeaders?.get("x-component");
 
-  let routeFC: FC<any> | undefined = request ? Reflect.get(request, "x-route") : undefined;
+  let routeFC: FCModule | undefined = request ? Reflect.get(request, "x-route") : undefined;
   let component = componentHeader ? components?.[componentHeader] : null;
   let status = options.status;
 
@@ -174,7 +174,7 @@ export function renderHtml(node: VNode, options: RenderOptions): Response {
             let html = "";
             let js = "";
             await render(
-              [component, props, $vnode],
+              [component instanceof Promise ? (await component).default : component, props, $vnode],
               options,
               (chunk) => {
                 html += chunk;
@@ -542,7 +542,7 @@ async function renderNode(rc: RenderContext, node: ChildType, stripSlotProp?: bo
             const status = routeFC ? 200 : 404;
             write('<m-router status="' + status + '">');
             if (routeFC) {
-              await renderFC(rc, routeFC, {});
+              await renderFC(rc, routeFC instanceof Promise ? (await routeFC).default : routeFC, {});
             }
             let buf = "";
             if (children) {
