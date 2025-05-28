@@ -9,11 +9,11 @@ const stripHash = (href: string) => href.split("#", 1)[0];
 customElements.define(
   "m-router",
   class extends HTMLElement {
-    #onClick?: (e: MouseEvent) => void;
     #fallback?: ChildNode[];
+    #onClick?: (e: MouseEvent) => void;
     #ac?: AbortController;
 
-    async fetchPage(href: string) {
+    async #fetchPage(href: string) {
       const headers = {
         "x-route": "true",
         "x-runtimejs-flag": "" + $runtimeJSFlag,
@@ -35,6 +35,19 @@ customElements.define(
       if (js) {
         doc.body.appendChild(doc.createElement("script")).textContent = js;
       }
+    }
+
+    #updateNavLinks() {
+      doc.querySelectorAll("nav").forEach((nav) => {
+        const activeClass = nav.getAttribute("data-active-class") ?? "active";
+        nav.querySelectorAll("a").forEach(({ href, classList }) => {
+          if (stripHash(href) === stripHash(location.href)) {
+            classList.add(activeClass);
+          } else {
+            classList.remove(activeClass);
+          }
+        });
+      });
     }
 
     connectedCallback() {
@@ -82,17 +95,21 @@ customElements.define(
         history.pushState({}, "", href);
 
         // fetch the new page
-        this.fetchPage(href);
+        this.#fetchPage(href);
+
+        // update the navigation links
+        this.#updateNavLinks();
       };
 
       doc.addEventListener("click", this.#onClick);
+      this.#updateNavLinks();
     }
 
     disconnectedCallback() {
-      this.#ac?.abort();
       doc.removeEventListener("click", this.#onClick!);
-      this.#ac = undefined;
+      this.#ac?.abort();
       this.#onClick = undefined;
+      this.#ac = undefined;
     }
   },
 );

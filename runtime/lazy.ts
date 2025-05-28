@@ -17,7 +17,7 @@ customElements.define(
     #renderDelay?: number;
     #renderAC?: AbortController;
 
-    async render() {
+    async #render() {
       const headers = {
         "x-component": this.#name!,
         "x-props": this.#props ?? "{}",
@@ -51,7 +51,7 @@ customElements.define(
           this.#props = propsAttr?.startsWith("base64,") ? atob(propsAttr.slice(7)) : null;
           this.#placeholder = [...this.childNodes];
         }
-        this.render();
+        this.#render();
       });
     }
 
@@ -75,7 +75,7 @@ customElements.define(
         }
         this.#renderDelay = setTimeout(() => {
           this.#renderDelay = undefined;
-          this.render();
+          this.#render();
         }, 20);
       }
     }
