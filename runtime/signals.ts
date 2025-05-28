@@ -15,15 +15,15 @@ const mcs = new Map<number, [Function, string[]]>();
 const scopes = new Map<number, Signals>();
 const Signals = (scopeId: number) => scopes.get(scopeId) ?? scopes.set(scopeId, createSignals(scopeId)).get(scopeId)!;
 
-const createNullObject = () => Object.create(null);
 const attr = (el: Element, name: string) => el.getAttribute(name);
 const replaceChildren = (el: Element, children: Node[]) => el.replaceChildren(...children);
+const createNullObject = () => Object.create(null);
 
 const createSignals = (scopeId: number): Signals => {
   const store = createNullObject();
   const init = (key: string, value: unknown) => {
     store[key] = value;
-
+  };
 
   const watchers = new Map<string, Set<(() => void)>>();
   const watch = (key: string, effect: () => void) => {
