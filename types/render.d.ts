@@ -28,6 +28,10 @@ export interface RenderOptions extends Partial<HtmxExts> {
    */
   components?: Record<string, FC<any>>;
   /**
+   * Routes to be used by the `<router>` element.
+   */
+  routes?: Record<string, FC<any>>;
+  /**
    * Current `Request` object to be passed to components.
    */
   request?: Request;
@@ -53,4 +57,7 @@ export interface RenderOptions extends Partial<HtmxExts> {
    * @defaultValue `false`
    */
   htmx?: number | string | boolean;
+
+  // @internal
+  __routeFC?: FC<any>;
 }

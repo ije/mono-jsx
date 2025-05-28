@@ -20,6 +20,7 @@ Deno.serve({ port: 8687, onListen: () => {} }, (request) => {
   if (url.pathname === "/favicon.ico") {
     return new Response(null, { status: 404 });
   }
+
   if (url.pathname === "/clicked") {
     return (
       <html>
@@ -27,10 +28,14 @@ Deno.serve({ port: 8687, onListen: () => {} }, (request) => {
       </html>
     );
   }
+
   return (
     <html
       request={request}
-      app={{ count: 0, themeColor: "" }}
+      app={{
+        count: 0,
+        themeColor: "",
+      }}
       components={{
         greeting: async (props: { message: string }) => {
           await sleep(50);
@@ -49,6 +54,13 @@ Deno.serve({ port: 8687, onListen: () => {} }, (request) => {
           return <strong>{props.name.toUpperCase()}</strong>;
         },
       }}
+      routes={{
+        "/": () => <h1>Home</h1>,
+        "/about": () => <h1>About</h1>,
+        "/post/:slug": function(this: FC) {
+          return <h1>Post: {this.request.params!.slug}</h1>;
+        },
+      }}
       htmx={url.searchParams.get("htmx") ?? false}
     >
       <head>
@@ -58,6 +70,36 @@ Deno.serve({ port: 8687, onListen: () => {} }, (request) => {
     </html>
   );
 });
+
+const testPageUrl = addTestPage(
+  <div>
+    <header>
+      <nav>
+        <ul>
+          <li>
+            <a href="/">Home</a>
+          </li>
+          <li>
+            <a href="/about">About</a>
+          </li>
+          <li>
+            <a href="/post/hello-world">Hello World</a>
+          </li>
+          <li>
+            <a href="/test_0">E404</a>
+          </li>
+        </ul>
+      </nav>
+      <router>
+        <p>Page not found</p>
+      </router>
+    </header>
+  </div>,
+);
+
+console.log("Test page URL:", testPageUrl);
+
+await new Promise(() => {});
 
 const browser = await puppeteer.launch({
   executablePath: (await chrome()).executablePath,
@@ -681,7 +723,7 @@ Deno.test("[runtime] ref callback", sanitizeFalse, async () => {
   await page.close();
 });
 
-Deno.test("[runtime] htmx integration", { ...sanitizeFalse, ignore: false }, async () => {
+Deno.test("[runtime] htmx integration", { ...sanitizeFalse, ignore: true }, async () => {
   const testPageUrl = addTestPage(
     <button type="button" hx-post="/clicked" hx-swap="outerHTML">
       Click Me

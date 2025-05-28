@@ -16,7 +16,7 @@ const jsx = (tag: string | FC, props: Record<string, unknown> = new NullProtoObj
   // if the tag name is `html`, render it to a `Response` object
   if (tag === "html") {
     const renderOptions = new NullProtoObj();
-    const optionsKeys = new Set(["app", "context", "components", "request", "status", "headers", "htmx"]);
+    const optionsKeys = new Set(["app", "context", "components", "routes", "request", "status", "headers", "htmx"]);
     for (const [key, value] of Object.entries(props)) {
       if (optionsKeys.has(key) || key.startsWith("htmx-ext-")) {
         renderOptions[key] = value;

@@ -61,11 +61,12 @@ export interface PseudoCSSProperties {
 }
 
 export interface CSSProperties extends BaseCSSProperties, AtRuleCSSProperties, PseudoCSSProperties {
-  [key: `&${" " | "." | "["}${string}`]: CSSProperties;
+  [key: `--${string}`]: string | number;
+  [key: `&${" " | "." | "[" | ">"}${string}`]: CSSProperties;
 }
 
 export type MaybeArray<T> = T | T[];
-export type ChildType = MaybeArray<JSX.Element | string | number | bigint | boolean | null>;
+export type ChildType = MaybeArray<JSX.Element | string | number | bigint | boolean | null | undefined>;
 
 export interface BaseAttributes {
   children?: MaybeArray<ChildType>;
@@ -90,25 +91,29 @@ export interface AsyncComponentAttributes {
 
 export interface Elements {
   /**
-   * The `toggle` element is a custom element that represents a toggle switch.
+   * The `toggle` element is a builtin element that represents a toggle switch.
    */
   toggle: BaseAttributes & {
     show?: boolean | 0 | 1;
   };
   /**
-   * The `switch` element is a custom element that represents a switch.
+   * The `switch` element is a builtin element that represents a switch.
    */
   switch: BaseAttributes & {
     value?: string | number | boolean | null;
   };
   /**
-   * The `lazy` element is a custom element that represents a lazy-loaded component.
-   * It can be used to load components asynchronously.
+   * The `lazy` element is a builtin element that represents a lazy-loaded component.
+   * It can be used to load components lazily, which can improve performance by reducing the initial load time of the application.
    */
   lazy: BaseAttributes & AsyncComponentAttributes & {
     name: string;
     props?: Record<string, unknown>;
   };
+  /**
+   * The `router` element is a builtin element that represents a router.
+   */
+  router: BaseAttributes & AsyncComponentAttributes & {};
 }
 
 declare global {
@@ -125,19 +130,20 @@ declare global {
   type FC<Signals = {}, AppSignals = {}, Context = {}> = {
     /**
      * Application signals.
-     * Application signals is shared across the entire application.
      */
     readonly app: AppSignals;
     /**
-     * Context object.
-     * **This is a server-side only API.**
+     * Rendering context.
+     *
+     * **⚠ This is a server-side only API.**
      */
     readonly context: Context;
     /**
      * Current request object.
-     * **This is a server-side only API.**
+     *
+     * **⚠ This is a server-side only API.**
      */
-    readonly request: Request;
+    readonly request: Request & { params?: Record<string, string> };
     /**
      * The `refs` object is used to store references to DOM elements.
      */
