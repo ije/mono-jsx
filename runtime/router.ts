@@ -1,5 +1,5 @@
 declare global {
-  var $runtimeJSFlag: number;
+  var $runtimeFlag: number;
   var $scopeSeq: number;
 }
 
@@ -16,7 +16,7 @@ customElements.define(
     async #fetchPage(href: string) {
       const headers = {
         "x-route": "true",
-        "x-runtimejs-flag": "" + $runtimeJSFlag,
+        "x-runtime-flag": "" + $runtimeFlag,
         "x-scope-seq": "" + $scopeSeq,
       };
       const ac = new AbortController();

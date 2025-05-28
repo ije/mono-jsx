@@ -1,7 +1,6 @@
 /// <reference lib="dom.iterable" />
 
 const portals = new Map<string, HTMLElement>();
-const hasAttr = (el: HTMLElement, key: string) => el.hasAttribute(key);
 const getChunkId = (el: HTMLElement) => el.getAttribute("chunk-id");
 const defineCustomElement = (tagName: string, connectedCallback: (el: HTMLElement) => void) =>
   customElements.define(
@@ -24,11 +23,11 @@ defineCustomElement("m-chunk", (el) => {
     const id = getChunkId(el)!;
     const portal = portals.get(id);
     if (portal) {
-      if (hasAttr(el, "next")) {
+      if (el.hasAttribute("next")) {
         portal.before(...chunkNodes!);
       } else {
         portals.delete(id);
-        if (hasAttr(el, "done")) {
+        if (el.hasAttribute("done")) {
           portal.remove();
         } else {
           portal.replaceWith(...chunkNodes!);

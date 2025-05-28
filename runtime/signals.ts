@@ -1,10 +1,11 @@
 declare global {
   var $cx: (className: unknown) => string;
   var $styleToCSS: (style: unknown) => { inline?: string; css?: Array<string | null> };
-  interface Signals {
-    readonly $init: (key: string, value: unknown) => void;
-    readonly $watch: (key: string, effect: () => void) => () => void;
-  }
+}
+
+interface Signals {
+  readonly $init: (key: string, value: unknown) => void;
+  readonly $watch: (key: string, effect: () => void) => () => void;
 }
 
 let collectDeps: ((scopeId: number, key: string) => void) | undefined;
@@ -14,17 +15,15 @@ const mcs = new Map<number, [Function, string[]]>();
 const scopes = new Map<number, Signals>();
 const Signals = (scopeId: number) => scopes.get(scopeId) ?? scopes.set(scopeId, createSignals(scopeId)).get(scopeId)!;
 
-const getAttr = (el: Element, name: string) => el.getAttribute(name);
-const hasAttr = (el: Element, name: string) => el.hasAttribute(name);
-const setAttr = (el: Element, name: string, value: string) => el.setAttribute(name, value);
-const replaceChildren = (el: Element, children: Node[]) => el.replaceChildren(...children);
 const createNullObject = () => Object.create(null);
+const attr = (el: Element, name: string) => el.getAttribute(name);
+const replaceChildren = (el: Element, children: Node[]) => el.replaceChildren(...children);
 
 const createSignals = (scopeId: number): Signals => {
   const store = createNullObject();
   const init = (key: string, value: unknown) => {
     store[key] = value;
-  };
+
 
   const watchers = new Map<string, Set<(() => void)>>();
   const watch = (key: string, effect: () => void) => {
@@ -81,7 +80,7 @@ const createDomEffect = (el: Element, mode: string | null, getter: () => unknown
     return () => {
       if (!slots) {
         const firstChild = el.firstElementChild;
-        if (firstChild && firstChild.tagName === "TEMPLATE" && hasAttr(firstChild, "m-slot")) {
+        if (firstChild && firstChild.tagName === "TEMPLATE" && firstChild.hasAttribute("m-slot")) {
           slots = [...(firstChild as HTMLTemplateElement).content.childNodes];
         } else {
           slots = [...el.childNodes];
@@ -92,7 +91,7 @@ const createDomEffect = (el: Element, mode: string | null, getter: () => unknown
   }
   if (mode === "switch") {
     let value: string;
-    let toMatch = getAttr(el, "match");
+    let toMatch = attr(el, "match");
     let slotsMap: Map<string, Array<ChildNode>> | undefined;
     let unnamedSlots: Array<ChildNode> | undefined;
     let getNamedSlots = (slotName: string) => slotsMap!.get(slotName) ?? slotsMap!.set(slotName, []).get(slotName)!;
@@ -101,10 +100,10 @@ const createDomEffect = (el: Element, mode: string | null, getter: () => unknown
         slotsMap = new Map();
         unnamedSlots = [];
         for (const slot of el.childNodes) {
-          if (slot.nodeType === 1 && (slot as HTMLElement).tagName === "TEMPLATE" && hasAttr(slot as HTMLElement, "m-slot")) {
+          if (slot.nodeType === 1 && (slot as HTMLElement).tagName === "TEMPLATE" && (slot as HTMLElement).hasAttribute("m-slot")) {
             for (const node of (slot as HTMLTemplateElement).content.childNodes) {
-              if (node.nodeType === 1 && hasAttr(node as HTMLElement, "slot")) {
-                getNamedSlots(getAttr(node as HTMLElement, "slot")!).push(node);
+              if (node.nodeType === 1 && (node as HTMLElement).hasAttribute("slot")) {
+                getNamedSlots(attr(node as HTMLElement, "slot")!).push(node);
               } else {
                 unnamedSlots.push(node);
               }
@@ -148,10 +147,10 @@ const createDomEffect = (el: Element, mode: string | null, getter: () => unknown
           attrValue = JSON.stringify(value);
         }
         if (attrValue) {
-          setAttr(target, attrName, attrValue);
+          target.setAttribute(attrName, attrValue);
         }
       } else if (value != null) {
-        setAttr(target, attrName, value === true ? "" : "" + value);
+        target.setAttribute(attrName, value === true ? "" : "" + value);
       }
     };
   }
@@ -188,14 +187,14 @@ const defineElement = (tag: string, callback: (el: Element & { disposes: (() => 
   );
 
 defineElement("m-signal", (el) => {
-  const signals = Signals(Number(getAttr(el, "scope")));
-  const key = getAttr(el, "key");
+  const signals = Signals(Number(attr(el, "scope")));
+  const key = attr(el, "key");
   if (key) {
-    el.disposes.push(signals.$watch(key, createDomEffect(el, getAttr(el, "mode"), () => (signals as any)[key])));
+    el.disposes.push(signals.$watch(key, createDomEffect(el, attr(el, "mode"), () => (signals as any)[key])));
   } else {
-    const id = Number(getAttr(el, "computed"));
+    const id = Number(attr(el, "computed"));
     defer(() => mcs.get(id)).then(([compute, deps]) => {
-      const effect = createDomEffect(el, getAttr(el, "mode"), compute.bind(signals));
+      const effect = createDomEffect(el, attr(el, "mode"), compute.bind(signals));
       deps.forEach((dep) => {
         const [scope, key] = resolveSignalID(dep)!;
         el.disposes.push(Signals(scope).$watch(key, effect));
@@ -206,8 +205,8 @@ defineElement("m-signal", (el) => {
 
 defineElement("m-effect", (el) => {
   const { disposes } = el;
-  const scope = Number(getAttr(el, "scope"));
-  const n = Number(getAttr(el, "n"));
+  const scope = Number(attr(el, "scope"));
+  const n = Number(attr(el, "n"));
   const cleanups: ((() => void) | undefined)[] = new Array(n);
   disposes.push(() => {
     cleanups.forEach((cleanup) => typeof cleanup === "function" && cleanup());

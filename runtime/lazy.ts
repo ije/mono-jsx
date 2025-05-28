@@ -1,5 +1,5 @@
 declare global {
-  var $runtimeJSFlag: number;
+  var $runtimeFlag: number;
   var $scopeSeq: number;
 }
 
@@ -21,7 +21,7 @@ customElements.define(
       const headers = {
         "x-component": this.#name!,
         "x-props": this.#props ?? "{}",
-        "x-runtimejs-flag": "" + $runtimeJSFlag,
+        "x-runtime-flag": "" + $runtimeFlag,
         "x-scope-seq": "" + $scopeSeq,
       };
       const ac = new AbortController();

@@ -29,7 +29,7 @@ interface Flags {
   scope: number;
   chunk: number;
   refs: number;
-  runtimeJS: number;
+  runtime: number;
 }
 
 interface SignalsContext {
@@ -260,7 +260,7 @@ async function render(
     signals,
     routeFC,
     eager: componentMode,
-    flags: { scope: 0, chunk: 0, refs: 0, runtimeJS: 0 },
+    flags: { scope: 0, chunk: 0, refs: 0, runtime: 0 },
     mcs: new IdGenImpl<Signal>(),
     mfs: new IdGenImpl<CallableFunction>(),
   };
@@ -268,39 +268,39 @@ async function render(
   // it may be called recursively when thare are unresolved suspenses
   const finalize = async () => {
     let js = "";
-    if ((rc.flags.runtimeJS & RUNTIME_CX) && !(runtimeJSFlag & RUNTIME_CX)) {
-      runtimeJSFlag |= RUNTIME_CX;
+    if ((rc.flags.runtime & RUNTIME_CX) && !(runtimeFlag & RUNTIME_CX)) {
+      runtimeFlag |= RUNTIME_CX;
       js += CX_JS;
     }
-    if ((rc.flags.runtimeJS & RUNTIME_STYLE_TO_CSS) && !(runtimeJSFlag & RUNTIME_STYLE_TO_CSS)) {
-      runtimeJSFlag |= RUNTIME_STYLE_TO_CSS;
+    if ((rc.flags.runtime & RUNTIME_STYLE_TO_CSS) && !(runtimeFlag & RUNTIME_STYLE_TO_CSS)) {
+      runtimeFlag |= RUNTIME_STYLE_TO_CSS;
       js += STYLE_TO_CSS_JS;
     }
-    if (rc.mfs.size > 0 && !(runtimeJSFlag & RUNTIME_EVENT)) {
-      runtimeJSFlag |= RUNTIME_EVENT;
+    if (rc.mfs.size > 0 && !(runtimeFlag & RUNTIME_EVENT)) {
+      runtimeFlag |= RUNTIME_EVENT;
       js += EVENT_JS;
     }
-    if ((signals.store.size > 0 || signals.effects.length > 0) && !(runtimeJSFlag & RUNTIME_SIGNALS)) {
-      runtimeJSFlag |= RUNTIME_SIGNALS;
+    if ((signals.store.size > 0 || signals.effects.length > 0) && !(runtimeFlag & RUNTIME_SIGNALS)) {
+      runtimeFlag |= RUNTIME_SIGNALS;
       js += SIGNALS_JS;
     }
-    if (suspenses.length > 0 && !(runtimeJSFlag & RUNTIME_SUSPENSE)) {
-      runtimeJSFlag |= RUNTIME_SUSPENSE;
+    if (suspenses.length > 0 && !(runtimeFlag & RUNTIME_SUSPENSE)) {
+      runtimeFlag |= RUNTIME_SUSPENSE;
       js += SUSPENSE_JS;
     }
-    if ((rc.flags.runtimeJS & RUNTIME_LAZY) && !(runtimeJSFlag & RUNTIME_LAZY)) {
-      runtimeJSFlag |= RUNTIME_LAZY;
+    if ((rc.flags.runtime & RUNTIME_LAZY) && !(runtimeFlag & RUNTIME_LAZY)) {
+      runtimeFlag |= RUNTIME_LAZY;
       js += LAZY_JS;
     }
-    if ((rc.flags.runtimeJS & RUNTIME_ROUTER) && !(runtimeJSFlag & RUNTIME_ROUTER)) {
-      runtimeJSFlag |= RUNTIME_ROUTER;
+    if ((rc.flags.runtime & RUNTIME_ROUTER) && !(runtimeFlag & RUNTIME_ROUTER)) {
+      runtimeFlag |= RUNTIME_ROUTER;
       js += ROUTER_JS;
     }
     if (js.length > 0) {
       js = "(()=>{" + js + "})();/* --- */";
-      js += "window.$runtimeJSFlag=" + runtimeJSFlag + ";";
+      js += "window.$runtimeFlag=" + runtimeFlag + ";";
     }
-    if (runtimeJSFlag & RUNTIME_LAZY || runtimeJSFlag & RUNTIME_ROUTER) {
+    if (runtimeFlag & RUNTIME_LAZY || runtimeFlag & RUNTIME_ROUTER) {
       js += "window.$scopeSeq=" + rc.flags.scope + ";";
     }
     if (rc.mfs.size > 0) {
@@ -335,10 +335,10 @@ async function render(
       await finalize();
     }
   };
-  let runtimeJSFlag = 0;
+  let runtimeFlag = 0;
   if (componentMode && request) {
     rc.flags.scope = Number(request.headers.get("x-scope-seq")) || 0;
-    runtimeJSFlag = Number(request.headers.get("x-runtimejs-flag")) || 0;
+    runtimeFlag = Number(request.headers.get("x-runtime-flag")) || 0;
   }
   await renderNode(rc, node as ChildType);
   if (rc.flags.scope > 0 && !componentMode) {
@@ -531,7 +531,7 @@ async function renderNode(rc: RenderContext, node: ChildType, stripSlotProp?: bo
               buf += "<m-group>" + attrModifiers + "</m-group>";
             }
             write(buf);
-            rc.flags.runtimeJS |= RUNTIME_LAZY;
+            rc.flags.runtime |= RUNTIME_LAZY;
             break;
           }
 
@@ -559,7 +559,7 @@ async function renderNode(rc: RenderContext, node: ChildType, stripSlotProp?: bo
             }
             buf += "</m-router>";
             write(buf);
-            rc.flags.runtimeJS |= RUNTIME_ROUTER;
+            rc.flags.runtime |= RUNTIME_ROUTER;
             break;
           }
 
@@ -643,9 +643,9 @@ function renderAttr(
     }
     if (signal) {
       if (attrName === "class") {
-        rc.flags.runtimeJS |= RUNTIME_CX;
+        rc.flags.runtime |= RUNTIME_CX;
       } else if (attrName === "style") {
-        rc.flags.runtimeJS |= RUNTIME_STYLE_TO_CSS;
+        rc.flags.runtime |= RUNTIME_STYLE_TO_CSS;
       }
       signalValue = signal;
       attrValue = signal[$signal].value;

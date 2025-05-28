@@ -772,7 +772,7 @@ Deno.test("[runtime] ref callback", sanitizeFalse, async () => {
   await page.close();
 });
 
-Deno.test("[runtime] htmx integration", { ...sanitizeFalse, ignore: true }, async () => {
+Deno.test("[runtime] htmx integration", { ...sanitizeFalse, ignore: false }, async () => {
   const testPageUrl = addTestPage(
     <button type="button" hx-post="/clicked" hx-swap="outerHTML">
       Click Me
