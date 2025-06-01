@@ -124,21 +124,13 @@ if (import.meta.main) {
     ].join(eol),
   );
 
-  await Deno.writeTextFile(
-    "./version.ts",
-    `export const VERSION = "${pkgJson.version}";` + eol,
-  );
-
   for (const moduleName of ["index", "jsx-runtime", "setup"]) {
     const { size } = await buildPackageModule(moduleName, "esm");
     console.log(`· ${moduleName}.mjs %c(${formatBytes(size)})`, "color:grey");
   }
 
-  {
-    await Deno.copyFile("./runtime/index.ts", "./runtime/index.mjs");
-    const { size } = await Deno.lstat("./runtime/index.mjs");
-    console.log(`· runtime/index.mjs %c(${formatBytes(size)})`, "color:grey");
-  }
+  await Deno.writeTextFile("./version.ts", `export const VERSION = "${pkgJson.version}";` + eol);
+  await Deno.copyFile("./runtime/index.ts", "./runtime/index.mjs");
 
   await Deno.mkdir("./bin", { recursive: true });
   Deno.writeTextFile("./bin/mono-jsx", binJS, { mode: 0o755 });
