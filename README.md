@@ -150,11 +150,13 @@ mono-jsx supports [pseudo classes](https://developer.mozilla.org/en-US/docs/Web/
 ```tsx
 <a
   style={{
+    display: "inline-flex",
+    gap: "0.5em",
     color: "black",
     "::after": { content: "↩️" },
     ":hover": { textDecoration: "underline" },
     "@media (prefers-color-scheme: dark)": { color: "white" },
-    "& .icon": { width: "1em", height: "1em", marginRight: "0.5em" },
+    "& .icon": { width: "1em", height: "1em" },
   }}
 >
   <img class="icon" src="link.png" />
@@ -361,7 +363,7 @@ interface AppSignals {
 function Header(this: FC<{}, AppSignals>) {
   return (
     <header>
-      <h1 style={this.computed(() => ({ color: this.app.themeColor }))}>Welcome to mono-jsx!</h1>
+      <h1 style={{ color: this.app.themeColor }}>Welcome to mono-jsx!</h1>
     </header>
   )
 }
@@ -369,7 +371,7 @@ function Header(this: FC<{}, AppSignals>) {
 function Footer(this: FC<{}, AppSignals>) {
   return (
     <footer>
-      <p style={this.computed(() => ({ color: this.app.themeColor }))}>(c) 2025 mono-jsx.</p>
+      <p style={{ color: this.app.themeColor }}>(c) 2025 mono-jsx.</p>
     </footer>
   )
 }
@@ -919,7 +921,9 @@ async function Post(this: FC) {
   return (
     <article>
       <h2>{post.title}<h2>
-      <div>html`${post.content}`</div>
+      <section>
+        {html(post.content)}
+      </section>
     </article>
   )
 }

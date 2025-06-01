@@ -1,6 +1,6 @@
 import type { ChildType } from "./types/mono.d.ts";
 import type { FC, VNode } from "./types/jsx.d.ts";
-import type { FCModule, RenderOptions } from "./types/render.d.ts";
+import type { MaybeModule, RenderOptions } from "./types/render.d.ts";
 import { CX_JS, EVENT_JS, LAZY_JS, ROUTER_JS, SIGNALS_JS, STYLE_JS, SUSPENSE_JS } from "./runtime/index.ts";
 import { cx, escapeHTML, isObject, isString, NullProtoObj, styleToCSS, toHyphenCase } from "./runtime/utils.ts";
 import { $fragment, $html, $signal, $vnode } from "./symbols.ts";
@@ -16,7 +16,7 @@ interface RenderContext {
   eager?: boolean;
   context?: Record<string, unknown>;
   request?: Request;
-  routeFC?: FCModule;
+  routeFC?: MaybeModule<FC<any>>;
   fcCtx?: FCContext;
 }
 
@@ -104,14 +104,14 @@ export const JSX = {
   },
 };
 
-/** Renders a VNode to a `Response` object. */
+/** Renders a `<html>` element to a `Response` object. */
 export function renderHtml(node: VNode, options: RenderOptions): Response {
   const { request, routes, components, headers: headersInit } = options;
   const headers = new Headers();
   const reqHeaders = request?.headers;
   const componentHeader = reqHeaders?.get("x-component");
 
-  let routeFC: FCModule | undefined = request ? Reflect.get(request, "x-route") : undefined;
+  let routeFC: MaybeModule<FC<any>> | undefined = request ? Reflect.get(request, "x-route") : undefined;
   let component = componentHeader ? components?.[componentHeader] : null;
   let status = options.status;
 

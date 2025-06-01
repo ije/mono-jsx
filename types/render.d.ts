@@ -11,7 +11,7 @@ type HtmxExts = {
     | boolean;
 };
 
-export type FCModule = FC<any> | Promise<{ default: FC<any> }>;
+export type MaybeModule<T> = T | Promise<{ default: T }>;
 
 /**
  * Render options for the `render` function.
@@ -28,11 +28,11 @@ export interface RenderOptions extends Partial<HtmxExts> {
   /**
    * Components to be rendered by the `<lazy>` element.
    */
-  components?: Record<string, FCModule>;
+  components?: Record<string, MaybeModule<FC<any>>>;
   /**
    * Routes to be used by the `<router>` element.
    */
-  routes?: Record<string, FCModule>;
+  routes?: Record<string, MaybeModule<FC<any>>>;
   /**
    * Current `Request` object to be passed to components.
    */
