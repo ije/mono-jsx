@@ -1,6 +1,7 @@
 import type { ChildType } from "./types/mono.d.ts";
 import type { FC, VNode } from "./types/jsx.d.ts";
 import type { MaybeModule, RenderOptions } from "./types/render.d.ts";
+import { F_CX, F_EVENT, F_LAZY, F_ROUTER, F_SIGNALS, F_STYLE, F_SUSPENSE } from "./runtime/index.ts";
 import { CX_JS, EVENT_JS, LAZY_JS, ROUTER_JS, SIGNALS_JS, STYLE_JS, SUSPENSE_JS } from "./runtime/index.ts";
 import { cx, escapeHTML, isObject, isString, NullProtoObj, styleToCSS, toHyphenCase } from "./runtime/utils.ts";
 import { $fragment, $html, $signal, $vnode } from "./symbols.ts";
@@ -58,15 +59,6 @@ interface Compute {
   readonly compute: (() => unknown) | string;
   readonly deps: Set<string>;
 }
-
-// runtime JS flags
-const RUNTIME_CX = 1;
-const RUNTIME_STYLE = 2;
-const RUNTIME_EVENT = 4;
-const RUNTIME_SIGNALS = 8;
-const RUNTIME_SUSPENSE = 16;
-const RUNTIME_LAZY = 32;
-const RUNTIME_ROUTER = 64;
 
 const cdn = "https://raw.esm.sh"; // the cdn for loading htmx and its extensions
 const encoder = new TextEncoder();
@@ -256,38 +248,38 @@ async function render(
   // it may be called recursively when thare are unresolved suspenses
   const finalize = async () => {
     let js = "";
-    if ((rc.flags.runtime & RUNTIME_CX) && !(runtimeFlag & RUNTIME_CX)) {
-      runtimeFlag |= RUNTIME_CX;
+    if ((rc.flags.runtime & F_CX) && !(runtimeFlag & F_CX)) {
+      runtimeFlag |= F_CX;
       js += CX_JS;
     }
-    if ((rc.flags.runtime & RUNTIME_STYLE) && !(runtimeFlag & RUNTIME_STYLE)) {
-      runtimeFlag |= RUNTIME_STYLE;
+    if ((rc.flags.runtime & F_STYLE) && !(runtimeFlag & F_STYLE)) {
+      runtimeFlag |= F_STYLE;
       js += STYLE_JS;
     }
-    if (rc.mfs.size > 0 && !(runtimeFlag & RUNTIME_EVENT)) {
-      runtimeFlag |= RUNTIME_EVENT;
+    if (rc.mfs.size > 0 && !(runtimeFlag & F_EVENT)) {
+      runtimeFlag |= F_EVENT;
       js += EVENT_JS;
     }
-    if ((signals.store.size > 0 || rc.mcs.size > 0 || signals.effects.length > 0) && !(runtimeFlag & RUNTIME_SIGNALS)) {
-      runtimeFlag |= RUNTIME_SIGNALS;
+    if ((signals.store.size > 0 || rc.mcs.size > 0 || signals.effects.length > 0) && !(runtimeFlag & F_SIGNALS)) {
+      runtimeFlag |= F_SIGNALS;
       js += SIGNALS_JS;
     }
-    if (suspenses.length > 0 && !(runtimeFlag & RUNTIME_SUSPENSE)) {
-      runtimeFlag |= RUNTIME_SUSPENSE;
+    if (suspenses.length > 0 && !(runtimeFlag & F_SUSPENSE)) {
+      runtimeFlag |= F_SUSPENSE;
       js += SUSPENSE_JS;
     }
-    if ((rc.flags.runtime & RUNTIME_LAZY) && !(runtimeFlag & RUNTIME_LAZY)) {
-      runtimeFlag |= RUNTIME_LAZY;
+    if ((rc.flags.runtime & F_LAZY) && !(runtimeFlag & F_LAZY)) {
+      runtimeFlag |= F_LAZY;
       js += LAZY_JS;
     }
-    if ((rc.flags.runtime & RUNTIME_ROUTER) && !(runtimeFlag & RUNTIME_ROUTER)) {
-      runtimeFlag |= RUNTIME_ROUTER;
+    if ((rc.flags.runtime & F_ROUTER) && !(runtimeFlag & F_ROUTER)) {
+      runtimeFlag |= F_ROUTER;
       js += ROUTER_JS;
     }
     if (js.length > 0) {
       js = "(()=>{" + js + "})();/* --- */window.$runtimeFlag=" + runtimeFlag + ";";
     }
-    if (runtimeFlag & RUNTIME_LAZY || runtimeFlag & RUNTIME_ROUTER) {
+    if (runtimeFlag & F_LAZY || runtimeFlag & F_ROUTER) {
       js += "window.$scopeSeq=" + rc.flags.scope + ";";
     }
     if (rc.mfs.size > 0) {
@@ -518,7 +510,7 @@ async function renderNode(rc: RenderContext, node: ChildType, stripSlotProp?: bo
               buf += "<m-group>" + attrModifiers + "</m-group>";
             }
             write(buf);
-            rc.flags.runtime |= RUNTIME_LAZY;
+            rc.flags.runtime |= F_LAZY;
             break;
           }
 
@@ -546,7 +538,7 @@ async function renderNode(rc: RenderContext, node: ChildType, stripSlotProp?: bo
             }
             buf += "</m-router>";
             write(buf);
-            rc.flags.runtime |= RUNTIME_ROUTER;
+            rc.flags.runtime |= F_ROUTER;
             break;
           }
 
@@ -630,9 +622,9 @@ function renderAttr(
     }
     if (signal) {
       if (attrName === "class") {
-        rc.flags.runtime |= RUNTIME_CX;
+        rc.flags.runtime |= F_CX;
       } else if (attrName === "style") {
-        rc.flags.runtime |= RUNTIME_STYLE;
+        rc.flags.runtime |= F_STYLE;
       }
       signalValue = signal;
       attrValue = signal[$signal].value;
