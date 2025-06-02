@@ -91,20 +91,20 @@ export interface AsyncComponentAttributes {
 
 export interface Elements {
   /**
-   * The `toggle` element is a builtin element that toggles the visibility of its children.
+   * The `toggle` element is a built-in element that toggles the visibility of its children.
    */
   toggle: BaseAttributes & {
     show?: boolean | 0 | 1;
   };
   /**
-   * The `switch` element is a builtin element that chooses one of its children based on the `slot` attribute to display.
+   * The `switch` element is a built-in element that chooses one of its children based on the `slot` attribute to display.
    * It is similar to a switch statement in programming languages.
    */
   switch: BaseAttributes & {
     value?: string | number | boolean | null;
   };
   /**
-   * The `component` element is a builtin element that is used to load components lazily,
+   * The `component` element is a built-in element that is used to load components lazily,
    * which can improve performance by reducing the initial load time of the application.
    */
   component: BaseAttributes & AsyncComponentAttributes & {
@@ -112,7 +112,7 @@ export interface Elements {
     props?: Record<string, unknown>;
   };
   /**
-   * The `router` element is a builtin element that implements client-side routing.
+   * The `router` element is a built-in element that implements client-side routing.
    */
   router: BaseAttributes & AsyncComponentAttributes & {};
 }
@@ -150,6 +150,10 @@ declare global {
      */
     readonly refs: Record<string, HTMLElement | null>;
     /**
+     * `this.$(fn)` is just a shortcut for `this.computed(fn)`.
+     */
+    readonly $: <T = unknown>(fn: () => T) => T;
+    /**
      * The `computed` method is used to create a computed signal.
      */
     readonly computed: <T = unknown>(fn: () => T) => T;
@@ -158,5 +162,5 @@ declare global {
      * **The effect function is only called on client side.**
      */
     readonly effect: (fn: () => void | (() => void)) => void;
-  } & Omit<Signals, "app" | "context" | "request" | "computed" | "effect">;
+  } & Omit<Signals, "app" | "context" | "request" | "$" | "computed" | "effect">;
 }

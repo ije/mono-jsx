@@ -883,6 +883,7 @@ function createSignals(
           return request;
         case "refs":
           return refs;
+        case "$":
         case "computed":
           return computed;
         case "effect":
