@@ -120,7 +120,6 @@ if (import.meta.main) {
         console.log(`· *${name} %c(${formatBytes(js.length)})`, "color:grey");
         return comment + eol + `export const ${exportName} = ${stringLit(js)};` + eol;
       }),
-      "",
     ].join(eol),
   );
 

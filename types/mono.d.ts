@@ -130,17 +130,17 @@ declare global {
    */
   type FC<Signals = {}, AppSignals = {}, Context = {}> = {
     /**
-     * Application signals.
+     * The global signals shared across the application.
      */
     readonly app: AppSignals;
     /**
-     * Rendering context.
+     * The rendering context.
      *
      * **⚠ This is a server-side only API.**
      */
     readonly context: Context;
     /**
-     * Current request object.
+     * The `request` object contains the current request information.
      *
      * **⚠ This is a server-side only API.**
      */
@@ -150,17 +150,17 @@ declare global {
      */
     readonly refs: Record<string, HTMLElement | null>;
     /**
-     * `this.$(fn)` is just a shortcut for `this.computed(fn)`.
-     */
-    readonly $: <T = unknown>(fn: () => T) => T;
-    /**
      * The `computed` method is used to create a computed signal.
      */
     readonly computed: <T = unknown>(fn: () => T) => T;
+    /**
+     * `this.$(fn)` is just a shortcut for `this.computed(fn)`.
+     */
+    readonly $: <T = unknown>(fn: () => T) => T;
     /**
      * The `effect` method is used to create a side effect.
      * **The effect function is only called on client side.**
      */
     readonly effect: (fn: () => void | (() => void)) => void;
-  } & Omit<Signals, "app" | "context" | "request" | "$" | "computed" | "effect">;
+  } & Omit<Signals, "app" | "context" | "request" | "refs" | "computed" | "$" | "effect">;
 }

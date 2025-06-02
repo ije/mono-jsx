@@ -883,8 +883,8 @@ function createSignals(
           return request;
         case "refs":
           return refs;
-        case "$":
         case "computed":
+        case "$":
           return computed;
         case "effect":
           return (effect: CallableFunction) => {
