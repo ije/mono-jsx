@@ -838,7 +838,7 @@ export default {
 }
 ```
 
-## Using Router(SPA)
+## Using Router(SPA Mode)
 
 mono-jsx provides a built-in `<router>` element that allows your app to render components based on the current URL. On client side, it listens all `click` events on `<a>` elements and asynchronously fetches the route component without reloading the entire page.
 
@@ -855,13 +855,11 @@ const routes = {
 export default {
   fetch: (req) => (
     <html request={req} routes={routes}>
-      <header>
-        <nav>
-          <a href="/">Home</a>
-          <a href="/about">About</a>
-          <a href="/blog">Blog</a>
-        </nav>
-      </header>
+      <nav>
+        <a href="/">Home</a>
+        <a href="/about">About</a>
+        <a href="/blog">Blog</a>
+      </nav>
       <router />
     </html>
   )
@@ -874,12 +872,10 @@ mono-jsx router requires [URLPattern](https://developer.mozilla.org/en-US/docs/W
 - ✅ Cloudflare Workers
 - ✅ Nodejs (>= 24)
 
-For Bun users, mono-jsx provides a `monoRoutes` function that uses Bun's built-in routing:
+For Bun users, mono-jsx provides a `createRoutes` function that uses Bun's built-in server routing:
 
 ```tsx
-// bun app.tsx
-
-import { monoRoutes } from "mono-jsx"
+import { createRoutes } from "mono-jsx"
 
 const routes = {
   "/": Home,
@@ -888,13 +884,18 @@ const routes = {
   "/post/:id": Post,
 }
 
-export default {
-  routes: monoRoutes(routes, (request) => (
-    <html request={request}>
+Bun.serve({
+  routes: createRoutes((req) => (
+    <html request={req} routes={routes}>
+      <nav>
+        <a href="/">Home</a>
+        <a href="/about">About</a>
+        <a href="/blog">Blog</a>
+      </nav>
       <router />
     </html>
   ))
-}
+})
 ```
 
 ### Using Route `params`
@@ -908,6 +909,45 @@ You can access the `params` object in your route components to get the values of
 function Post(this: FC) {
   this.request.url         // "http://localhost:3000/post/123"
   this.request.params?.id  // "123"
+}
+```
+
+### Navigation between Pages
+
+To navigate between pages, you can use `<a>` elements with `href` attributes that match the defined routes. The router will intercept the click events of these links and fetch the corresponding route component without reloading the page:
+
+```tsx
+function App() {
+  export default {
+  fetch: (req) => (
+    <html request={req} routes={routes}>
+      <nav>
+        <a href="/">Home</a>
+        <a href="/about">About</a>
+        <a href="/blog">Blog</a>
+      </nav>
+      <router />
+    </html>
+  )
+}
+```
+
+### Nav Links
+
+Links under the `<nav>` element will be treated as navigation links by the router. When the `href` of a nav link matches a route, a active class will be added to the link element. By default, the active class is `active`, but you can customize it by setting the `data-active-class` attribute on the `<nav>` element. You can add style for the active link using nested CSS selectors in the `style` attribute of the `<nav>` element.
+
+```tsx
+export default {
+  fetch: (req) => (
+    <html request={req} routes={routes}>
+      <nav style={{ "& a.active": { fontWeight: "bold" } }} data-active-class="active">
+        <a href="/">Home</a>
+        <a href="/about">About</a>
+        <a href="/blog">Blog</a>
+      </nav>
+      <router />
+    </html>
+  )
 }
 ```
 
@@ -925,27 +965,6 @@ async function Post(this: FC) {
         {html(post.content)}
       </section>
     </article>
-  )
-}
-```
-
-### Nav Links
-
-Links under the `<nav>` element will be treated as navigation links by the router. When the `href` of a nav link matches a route, a active class will be added to the link element. By default, the active class is `active`, but you can customize it by setting the `data-active-class` attribute on the `<nav>` element. You can add style for the active link using nested CSS selectors in the `style` attribute of the `<nav>` element.
-
-```tsx
-export default {
-  fetch: (req) => (
-    <html request={req} routes={routes}>
-      <header>
-        <nav style={{ "& a.active": { fontWeight: "bold" } }} data-active-class="active">
-          <a href="/">Home</a>
-          <a href="/about">About</a>
-          <a href="/blog">Blog</a>
-        </nav>
-      </header>
-      <router />
-    </html>
   )
 }
 ```
