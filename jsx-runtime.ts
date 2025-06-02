@@ -3,9 +3,9 @@ import { JSX, renderHtml } from "./render.ts";
 import { escapeHTML, isString, NullProtoObj } from "./runtime/utils.ts";
 import { $fragment, $html, $vnode } from "./symbols.ts";
 
-const Fragment = $fragment as unknown as FC;
+export const Fragment = $fragment as unknown as FC;
 
-const jsx = (tag: string | FC, props: Record<string, unknown> = new NullProtoObj(), key?: string | number): VNode => {
+export const jsx = (tag: string | FC, props: Record<string, unknown> = new NullProtoObj(), key?: string | number): VNode => {
   const vnode = new Array(3).fill(null);
   vnode[0] = tag;
   vnode[1] = props;
@@ -28,7 +28,7 @@ const jsx = (tag: string | FC, props: Record<string, unknown> = new NullProtoObj
   return vnode as unknown as VNode;
 };
 
-const jsxEscape = (value: unknown): string => {
+export const jsxEscape = (value: unknown): string => {
   if (value === null || value === undefined || typeof value === "boolean") {
     return "";
   }
@@ -38,7 +38,7 @@ const jsxEscape = (value: unknown): string => {
   return escapeHTML(String(value));
 };
 
-const html = (template: string | TemplateStringsArray, ...values: unknown[]): VNode => [
+export const html = (template: string | TemplateStringsArray, ...values: unknown[]): VNode => [
   $html,
   { innerHTML: isString(template) ? template : String.raw(template, ...values.map(jsxEscape)) },
   $vnode,
@@ -52,4 +52,4 @@ Object.assign(globalThis, {
   js: html,
 });
 
-export { Fragment, jsx, jsx as jsxDEV, jsx as jsxs };
+export { html as css, html as js, JSX, jsx as jsxDEV, jsx as jsxs };

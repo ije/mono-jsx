@@ -1,7 +1,8 @@
 import type { FC, VNode } from "./jsx.d.ts";
 
-export function jsx(tag: string | FC, props: Record<string, unknown>, key?: string | number): VNode;
+export const html: JSX.Raw;
+export const JSX: typeof globalThis.JSX;
+export const Fragment: (props: Record<string, unknown>) => VNode;
+export const jsx: (tag: string | FC, props: Record<string, unknown>, key?: string | number) => VNode;
 
-export function Fragment(props: Record<string, unknown>): VNode;
-
-export { jsx as jsxDEV, jsx as jsxs };
+export { html as css, html as js, jsx as jsxDEV, jsx as jsxs };
