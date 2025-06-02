@@ -374,6 +374,7 @@ export namespace HTML {
     imageSrcSet?: string;
     imageSizes?: string;
     referrerPolicy?: ReferrerPolicy;
+    rel?: string;
     sizes?: string;
     type?: string;
   }
