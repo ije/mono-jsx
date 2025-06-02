@@ -104,6 +104,12 @@ export interface Elements {
     value?: string | number | boolean | null;
   };
   /**
+   * The `for` element is a built-in element for list rendering with signals.
+   */
+  for: BaseAttributes & {
+    items?: unknown[];
+  };
+  /**
    * The `component` element is a built-in element that is used to load components lazily,
    * which can improve performance by reducing the initial load time of the application.
    */
