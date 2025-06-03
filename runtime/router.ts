@@ -117,9 +117,9 @@ customElements.define(
       removeEventListener("popstate", this.#onPopstate!);
       doc.removeEventListener("click", this.#onClick!);
       this.#ac?.abort();
-      this.#onPopstate = undefined;
-      this.#onClick = undefined;
       this.#ac = undefined;
+      this.#onClick = undefined;
+      this.#onPopstate = undefined;
     }
   },
 );

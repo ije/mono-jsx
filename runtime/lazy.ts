@@ -15,8 +15,8 @@ customElements.define(
     #name?: string;
     #props?: string | null;
     #placeholder?: ChildNode[];
-    #renderDelay?: number;
-    #renderAC?: AbortController;
+    #ac?: AbortController;
+    #timer?: number;
 
     async #render() {
       const headers = {
@@ -26,8 +26,8 @@ customElements.define(
         "x-scope-seq": "" + $scopeSeq,
       };
       const ac = new AbortController();
-      this.#renderAC?.abort();
-      this.#renderAC = ac;
+      this.#ac?.abort();
+      this.#ac = ac;
       replaceChildren(this, this.#placeholder!);
       const res = await fetch(location.href, { headers, signal: ac.signal });
       if (!res.ok) {
@@ -60,10 +60,10 @@ customElements.define(
 
     disconnectedCallback() {
       replaceChildren(this, this.#placeholder!);
-      this.#renderAC?.abort();
-      this.#renderDelay && clearTimeout(this.#renderDelay);
-      this.#renderAC = undefined;
-      this.#renderDelay = undefined;
+      this.#ac?.abort();
+      this.#ac = undefined;
+      this.#timer && clearTimeout(this.#timer);
+      this.#timer = undefined;
     }
 
     attributeChangedCallback(attrName: string, oldValue: string | null, newValue: string | null) {
@@ -73,11 +73,9 @@ customElements.define(
         } else if (attrName === "props") {
           this.#props = newValue;
         }
-        if (this.#renderDelay) {
-          clearTimeout(this.#renderDelay);
-        }
-        this.#renderDelay = setTimeout(() => {
-          this.#renderDelay = undefined;
+        this.#timer && clearTimeout(this.#timer);
+        this.#timer = setTimeout(() => {
+          this.#timer = undefined;
           this.#render();
         }, 20);
       }
