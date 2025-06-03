@@ -4,16 +4,16 @@ import type { RenderOptions } from "./types/render.d.ts";
 type ServerHandler = (req: Request) => Response;
 
 /**
- * `createRoutes` creates a routing map for bun server.
+ * `buildRoutes` creates a routing map for bun server.
  */
-export function createRoutes(handler: ServerHandler): Record<string, ServerHandler> {
+export function buildRoutes(handler: ServerHandler): Record<string, ServerHandler> {
   const { routes = {} } = handler(Symbol.for("mono.peek") as unknown as Request) as unknown as RenderOptions;
   return monoRoutes(routes, handler);
 }
 
 /**
  * `monoRoutes` creates a routing map for bun server.
- * @deprecated Use `createRoutes` instead.
+ * @deprecated Use `buildRoutes` instead.
  */
 export function monoRoutes(
   routes: Record<string, FC<any> | Promise<{ default: FC<any> }>>,

@@ -1,5 +1,5 @@
 import { assertEquals } from "jsr:@std/assert";
-import { createRoutes } from "../index.ts";
+import { buildRoutes } from "../index.ts";
 import { F_ROUTER, ROUTER_JS } from "../runtime/index.ts";
 import { VERSION } from "../version.ts";
 
@@ -12,13 +12,11 @@ Deno.test("[utils] create routes for bun server", async () => {
       return `Blog Post ${this.request.params?.id}`;
     },
   };
-  const bunRoutes = createRoutes((req: Request) => {
-    return (
-      <html request={req} routes={routes}>
-        <router></router>
-      </html>
-    );
-  });
+  const bunRoutes = buildRoutes((req: Request) => (
+    <html request={req} routes={routes}>
+      <router></router>
+    </html>
+  ));
   assertEquals(
     Object.keys(bunRoutes),
     ["/", "/about", "/blog", "/post/:id"],

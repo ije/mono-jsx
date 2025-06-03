@@ -872,10 +872,10 @@ mono-jsx router requires [URLPattern](https://developer.mozilla.org/en-US/docs/W
 - ✅ Cloudflare Workers
 - ✅ Nodejs (>= 24)
 
-For Bun users, mono-jsx provides a `createRoutes` function that uses Bun's built-in server routing:
+For Bun users, mono-jsx provides a `buildRoutes` function that uses Bun's built-in server routing:
 
 ```tsx
-import { createRoutes } from "mono-jsx"
+import { buildRoutes } from "mono-jsx"
 
 const routes = {
   "/": Home,
@@ -885,7 +885,7 @@ const routes = {
 }
 
 Bun.serve({
-  routes: createRoutes((req) => (
+  routes: buildRoutes((req) => (
     <html request={req} routes={routes}>
       <nav>
         <a href="/">Home</a>
