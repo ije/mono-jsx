@@ -1190,6 +1190,15 @@ Deno.test("[ssr] <toggle>", async () => {
     );
   }
 
+  function ToggleWithHiddenProp(this: FC<{ hidden: boolean }>, props: { hidden?: boolean }) {
+    this.hidden = !!props.hidden;
+    return (
+      <toggle hidden={this.hidden}>
+        <h1>👋</h1>
+      </toggle>
+    );
+  }
+
   assertEquals(
     await renderToString(<Toggle />),
     [
@@ -1226,6 +1235,48 @@ Deno.test("[ssr] <toggle>", async () => {
       `/* --- */`,
       `window.$runtimeFlag=${F_SIGNALS};`,
       `$MS("1:show",true);`,
+      `</script>`,
+    ].join(""),
+  );
+
+  assertEquals(
+    await renderToString(<ToggleWithHiddenProp />),
+    [
+      `<!DOCTYPE html>`,
+      `<html lang="en"><body>`,
+      `<m-signal mode="toggle" scope="1" computed="0">`,
+      `<h1>👋</h1>`,
+      `</m-signal>`,
+      `</body></html>`,
+      `<script data-mono-jsx="${VERSION}">`,
+      `(()=>{`,
+      SIGNALS_JS,
+      `})();`,
+      `/* --- */`,
+      `window.$runtimeFlag=${F_SIGNALS};`,
+      `$MS("1:hidden",false);`,
+      `$MC(0,function(){return(()=>!this["hidden"]).call(this)},["1:hidden"]);`,
+      `</script>`,
+    ].join(""),
+  );
+
+  assertEquals(
+    await renderToString(<ToggleWithHiddenProp hidden />),
+    [
+      `<!DOCTYPE html>`,
+      `<html lang="en"><body>`,
+      `<m-signal mode="toggle" scope="1" computed="0">`,
+      `<template m-slot><h1>👋</h1></template>`,
+      `</m-signal>`,
+      `</body></html>`,
+      `<script data-mono-jsx="${VERSION}">`,
+      `(()=>{`,
+      SIGNALS_JS,
+      `})();`,
+      `/* --- */`,
+      `window.$runtimeFlag=${F_SIGNALS};`,
+      `$MS("1:hidden",true);`,
+      `$MC(0,function(){return(()=>!this["hidden"]).call(this)},["1:hidden"]);`,
       `</script>`,
     ].join(""),
   );

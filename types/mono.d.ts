@@ -94,7 +94,8 @@ export interface Elements {
    * The `toggle` element is a built-in element that toggles the visibility of its children.
    */
   toggle: BaseAttributes & {
-    show?: boolean | 0 | 1;
+    show?: any;
+    hidden?: any;
   };
   /**
    * The `switch` element is a built-in element that chooses one of its children based on the `slot` attribute to display.

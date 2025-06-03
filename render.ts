@@ -397,8 +397,27 @@ async function renderNode(rc: RenderContext, node: ChildType, stripSlotProp?: bo
 
           // `<toggle>` element
           case "toggle": {
-            const { show, children } = props;
+            let { show, hidden, children } = props;
             if (children !== undefined) {
+              if (show === undefined && hidden !== undefined) {
+                if (isSignal(hidden)) {
+                  let { scope, key, value } = hidden[$signal];
+                  if (typeof key === "string") {
+                    key = {
+                      compute: "()=>!this[" + JSON.stringify(key) + "]",
+                      deps: new Set([scope + ":" + key]),
+                    };
+                  } else {
+                    key = {
+                      compute: "()=>!(" + key.compute + ")()",
+                      deps: key.deps,
+                    };
+                  }
+                  show = Signal(scope, key, !value);
+                } else {
+                  show = !hidden;
+                }
+              }
               if (isSignal(show)) {
                 const { scope, key, value } = show[$signal];
                 let buf = '<m-signal mode="toggle" scope="' + scope + '" ';
