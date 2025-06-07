@@ -45,19 +45,7 @@ async function buildPackageModule(name: string, format: "esm" | "cjs" = "esm") {
     target: "esnext",
     bundle: true,
     minify: false,
-    plugins: [{
-      name: "external",
-      setup(build: any) {
-        build.onResolve(
-          { filter: /^node:/ },
-          (args: { path: string }) => ({ path: args.path, external: true }),
-        );
-        build.onResolve(
-          { filter: /^\.\/runtime\/index\.ts$/ },
-          (args: { path: string }) => ({ path: args.path.replace(".ts", ".mjs"), external: true }),
-        );
-      },
-    }],
+    external: ["node:*"],
   });
   return await Deno.lstat(outfile);
 }
@@ -129,7 +117,6 @@ if (import.meta.main) {
   }
 
   await Deno.writeTextFile("./version.ts", `export const VERSION = "${pkgJson.version}";` + eol);
-  await Deno.copyFile("./runtime/index.ts", "./runtime/index.mjs");
 
   await Deno.mkdir("./bin", { recursive: true });
   Deno.writeTextFile("./bin/mono-jsx", binJS, { mode: 0o755 });
