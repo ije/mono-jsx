@@ -1,0 +1,243 @@
+:root {
+  --text-primary: #000;
+  --text-secondary: #666;
+  --text-muted: #999;
+  --bg-primary: #fff;
+  --bg-secondary: #f8f8f8;
+  --border-color: #e0e0e0;
+  --border-dark: #ccc;
+}
+* {
+  box-sizing: border-box;
+}
+
+body {
+  font-family: system-ui, -apple-system, sans-serif;
+  line-height: 1.6;
+  margin: 0;
+  padding: 0;
+  color: var(--text-primary);
+  background: var(--bg-primary);
+}
+
+h1, h2, h3, h4, h5, h6 {
+  margin: 0 0 1rem 0;
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+h1 { font-size: 1.8rem; }
+h2 { font-size: 1.5rem; }
+h3 { font-size: 1.2rem; }
+
+p {
+  margin: 0 0 1rem 0;
+  color: var(--text-secondary);
+}
+header {
+  border-bottom: 1px solid var(--border-color);
+  background: var(--bg-primary);
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+
+header nav {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+header nav ul {
+  display: flex;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  gap: 1rem;
+}
+
+header nav ul li {
+  margin: 0;
+}
+
+header nav a {
+  text-decoration: none;
+  color: var(--text-secondary);
+  padding: 0.5rem;
+  border-radius: 4px;
+  transition: color 0.2s;
+}
+
+header nav a:hover {
+  color: var(--text-primary);
+  background: var(--bg-secondary);
+}
+
+main {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 2rem 1rem;
+}
+
+article {
+  border: 1px solid var(--border-color);
+  padding: 1.5rem;
+  margin-bottom: 1.5rem;
+  background: var(--bg-primary);
+}
+
+article h2, article h3 {
+  margin-top: 0;
+}
+form {
+  max-width: 600px;
+  border: 1px solid var(--border-color);
+  padding: 1.5rem;
+  background: var(--bg-primary);
+}
+
+fieldset {
+  border: none;
+  padding: 0;
+  margin: 0;
+}
+
+label {
+  display: block;
+  margin-bottom: 0.5rem;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+input, textarea {
+  width: 100%;
+  padding: 0.75rem;
+  border: 1px solid var(--border-color);
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-family: inherit;
+  margin-bottom: 1rem;
+}
+
+input:focus, textarea:focus {
+  outline: 2px solid var(--text-primary);
+  outline-offset: -2px;
+}
+
+textarea {
+  resize: vertical;
+  min-height: 120px;
+}
+
+button {
+  background: var(--text-primary);
+  color: var(--bg-primary);
+  border: 1px solid var(--text-primary);
+  padding: 0.75rem 1.5rem;
+  cursor: pointer;
+  font-family: inherit;
+  font-weight: 500;
+}
+
+button:hover:not(:disabled) {
+  background: var(--text-secondary);
+  border-color: var(--text-secondary);
+}
+
+button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+button.outline {
+  background: transparent;
+  color: var(--text-primary);
+}
+
+button.outline:hover {
+  background: var(--bg-secondary);
+}
+
+ul {
+  padding-left: 1.5rem;
+}
+
+ul li {
+  margin-bottom: 0.5rem;
+  color: var(--text-secondary);
+}
+
+a {
+  color: var(--text-primary);
+  text-decoration: underline;
+}
+
+a:hover {
+  color: var(--text-secondary);
+}
+.loading {
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  border: 2px solid var(--border-color);
+  border-top-color: var(--text-primary);
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.htmx-indicator {
+  opacity: 0;
+  transition: opacity 0.3s;
+}
+
+.htmx-request .htmx-indicator,
+.htmx-request.htmx-indicator {
+  opacity: 1;
+}
+
+.success-message {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-dark);
+  padding: 1rem;
+  margin-bottom: 1rem;
+}
+
+.error-message {
+  background: var(--bg-secondary);
+  border: 1px solid var(--text-primary);
+  padding: 1rem;
+  margin-bottom: 1rem;
+}
+
+@media (min-width: 768px) {
+  header nav {
+    padding: 1rem 2rem;
+  }
+  
+  header nav ul {
+    gap: 2rem;
+  }
+  
+  main {
+    padding: 3rem 2rem;
+  }
+  
+  h1 { font-size: 2.5rem; }
+  h2 { font-size: 2rem; }
+  h3 { font-size: 1.5rem; }
+  
+  article {
+    padding: 2rem;
+  }
+  
+  form {
+    padding: 2rem;
+  }
+}
