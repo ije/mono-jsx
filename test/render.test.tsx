@@ -1003,8 +1003,8 @@ Deno.test("[ssr] this.effect", async () => {
 });
 
 Deno.test("[ssr] this.refs", async () => {
-  function App(this: FC) {
-    this.effect(() => console.log(this.refs.h1!.textContent));
+  function App(this: Refs<FC, { h1: HTMLElement }>) {
+    this.effect(() => console.log(this.refs.h1.textContent));
     return <h1 ref={this.refs.h1}>Welcome to mono-jsx!</h1>;
   }
 

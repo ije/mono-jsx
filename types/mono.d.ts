@@ -126,16 +126,21 @@ export interface Elements {
 
 declare global {
   /**
-   * The `html` function is used to create XSS-unsafe HTML elements.
+   * The `html` function is used to create XSS-unsafed HTML content.
    */
   var html: JSX.Raw;
-  var css: JSX.Raw;
-  var js: JSX.Raw;
-
   /**
-   * mono-jsx `this` object that is bound to the function component.
+   * The `css` function is an alias to `html`.
    */
-  type FC<Signals = {}, AppSignals = {}, Context = {}> = {
+  var css: JSX.Raw;
+  /**
+   * The `js` function is an alias to `html`.
+   */
+  var js: JSX.Raw;
+  /**
+   *  The `FC` type defines Signals/Context/Refs API.
+   */
+  type FC<Signals = {}, AppSignals = {}, Context = {}, Refs = {}> = {
     /**
      * The global signals shared across the application.
      */
@@ -153,15 +158,23 @@ declare global {
      */
     readonly request: Request & { params?: Record<string, string> };
     /**
-     * The `refs` object is used to store references to DOM elements.
+     * The `refs` object is used to store variables in clide side.
      */
-    readonly refs: Record<string, HTMLElement | null>;
+    readonly refs: Refs;
+    /**
+     * The `forIndex` funtion returns current for iter index.
+     */
+    readonly forIndex: () => number;
+    /**
+     * The `forItem` funtion returns current for iter item.
+     */
+    readonly forItem: <T = any>() => T;
     /**
      * The `computed` method is used to create a computed signal.
      */
     readonly computed: <T = unknown>(fn: () => T) => T;
     /**
-     * `this.$(fn)` is just a shortcut for `this.computed(fn)`.
+     * `this.$(fn)` is a shortcut for `this.computed(fn)`.
      */
     readonly $: <T = unknown>(fn: () => T) => T;
     /**
@@ -169,5 +182,9 @@ declare global {
      * **The effect function is only called on client side.**
      */
     readonly effect: (fn: () => void | (() => void)) => void;
-  } & Omit<Signals, "app" | "context" | "request" | "refs" | "computed" | "$" | "effect">;
+  } & Omit<Signals, "app" | "context" | "request" | "refs" | "forIndex" | "forItem" | "computed" | "$" | "effect">;
+  /**
+   *  The `Refs` defines the `refs` types.
+   */
+  type Refs<T, R = {}> = T extends FC<infer S, infer A, infer C> ? FC<S, A, C, R> : never;
 }
