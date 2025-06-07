@@ -14,6 +14,8 @@ mono-jsx is a JSX runtime that renders `<html>` element to `Response` object in 
 - 🥷 [htmx](#using-htmx) integration
 - 🌎 Universal, works in Node.js, Deno, Bun, Cloudflare Workers, etc.
 
+Playground: https://val.town/x/ije/mono-jsx
+
 ## Installation
 
 mono-jsx supports all modern JavaScript runtimes including Node.js, Deno, Bun, and Cloudflare Workers.
@@ -30,7 +32,7 @@ deno add npm:mono-jsx
 bun add mono-jsx
 ```
 
-## Setup JSX Runtime
+### Setup JSX Runtime
 
 To use mono-jsx as your JSX runtime, add the following configuration to your `tsconfig.json` (or `deno.json` for Deno):
 
@@ -41,12 +43,6 @@ To use mono-jsx as your JSX runtime, add the following configuration to your `ts
     "jsxImportSource": "mono-jsx"
   }
 }
-```
-
-Alternatively, you can use a pragma directive in your JSX file:
-
-```js
-/** @jsxImportSource mono-jsx */
 ```
 
 You can also run `mono-jsx setup` to automatically add the configuration to your project:
@@ -60,6 +56,18 @@ deno run -A npm:mono-jsx setup
 
 # Bun
 bunx mono-jsx setup
+```
+
+### Zero Setup Mode
+
+Alternatively, you can use a pragma directive without installtion mono-jsx(no package.json/node_modules), the runtime(deno/bun) automatically installs mono-jsx to your computer:
+
+```js
+// Deno, Valtown
+/** @jsxImportSource https://esm.sh/mono-jsx */
+
+// Bun
+/** @jsxImportSource mono-jsx */
 ```
 
 ## Usage
