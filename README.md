@@ -60,7 +60,7 @@ bunx mono-jsx setup
 
 ### Zero Configuration 
 
-Alternatively, you can use a pragma directive without installtion mono-jsx(no package.json/node_modules), the runtime(deno/bun) automatically installs mono-jsx to your computer:
+Alternatively, you can use `@jsxImportSource` pragma directive without installation mono-jsx(no package.json/tsconfig/node_modules), the runtime(deno/bun) automatically installs mono-jsx to your computer:
 
 ```js
 // Deno, Valtown
