@@ -426,6 +426,7 @@ export namespace HTML {
     charSet?: string;
     httpEquiv?: string;
     name?: string;
+    content?: string;
     media?: string;
   }
 
