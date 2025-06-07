@@ -58,7 +58,7 @@ deno run -A npm:mono-jsx setup
 bunx mono-jsx setup
 ```
 
-### Zero Setup Mode
+### Zero Configuration 
 
 Alternatively, you can use a pragma directive without installtion mono-jsx(no package.json/node_modules), the runtime(deno/bun) automatically installs mono-jsx to your computer:
 
