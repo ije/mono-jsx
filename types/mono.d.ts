@@ -187,4 +187,8 @@ declare global {
    *  The `Refs` defines the `refs` types.
    */
   type Refs<T, R = {}> = T extends FC<infer S, infer A, infer C> ? FC<S, A, C, R> : never;
+  /**
+   * The `Context` defines the `context` types.
+   */
+  type Context<T, C = {}> = T extends FC<infer S, infer A, infer _, infer R> ? FC<S, A, C, R> : never;
 }

@@ -1132,7 +1132,7 @@ Deno.test("[ssr] this.request", async () => {
 });
 
 Deno.test("[ssr] this.context", async () => {
-  function App(this: FC<{}, {}, { foo: string }>) {
+  function App(this: Context<FC, { foo: string }>) {
     const { context } = this;
     return (
       <div>
