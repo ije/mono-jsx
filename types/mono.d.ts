@@ -117,11 +117,18 @@ export interface Elements {
   component: BaseAttributes & AsyncComponentAttributes & {
     name: string;
     props?: Record<string, unknown>;
+    ref?: ComponentElement | ((el: ComponentElement) => void);
   };
   /**
    * The `router` element is a built-in element that implements client-side routing.
    */
-  router: BaseAttributes & AsyncComponentAttributes & {};
+  router: BaseAttributes & AsyncComponentAttributes & {
+    /**
+     * The `base` attribute is used to set the base URL for the router.
+     */
+    base?: string;
+    ref?: RouterElement | ((el: RouterElement) => void);
+  };
 }
 
 declare global {
@@ -144,7 +151,12 @@ declare global {
     /**
      * The global signals shared across the application.
      */
-    readonly app: AppSignals;
+    readonly app: {
+      /**
+       * The `url` object contains the current URL information.
+       */
+      readonly url: URL & { params?: Record<string, string> };
+    } & Omit<AppSignals, "url">;
     /**
      * The rendering context.
      *
@@ -156,19 +168,24 @@ declare global {
      *
      * **⚠ This is a server-side only API.**
      */
-    readonly request: Request & { params?: Record<string, string> };
+    readonly request: Request & { URL: URL; params?: Record<string, string> };
     /**
      * The `refs` object is used to store variables in clide side.
      */
     readonly refs: Refs;
     /**
-     * The `forIndex` funtion returns current for iter index.
+     * The `index` funtion returns current for iter index.
      */
-    readonly forIndex: () => number;
+    readonly index: number;
     /**
-     * The `forItem` funtion returns current for iter item.
+     * The `item` funtion returns current for iter item.
      */
-    readonly forItem: <T = any>() => T;
+    readonly item: any;
+    /**
+     * The `itemOf` funtion returns current for iter item type.
+     * It is used to infer the type of items in a for loop.
+     */
+    readonly itemOf: <T>() => T extends Array<infer E> ? E : never;
     /**
      * The `computed` method is used to create a computed signal.
      */
@@ -176,7 +193,7 @@ declare global {
     /**
      * `this.$(fn)` is a shortcut for `this.computed(fn)`.
      */
-    readonly $: <T = unknown>(fn: () => T) => T;
+    readonly $: FC["computed"];
     /**
      * The `effect` method is used to create a side effect.
      * **The effect function is only called on client side.**
@@ -191,4 +208,16 @@ declare global {
    * The `Context` defines the `context` types.
    */
   type Context<T, C = {}> = T extends FC<infer S, infer A, infer _, infer R> ? FC<S, A, C, R> : never;
+  /**
+   * The `Component` type defines the component element.
+   */
+  type ComponentElement = HTMLElement & {
+    refresh: () => Promise<void>;
+  };
+  /**
+   * The `Router` type defines the router element.
+   */
+  type RouterElement = HTMLElement & {
+    navigate: (url: string | URL, options?: { replace?: boolean }) => Promise<void>;
+  };
 }

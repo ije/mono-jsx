@@ -1,8 +1,3 @@
-declare global {
-  var $runtimeFlag: number;
-  var $scopeSeq: number;
-}
-
 const doc = document;
 const stripHash = (href: string) => href.split("#", 1)[0];
 
@@ -51,9 +46,21 @@ customElements.define(
       });
     }
 
-    #goto(href: string) {
-      this.#fetchPage(href);
+    async navigate(href: string, options?: { replace?: boolean }) {
+      const url = new URL(href, location.href);
+      if (url.origin !== location.origin) {
+        location.href = href;
+        return;
+      }
+      await this.#fetchPage(href);
       this.#updateNavLinks();
+      if (options?.replace) {
+        history.replaceState({}, "", href);
+      } else {
+        history.pushState({}, "", href);
+      }
+      // scroll to the top of the page after navigation
+      window.scrollTo(0, 0);
     }
 
     connectedCallback() {
@@ -96,17 +103,15 @@ customElements.define(
           return;
         }
 
-        // prevent the default action of the link
         e.preventDefault();
-
-        // update the url in the browser's address bar
-        history.pushState({}, "", href);
-
-        // fetch the new page and update the navigation links
-        this.#goto(href);
+        this.navigate(href);
       };
 
-      this.#onPopstate = () => this.#goto(location.href);
+      this.#onPopstate = () => {
+        this.#fetchPage(location.href).then(() => {
+          this.#updateNavLinks();
+        });
+      };
 
       addEventListener("popstate", this.#onPopstate);
       doc.addEventListener("click", this.#onClick);

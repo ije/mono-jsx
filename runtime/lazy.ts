@@ -73,12 +73,16 @@ customElements.define(
         } else if (attrName === "props") {
           this.#props = newValue;
         }
-        this.#timer && clearTimeout(this.#timer);
-        this.#timer = setTimeout(() => {
-          this.#timer = undefined;
-          this.#render();
-        }, 20);
+        this.refresh();
       }
+    }
+
+    refresh() {
+      this.#timer && clearTimeout(this.#timer);
+      this.#timer = setTimeout(() => {
+        this.#timer = undefined;
+        this.#render();
+      }, 50);
     }
   },
 );

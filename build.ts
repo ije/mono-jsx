@@ -16,10 +16,10 @@ async function buildRuntime(name: string): Promise<string> {
   return ret.outputFiles[0].text.trim();
 }
 
-async function buildRuntimeUtils(name: string): Promise<string> {
+async function buildFunction(filename: string, name: string): Promise<string> {
   const ret = await build({
     stdin: {
-      contents: `export { ${name} } from "./runtime/utils.ts";`,
+      contents: `export { ${name} } from "./runtime/${filename}";`,
       resolveDir: "./",
     },
     platform: "browser",
@@ -82,9 +82,13 @@ if (import.meta.main) {
     `w.$onsubmit=(e,f,s)=>{e.preventDefault();f.call(w.$signals?.(s)??e.target,new FormData(e.target),e)};`,
   ].join("");
   const runtimeJS = {
-    "cx.js": await buildRuntimeUtils("cx"),
-    "style.js": await buildRuntimeUtils("applyStyle"),
-    "event.js": eventJS,
+    "event.js": await Promise.resolve(eventJS),
+    "cx.js": await buildFunction("utils.ts", "cx"),
+    "style.js": await buildFunction("utils.ts", "applyStyle"),
+    "render_attr.js": await buildFunction("render.ts", "renderAttr"),
+    "render_toggle.js": await buildFunction("render.ts", "renderToggle"),
+    "render_switch.js": await buildFunction("render.ts", "renderSwitch"),
+    "render_list.js": await buildFunction("render.ts", "renderList"),
     "signals.js": await buildRuntime("signals"),
     "suspense.js": await buildRuntime("suspense"),
     "lazy.js": await buildRuntime("lazy"),
@@ -98,7 +102,7 @@ if (import.meta.main) {
       "",
       "// runtime flags",
       ...Object.entries(runtimeJS).map(([name], i) => {
-        const exportName = "F_" + name.replace(/([a-z])([A-Z])/g, "$1_$2").replace(".js", "").toUpperCase();
+        const exportName = name.replace(/([a-z])([A-Z])/g, "$1_$2").replace(".js", "").toUpperCase();
         return `export const ${exportName} = ` + (1 << i) + ";";
       }),
       "",

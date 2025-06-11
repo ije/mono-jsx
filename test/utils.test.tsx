@@ -1,6 +1,6 @@
 import { assertEquals } from "jsr:@std/assert";
 import { buildRoutes } from "../index.ts";
-import { F_ROUTER, ROUTER_JS } from "../runtime/index.ts";
+import { ROUTER, ROUTER_JS } from "../runtime/index.ts";
 import { VERSION } from "../version.ts";
 
 Deno.test("[utils] create routes for bun server", async () => {
@@ -35,7 +35,7 @@ Deno.test("[utils] create routes for bun server", async () => {
       ROUTER_JS,
       `})();`,
       `/* --- */`,
-      `window.$runtimeFlag=${F_ROUTER};`,
+      `window.$runtimeFlag=${ROUTER};`,
       `window.$scopeSeq=1;`,
       `</script>`,
     ].join(""),
@@ -54,7 +54,7 @@ Deno.test("[utils] create routes for bun server", async () => {
       ROUTER_JS,
       `})();`,
       `/* --- */`,
-      `window.$runtimeFlag=${F_ROUTER};`,
+      `window.$runtimeFlag=${ROUTER};`,
       `window.$scopeSeq=1;`,
       `</script>`,
     ].join(""),
@@ -73,7 +73,7 @@ Deno.test("[utils] create routes for bun server", async () => {
       ROUTER_JS,
       `})();`,
       `/* --- */`,
-      `window.$runtimeFlag=${F_ROUTER};`,
+      `window.$runtimeFlag=${ROUTER};`,
       `window.$scopeSeq=1;`,
       `</script>`,
     ].join(""),
@@ -92,7 +92,7 @@ Deno.test("[utils] create routes for bun server", async () => {
       ROUTER_JS,
       `})();`,
       `/* --- */`,
-      `window.$runtimeFlag=${F_ROUTER};`,
+      `window.$runtimeFlag=${ROUTER};`,
       `window.$scopeSeq=1;`,
       `</script>`,
     ].join(""),

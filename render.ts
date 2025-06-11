@@ -1,10 +1,12 @@
 import type { ChildType } from "./types/mono.d.ts";
 import type { FC, VNode } from "./types/jsx.d.ts";
 import type { MaybeModule, RenderOptions } from "./types/render.d.ts";
-import { F_CX, F_EVENT, F_LAZY, F_ROUTER, F_SIGNALS, F_STYLE, F_SUSPENSE } from "./runtime/index.ts";
+import { CX, EVENT, LAZY, ROUTER, SIGNALS, STYLE, SUSPENSE } from "./runtime/index.ts";
 import { CX_JS, EVENT_JS, LAZY_JS, ROUTER_JS, SIGNALS_JS, STYLE_JS, SUSPENSE_JS } from "./runtime/index.ts";
+import { RENDER_ATTR, RENDER_LIST, RENDER_SWITCH, RENDER_TOGGLE } from "./runtime/index.ts";
+import { RENDER_ATTR_JS, RENDER_LIST_JS, RENDER_SWITCH_JS, RENDER_TOGGLE_JS } from "./runtime/index.ts";
 import { cx, escapeHTML, isObject, isString, NullProtoObj, styleToCSS, toHyphenCase } from "./runtime/utils.ts";
-import { $fragment, $html, $signal, $vnode } from "./symbols.ts";
+import { $fragment, $html, $index, $item, $path, $signal, $vnode } from "./symbols.ts";
 import { VERSION } from "./version.ts";
 
 interface RenderContext {
@@ -25,6 +27,7 @@ interface FCContext {
   scopeId: number;
   signals: Record<symbol | string, unknown>;
   slots: Array<ChildType> | undefined;
+  forSignal: number;
 }
 
 interface Flags {
@@ -66,10 +69,12 @@ const customElements = new Map<string, FC>();
 const selfClosingTags = new Set("area,base,br,col,embed,hr,img,input,keygen,link,meta,param,source,track,wbr".split(","));
 const isVNode = (v: unknown): v is VNode => Array.isArray(v) && v.length === 3 && v[2] === $vnode;
 const isSignal = (v: unknown): v is Signal => isObject(v) && !!(v as any)[$signal];
+const isObjectStub = (v: unknown): v is { [$path]: string[] } => isObject(v) && !!((v as any)[$path]);
 const hashCode = (s: string) => [...s].reduce((hash, c) => (Math.imul(31, hash) + c.charCodeAt(0)) | 0, 0);
 const escapeCSSText = (str: string): string => str.replace(/[<>]/g, (m) => m.charCodeAt(0) === 60 ? "&lt;" : "&gt;");
 const toAttrStringLit = (str: string) => '"' + escapeHTML(str) + '"';
 const toStr = <T = string | number>(v: T | undefined, str: (v: T) => string) => v !== undefined ? str(v) : "";
+const toStrLit = JSON.stringify;
 
 // @internal
 class Ref {
@@ -98,7 +103,8 @@ export const JSX = {
 
 /** Renders a `<html>` element to a `Response` object. */
 export function renderHtml(node: VNode, options: RenderOptions): Response {
-  const { request, routes, components, headers: headersInit } = options;
+  const { routes, components } = options;
+  const request: Request & { URL?: URL; params?: Record<string, string> } | undefined = options.request;
   const headers = new Headers();
   const reqHeaders = request?.headers;
   const componentHeader = reqHeaders?.get("x-component");
@@ -107,6 +113,10 @@ export function renderHtml(node: VNode, options: RenderOptions): Response {
   let component = componentHeader ? components?.[componentHeader] : null;
   let status = options.status;
 
+  if (request) {
+    request.URL = new URL(request.url);
+  }
+
   if (routes && !routeFC) {
     if (request) {
       const patterns = Object.keys(routes);
@@ -114,7 +124,7 @@ export function renderHtml(node: VNode, options: RenderOptions): Response {
       for (const pattern of patterns) {
         if (pattern.includes(":") || pattern.includes("*")) {
           dynamicPatterns.push(pattern);
-        } else if (new URL(request.url).pathname === pattern) {
+        } else if (request.URL!.pathname === pattern) {
           routeFC = routes[pattern];
           break;
         }
@@ -124,7 +134,7 @@ export function renderHtml(node: VNode, options: RenderOptions): Response {
           const match = new URLPattern({ pathname: path }).exec(request.url);
           if (match) {
             routeFC = routes[path];
-            Object.assign(request, { params: match.pathname.groups });
+            request.params = match.pathname.groups as Record<string, string>;
             break;
           }
         }
@@ -141,8 +151,8 @@ export function renderHtml(node: VNode, options: RenderOptions): Response {
     console.warn("The `components` prop in the `<html>` element is ignored when `request` is not provided.");
   }
 
-  if (headersInit) {
-    for (const [key, value] of Object.entries(headersInit)) {
+  if (options.headers) {
+    for (const [key, value] of Object.entries(options.headers)) {
       if (value) {
         headers.set(toHyphenCase(key), value);
       }
@@ -173,9 +183,9 @@ export function renderHtml(node: VNode, options: RenderOptions): Response {
               (chunk) => js += chunk,
               true,
             );
-            let json = "[" + JSON.stringify(html);
+            let json = "[" + toStrLit(html);
             if (js) {
-              json += "," + JSON.stringify(js);
+              json += "," + toStrLit(js);
             }
             controller.enqueue(encoder.encode(json + "]"));
           } finally {
@@ -247,39 +257,31 @@ async function render(
   // finalize creates runtime JS for client
   // it may be called recursively when thare are unresolved suspenses
   const finalize = async () => {
+    const hasEffect = signals.effects.length > 0;
+    const treeshake = (flag: number, code: string, force?: boolean) => {
+      if ((force || rc.flags.runtime & flag) && !(runtimeFlag & flag)) {
+        runtimeFlag |= flag;
+        js += code;
+      }
+    };
     let js = "";
-    if ((rc.flags.runtime & F_CX) && !(runtimeFlag & F_CX)) {
-      runtimeFlag |= F_CX;
-      js += CX_JS;
+    treeshake(CX, CX_JS);
+    treeshake(STYLE, STYLE_JS);
+    treeshake(EVENT, EVENT_JS, rc.mfs.size > 0);
+    if ((signals.store.size > 0 || rc.mcs.size > 0 || hasEffect)) {
+      treeshake(RENDER_ATTR, RENDER_ATTR_JS);
+      treeshake(RENDER_TOGGLE, RENDER_TOGGLE_JS);
+      treeshake(RENDER_SWITCH, RENDER_SWITCH_JS);
+      treeshake(RENDER_LIST, RENDER_LIST_JS);
+      treeshake(SIGNALS, SIGNALS_JS, true);
     }
-    if ((rc.flags.runtime & F_STYLE) && !(runtimeFlag & F_STYLE)) {
-      runtimeFlag |= F_STYLE;
-      js += STYLE_JS;
-    }
-    if (rc.mfs.size > 0 && !(runtimeFlag & F_EVENT)) {
-      runtimeFlag |= F_EVENT;
-      js += EVENT_JS;
-    }
-    if ((signals.store.size > 0 || rc.mcs.size > 0 || signals.effects.length > 0) && !(runtimeFlag & F_SIGNALS)) {
-      runtimeFlag |= F_SIGNALS;
-      js += SIGNALS_JS;
-    }
-    if (suspenses.length > 0 && !(runtimeFlag & F_SUSPENSE)) {
-      runtimeFlag |= F_SUSPENSE;
-      js += SUSPENSE_JS;
-    }
-    if ((rc.flags.runtime & F_LAZY) && !(runtimeFlag & F_LAZY)) {
-      runtimeFlag |= F_LAZY;
-      js += LAZY_JS;
-    }
-    if ((rc.flags.runtime & F_ROUTER) && !(runtimeFlag & F_ROUTER)) {
-      runtimeFlag |= F_ROUTER;
-      js += ROUTER_JS;
-    }
+    treeshake(SUSPENSE, SUSPENSE_JS, suspenses.length > 0);
+    treeshake(LAZY, LAZY_JS);
+    treeshake(ROUTER, ROUTER_JS);
     if (js.length > 0) {
       js = "(()=>{" + js + "})();/* --- */window.$runtimeFlag=" + runtimeFlag + ";";
     }
-    if (runtimeFlag & F_LAZY || runtimeFlag & F_ROUTER) {
+    if ((runtimeFlag & LAZY) || (runtimeFlag & ROUTER)) {
       js += "window.$scopeSeq=" + rc.flags.scope + ";";
     }
     if (rc.mfs.size > 0) {
@@ -288,12 +290,19 @@ async function render(
       }
       rc.mfs.clear();
     }
-    if (signals.effects.length > 0) {
+    if (hasEffect) {
       js += signals.effects.splice(0, signals.effects.length).join("");
+    }
+    if ((runtimeFlag & ROUTER) && request && (rc.mcs.size > 0 || hasEffect)) {
+      const { params } = request as Request & { params?: Record<string, string> };
+      js += '$MS("0:url", Object.assign(new URL(' + toStrLit(request.url) + ")," + (params ? toStrLit(params) : "void 0")
+        + "));";
     }
     if (signals.store.size > 0) {
       for (const [key, value] of signals.store.entries()) {
-        js += "$MS(" + JSON.stringify(key) + (value !== undefined ? "," + JSON.stringify(value) : "") + ");";
+        if (key !== "0:url") {
+          js += "$MS(" + toStrLit(key) + (value !== undefined ? "," + toStrLit(value) : "") + ");";
+        }
       }
       signals.store.clear();
     }
@@ -301,7 +310,7 @@ async function render(
       for (const [mc, i] of rc.mcs.entries()) {
         const { compute, deps } = mc[$signal].key as Compute;
         js += "$MC(" + i + ",function(){return(" + compute.toString() + ").call(this)},"
-          + JSON.stringify([...deps.values()])
+          + toStrLit([...deps.values()])
           + ");";
       }
       rc.mcs.clear();
@@ -341,21 +350,25 @@ async function renderNode(rc: RenderContext, node: ChildType, stripSlotProp?: bo
       if (node === null) {
         // skip null
       } else if (isSignal(node)) {
-        const { scope, key, value } = node[$signal];
-        if (isString(key)) {
-          let buf = '<m-signal scope="' + scope + '" key=' + toAttrStringLit(key as string) + ">";
-          if (value !== undefined && value !== null) {
-            buf += escapeHTML(String(value));
+        renderSignal(rc, node, undefined, node[$signal].value);
+      } else if (isObjectStub(node)) {
+        const { fcCtx } = rc;
+        const path = node[$path];
+        if (fcCtx) {
+          let buffer = "";
+          if (fcCtx.forSignal) {
+            const item = fcCtx.signals[$item];
+            let value: any = item;
+            for (const key of path) {
+              value = value[key];
+            }
+            buffer = escapeHTML(String(value));
           }
-          buf += "</m-signal>";
-          write(buf);
-        } else {
-          let buf = '<m-signal scope="' + scope + '" computed="' + rc.mcs.gen(node) + '">';
-          if (value !== undefined) {
-            buf += escapeHTML(String(value));
+          if (~fcCtx.forSignal) {
+            write("<m-item :=" + toAttrStringLit("." + path.join(".")) + ">" + buffer + "</m-item>");
+          } else {
+            write(buffer);
           }
-          buf += "</m-signal>";
-          write(buf);
         }
       } else if (isVNode(node)) {
         const [tag, props] = node;
@@ -370,9 +383,32 @@ async function renderNode(rc: RenderContext, node: ChildType, stripSlotProp?: bo
 
           // XSS!
           case $html: {
-            if (props.innerHTML) {
-              write(props.innerHTML);
+            const { innerHTML } = props;
+            if (innerHTML) {
+              if (isSignal(innerHTML)) {
+                renderSignal(rc, innerHTML, "html", String(innerHTML[$signal].value), true);
+              } else {
+                write(innerHTML);
+              }
             }
+            break;
+          }
+
+          // for iter index
+          case $index: {
+            const { fcCtx } = rc;
+            if (fcCtx) {
+              let buffer = "";
+              if (fcCtx.forSignal) {
+                buffer = String(fcCtx.signals[$index]);
+              }
+              if (~fcCtx.forSignal) {
+                write("<m-index>" + buffer + "</m-index>");
+              } else {
+                write(buffer);
+              }
+            }
+
             break;
           }
 
@@ -404,7 +440,7 @@ async function renderNode(rc: RenderContext, node: ChildType, stripSlotProp?: bo
                   let { scope, key, value } = hidden[$signal];
                   if (typeof key === "string") {
                     key = {
-                      compute: "()=>!this[" + JSON.stringify(key) + "]",
+                      compute: "()=>!this[" + toStrLit(key) + "]",
                       deps: new Set([scope + ":" + key]),
                     };
                   } else {
@@ -429,6 +465,7 @@ async function renderNode(rc: RenderContext, node: ChildType, stripSlotProp?: bo
                 if (!value) {
                   buf += "<template m-slot>";
                 }
+                rc.flags.runtime |= RENDER_TOGGLE;
                 write(buf);
                 await renderChildren(rc, children);
                 write((!value ? "</template>" : "") + "</m-signal>");
@@ -454,6 +491,7 @@ async function renderNode(rc: RenderContext, node: ChildType, stripSlotProp?: bo
                 } else {
                   stateful += 'computed="' + rc.mcs.gen(valueProp) + '">';
                 }
+                rc.flags.runtime |= RENDER_SWITCH;
                 toSlotName = String(value);
               } else {
                 toSlotName = String(valueProp);
@@ -496,6 +534,57 @@ async function renderNode(rc: RenderContext, node: ChildType, stripSlotProp?: bo
             break;
           }
 
+          // `<for>` element
+          case "for": {
+            let { fcCtx } = rc;
+            let { items, children } = props;
+            let signal: Signal | undefined;
+            if (!children || !fcCtx) {
+              // nothing to render
+              break;
+            }
+            if (isSignal(items)) {
+              signal = items;
+              items = signal[$signal].value;
+              rc.flags.runtime |= RENDER_LIST;
+            }
+            if (Array.isArray(items)) {
+              if (signal) {
+                let template = "";
+                const len = items.length;
+                fcCtx.forSignal = len;
+                if (len === 0) {
+                  const write = (chunk: string) => {
+                    template += chunk;
+                  };
+                  write("<template m-slot>");
+                  await renderChildren({ ...rc, write }, children);
+                  write("</template>");
+                }
+                renderSignal(rc, signal, "list", template, true);
+                if (len > 0) {
+                  write("<!--[-->");
+                }
+              }
+              for (let i = 0; i < items.length; i++) {
+                fcCtx.signals[$index] = i;
+                fcCtx.signals[$item] = items[i];
+                if (signal && i > 0) {
+                  write("<!--,-->");
+                }
+                await renderChildren(rc, children);
+              }
+              if (signal && items.length > 0) {
+                write("<!--]-->");
+              }
+              // gc
+              fcCtx.signals[$index] = undefined;
+              fcCtx.signals[$item] = undefined;
+              fcCtx.forSignal = -1;
+            }
+            break;
+          }
+
           // `<component>` element
           case "component": {
             const { placeholder } = props;
@@ -505,15 +594,12 @@ async function renderNode(rc: RenderContext, node: ChildType, stripSlotProp?: bo
               let propValue = props[p];
               const [attr, , attrSignal] = renderAttr(rc, p, propValue);
               if (attrSignal) {
-                const { scope, key, value } = attrSignal[$signal];
-                attrModifiers += '<m-signal mode="[' + p + ']" scope="' + scope + '" ';
-                if (isString(key)) {
-                  attrModifiers += "key=" + toAttrStringLit(key);
-                } else {
-                  attrModifiers += 'computed="' + rc.mcs.gen(attrSignal) + '"';
-                }
-                attrModifiers += "></m-signal>";
-                propValue = value;
+                const write = (chunk: string) => {
+                  attrModifiers += chunk;
+                };
+                renderSignal({ ...rc, write }, attrSignal, [p]);
+                rc.flags.runtime |= RENDER_ATTR;
+                propValue = attrSignal[$signal].value;
               }
               attrs += attr;
             }
@@ -529,7 +615,7 @@ async function renderNode(rc: RenderContext, node: ChildType, stripSlotProp?: bo
               buf += "<m-group>" + attrModifiers + "</m-group>";
             }
             write(buf);
-            rc.flags.runtime |= F_LAZY;
+            rc.flags.runtime |= LAZY;
             break;
           }
 
@@ -557,7 +643,7 @@ async function renderNode(rc: RenderContext, node: ChildType, stripSlotProp?: bo
             }
             buf += "</m-router>";
             write(buf);
-            rc.flags.runtime |= F_ROUTER;
+            rc.flags.runtime |= ROUTER;
             break;
           }
 
@@ -586,14 +672,11 @@ async function renderNode(rc: RenderContext, node: ChildType, stripSlotProp?: bo
                   write(addonHtml);
                 }
                 if (signalValue) {
-                  const { scope, key } = signalValue[$signal];
-                  attrModifiers += "<m-signal mode=" + toAttrStringLit("[" + propName + "]") + ' scope="' + scope + '" ';
-                  if (isString(key)) {
-                    attrModifiers += "key=" + toAttrStringLit(key);
-                  } else {
-                    attrModifiers += 'computed="' + rc.mcs.gen(signalValue) + '"';
-                  }
-                  attrModifiers += "></m-signal>";
+                  const write = (chunk: string) => {
+                    attrModifiers += chunk;
+                  };
+                  renderSignal({ ...rc, write }, signalValue, [propName]);
+                  rc.flags.runtime |= RENDER_ATTR;
                 }
                 buffer += attr;
               }
@@ -623,6 +706,17 @@ async function renderNode(rc: RenderContext, node: ChildType, stripSlotProp?: bo
   }
 }
 
+// @internal
+async function renderChildren(rc: RenderContext, children: ChildType | ChildType[], stripSlotProp?: boolean) {
+  if (Array.isArray(children) && !isVNode(children)) {
+    for (const child of children) {
+      await renderNode(rc, child, stripSlotProp);
+    }
+  } else {
+    await renderNode(rc, children as ChildType, stripSlotProp);
+  }
+}
+
 function renderAttr(
   rc: RenderContext,
   attrName: string,
@@ -637,13 +731,37 @@ function renderAttr(
     if (isSignal(attrValue)) {
       signal = attrValue;
     } else {
-      signal = computedProps(rc, attrValue);
+      const { fcCtx } = rc;
+      if (fcCtx) {
+        const deps = new Set<string>();
+        const patches = [] as string[];
+        const staticProps = traverseProps(attrValue, (path, value) => {
+          const { scope, key } = value[$signal];
+          if (isString(key)) {
+            patches.push([
+              (scope !== fcCtx.scopeId ? "$signals(" + scope + ")" : "this") + "[" + toStrLit(key) + "]",
+              ...path,
+            ].join(","));
+            deps.add(scope + ":" + key);
+          } else {
+            patches.push(["(" + key.compute.toString() + ")(),", ...path].join(","));
+            for (const dep of key.deps) {
+              deps.add(dep);
+            }
+          }
+        });
+        if (patches.length > 0) {
+          const { scopeId } = fcCtx!;
+          const compute = "()=>$patch(" + toStrLit(staticProps) + ",[" + patches.join("],[") + "])";
+          signal = Signal(scopeId, { compute, deps }, staticProps);
+        }
+      }
     }
     if (signal) {
       if (attrName === "class") {
-        rc.flags.runtime |= F_CX;
+        rc.flags.runtime |= CX;
       } else if (attrName === "style") {
-        rc.flags.runtime |= F_STYLE;
+        rc.flags.runtime |= STYLE;
       }
       signalValue = signal;
       attrValue = signal[$signal].value;
@@ -672,7 +790,7 @@ function renderAttr(
       break;
     case "props":
       if (isObject(attrValue) && !Array.isArray(attrValue)) {
-        attr = ' props="base64,' + btoa(JSON.stringify(attrValue)) + '"';
+        attr = ' props="base64,' + btoa(toStrLit(attrValue)) + '"';
       }
       break;
     case "ref":
@@ -729,7 +847,7 @@ async function renderFC(rc: RenderContext, fc: FC, props: JSX.IntrinsicAttribute
   const slots: ChildType[] | undefined = children !== undefined
     ? (Array.isArray(children) ? (isVNode(children) ? [children as ChildType] : children) : [children])
     : undefined;
-  const fcCtx: FCContext = { scopeId, signals, slots };
+  const fcCtx: FCContext = { scopeId, signals, slots, forSignal: -1 };
   try {
     const v = fc.call(signals, props);
     if (isObject(v) && !isVNode(v)) {
@@ -801,7 +919,7 @@ async function renderFC(rc: RenderContext, fc: FC, props: JSX.IntrinsicAttribute
   } catch (err) {
     if (err instanceof Error) {
       if (props.catch) {
-        await renderNode(rc, props.catch(err));
+        await renderNode(rc, props.catch(err)).catch(() => {});
       } else {
         console.error(err);
         write('<pre style="color:red;font-size:1rem"><code>' + escapeHTML(err.message) + "</code></pre>");
@@ -811,14 +929,31 @@ async function renderFC(rc: RenderContext, fc: FC, props: JSX.IntrinsicAttribute
 }
 
 // @internal
-async function renderChildren(rc: RenderContext, children: ChildType | ChildType[], stripSlotProp?: boolean) {
-  if (Array.isArray(children) && !isVNode(children)) {
-    for (const child of children) {
-      await renderNode(rc, child, stripSlotProp);
+function renderSignal(
+  rc: RenderContext,
+  signal: Signal,
+  mode?: "toggle" | "switch" | "list" | "html" | [string],
+  content?: unknown,
+  html?: boolean,
+) {
+  const { scope, key } = signal[$signal];
+  let buffer = "<m-signal";
+  if (mode) {
+    buffer += ' mode="';
+    if (isString(mode)) {
+      buffer += mode;
+    } else {
+      buffer += "[" + mode[0] + "]";
     }
-  } else {
-    await renderNode(rc, children as ChildType, stripSlotProp);
+    buffer += '"';
   }
+  buffer += ' scope="' + scope + '"';
+  if (isString(key)) {
+    buffer += " key=" + toAttrStringLit(key);
+  } else {
+    buffer += ' computed="' + rc.mcs.gen(signal) + '"';
+  }
+  rc.write(buffer + ">" + (html ? content : escapeHTML(String(content ?? ""))) + "</m-signal>");
 }
 
 let collectDeps: ((scopeId: number, key: string) => void) | undefined;
@@ -858,11 +993,16 @@ function createSignals(
   scopeId: number,
   appSignals: Record<string, unknown> | null,
   context: Record<string, unknown> = new NullProtoObj(),
-  request?: Request,
+  request?: Request & { URL?: URL },
 ): Record<string, unknown> {
-  const store = new NullProtoObj();
+  const store = new NullProtoObj() as Record<string | symbol, unknown>;
   const signals = new Map<string, Signal>();
   const effects = [] as string[];
+  const refs = new Proxy(Object.create(null), {
+    get(_, key) {
+      return new Ref(scopeId, key as string);
+    },
+  });
   const computed = (compute: () => unknown): unknown => {
     const deps = new Set<string>();
     collectDeps = (scopeId, key) => deps.add(scopeId + ":" + key);
@@ -870,11 +1010,9 @@ function createSignals(
     collectDeps = undefined;
     return Signal(scopeId, { compute, deps }, value);
   };
-  const refs = new Proxy(new NullProtoObj(), {
-    get(_, key) {
-      return new Ref(scopeId, key as string);
-    },
-  });
+  const markEffect = (effect: CallableFunction) => {
+    effects.push(effect.toString());
+  };
   const mark = ({ signals, write }: RenderContext) => {
     if (effects.length > 0) {
       const n = effects.length;
@@ -905,38 +1043,50 @@ function createSignals(
         case "computed":
         case "$":
           return computed;
+        case "index":
+        case "item":
+          if (collectDeps) {
+            return Reflect.get(target, key === "item" ? $item : $index, receiver);
+          }
+          return key === "item" ? createObjectStub() : [$index, null, $vnode];
+        case "itemOf":
+          return () => thisProxy.item;
         case "effect":
-          return (effect: CallableFunction) => {
-            effects.push(effect.toString());
-          };
+          return markEffect;
         case Symbol.for("effects"):
           return effects;
         case Symbol.for("mark"):
           return mark;
-        default:
-          if (isString(key)) {
-            const value = Reflect.get(target, key, receiver);
-            if (value === undefined && !Reflect.has(target, key)) {
-              Reflect.set(target, key, undefined, receiver);
-            }
-            if (isSignal(value)) {
-              return value;
-            }
-            if (collectDeps) {
-              collectDeps(scopeId, key);
-              return value;
-            }
-            let signal = signals.get(key);
-            if (!signal) {
-              signal = Signal(scopeId, key, value);
-              signals.set(key, signal);
-            }
-            return signal;
+        case "url":
+          if (scopeId === 0) {
+            return request ? request.URL ?? (request.URL = new URL(request.url)) : undefined;
           }
+          // fallthrough
+        default: {
+          const value = Reflect.get(target, key, receiver);
+          if (typeof key === "symbol" || isSignal(value)) {
+            return value;
+          }
+          if (value === undefined && !Reflect.has(target, key)) {
+            Reflect.set(target, key, undefined, receiver);
+          }
+          if (collectDeps) {
+            collectDeps(scopeId, key);
+            return value;
+          }
+          let signal = signals.get(key);
+          if (!signal) {
+            signal = Signal(scopeId, key, value);
+            signals.set(key, signal);
+          }
+          return signal;
+        }
       }
     },
     set(target, key, value, receiver) {
-      signals.delete(key as string);
+      if (isString(key)) {
+        signals.delete(key);
+      }
       return Reflect.set(target, key, value, receiver);
     },
   });
@@ -944,33 +1094,12 @@ function createSignals(
 }
 
 // @internal
-function computedProps({ fcCtx }: RenderContext, props: Record<string, unknown> | Array<unknown>): Signal | undefined {
-  if (fcCtx) {
-    const deps = new Set<string>();
-    const patches = [] as string[];
-    const staticProps = traverseProps(props, (path, value) => {
-      const { scope, key } = value[$signal];
-      if (isString(key)) {
-        patches.push([(scope !== fcCtx.scopeId ? "$signals(" + scope + ")" : "this") + "[" + JSON.stringify(key) + "]", ...path].join(","));
-        deps.add(scope + ":" + key);
-      } else {
-        patches.push(["(" + key.compute.toString() + ")(),", ...path].join(","));
-        for (const dep of key.deps) {
-          deps.add(dep);
-        }
-      }
-    });
-    if (patches.length > 0) {
-      const { scopeId } = fcCtx!;
-      const compute = "()=>$patch(" + JSON.stringify(staticProps) + ",[" + patches.join("],[") + "])";
-      return Signal(scopeId, { compute, deps }, staticProps);
-    }
-  }
-  return undefined;
+function markSignals(rc: RenderContext, signals: Record<symbol, unknown>) {
+  (signals[Symbol.for("mark")] as ((rc: RenderContext) => void))(rc);
 }
 
 // @internal
-export function traverseProps(
+function traverseProps(
   obj: Record<string, unknown> | Array<unknown>,
   callback: (path: string[], signal: Signal) => void,
   path: string[] = [],
@@ -978,7 +1107,7 @@ export function traverseProps(
   const isArray = Array.isArray(obj);
   const copy: any = isArray ? new Array(obj.length) : new NullProtoObj();
   for (const [k, value] of Object.entries(obj)) {
-    const newPath = path.concat(isArray ? k : JSON.stringify(k));
+    const newPath = path.concat(isArray ? k : toStrLit(k));
     const key = isArray ? Number(k) : k;
     if (isObject(value)) {
       if (isSignal(value)) {
@@ -995,6 +1124,13 @@ export function traverseProps(
 }
 
 // @internal
-function markSignals(rc: RenderContext, signals: Record<symbol, unknown>) {
-  (signals[Symbol.for("mark")] as ((rc: RenderContext) => void))(rc);
+// e.g. createObjectStub().foo.bar[$path] === ["foo", "bar"]
+function createObjectStub(path: string[] = []) {
+  return new Proxy(Object.create(null), {
+    get(_target, prop) {
+      return typeof prop === "symbol" ? (prop === $path ? path : undefined) : createObjectStub(path.concat(prop));
+    },
+  });
 }
+
+export { isSignal };

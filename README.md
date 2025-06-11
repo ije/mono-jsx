@@ -619,7 +619,7 @@ mono-jsx binds a scoped signals object to `this` of your component functions. Th
 
 The `this` object has the following built-in properties:
 
-- `app`: The app signals defined on the root `<html>` element.
+- `app`: The app global signals..
 - `context`: The context defined on the root `<html>` element.
 - `request`: The request object from the `fetch` handler.
 - `refs`: A map of refs defined in the component.
@@ -627,11 +627,11 @@ The `this` object has the following built-in properties:
 - `effect`: A method to create side effects.
 
 ```ts
-type FC<Signals = {}, AppSignals = {}, Context = {}> = {
-  readonly app: AppSignals;
+type FC<Signals = {}, AppSignals = {}, Context = {}, Refs = {}> = {
+  readonly app: AppSignals & { url: URL }
   readonly context: Context;
-  readonly request: Request & { params?: Record<string, string> };
-  readonly refs: Record<string, HTMLElement | null>;
+  readonly request: Request & { URL: URL, params?: Record<string, string> };
+  readonly refs: Refs;
   readonly computed: <T = unknown>(fn: () => T) => T;
   readonly effect: (fn: () => void | (() => void)) => void;
 } & Omit<Signals, "app" | "context" | "request" | "computed" | "effect">;
@@ -646,7 +646,7 @@ See the [Using Signals](#using-signals) section for more details on how to use s
 You can use `this.refs` to access refs in your components. Define refs in your component using the `ref` attribute:
 
 ```tsx
-function App(this: FC) {
+function App(this: Refs<FC, { input: HTMLInputElement }>) {
   this.effect(() => {
     this.refs.input?.addEventListener("input", (evt) => {
       console.log("Input changed:", evt.target.value);
@@ -667,7 +667,7 @@ function App(this: FC) {
 You can use the `context` property in `this` to access context values in your components. The context is defined on the root `<html>` element:
 
 ```tsx
-function Dash(this: FC<{}, {}, { auth: { uuid: string; name: string } }>) {
+function Dash(this: Context<FC, { auth: { uuid: string; name: string } }>) {
   const { auth } = this.context;
   return (
     <div>
@@ -790,7 +790,7 @@ async function Lazy(this: FC<{ show: boolean }>, props: { url: string }) {
   this.show = false;
   return (
     <div>
-      <toggle value={this.show}>
+      <toggle show={this.show}>
         <component name="Foo" props={{ /* props for the component */ }} placeholder={<p>Loading...</p>} />
       </toggle>
      <button onClick={() => this.show = true }>Load `Foo` Component</button>

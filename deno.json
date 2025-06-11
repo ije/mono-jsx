@@ -26,6 +26,7 @@
         "no-explicit-any",
         "no-slow-types",
         "no-this-alias",
+        "no-window",
         "prefer-const"
       ]
     }

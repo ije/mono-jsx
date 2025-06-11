@@ -1,5 +1,5 @@
 import type { FC, VNode } from "./types/jsx.d.ts";
-import { JSX, renderHtml } from "./render.ts";
+import { isSignal, JSX, renderHtml } from "./render.ts";
 import { escapeHTML, isString, NullProtoObj } from "./runtime/utils.ts";
 import { $fragment, $html, $peek, $vnode } from "./symbols.ts";
 
@@ -44,7 +44,7 @@ export const jsxEscape = (value: unknown): string => {
 
 export const html = (template: string | TemplateStringsArray, ...values: unknown[]): VNode => [
   $html,
-  { innerHTML: isString(template) ? template : String.raw(template, ...values.map(jsxEscape)) },
+  { innerHTML: isString(template) || isSignal(template) ? template : String.raw(template, ...values.map(jsxEscape)) },
   $vnode,
 ];
 

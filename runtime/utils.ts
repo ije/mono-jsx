@@ -1,3 +1,8 @@
+declare global {
+  var $cx: (className: unknown) => string;
+  var $applyStyle: (el: Element, style: unknown) => void;
+}
+
 const regexpHtmlSafe = /["'&<>]/;
 const cssBareUnitProps = new Set(
   "animation-iteration-count,aspect-ratio,border-image-outset,border-image-slice,border-image-width,box-flex-group,box-flex,box-ordinal-group,column-count,columns,fill-opacity,flex-grow,flex-negative,flex-order,flex-positive,flex-shrink,flex,flood-opacity,font-weight,grid-area,grid-column-end,grid-column-span,grid-column-start,grid-column,grid-row-end,grid-row-span,grid-row-start,grid-row,line-clamp,line-height,opacity,order,orphans,stop-opacity,stroke-dasharray,stroke-dashoffset,stroke-miterlimit,stroke-opacity,stroke-width,tab-size,widows,z-index,zoom"
