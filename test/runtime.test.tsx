@@ -71,28 +71,8 @@ Deno.serve({ port: 8687, onListen: () => {} }, (request) => {
   );
 });
 
-function ForWithSignals2(this: FC<{ items: { value: string }[] }>, props: { items: { value: string }[] }) {
-  this.items = props.items;
-  return (
-    <ul>
-      <for items={this.items}>
-        <li>
-          {this.index}: {this.itemOf<typeof this.items>().value}
-        </li>
-      </for>
-      <li>
-        <button type="button" onClick={() => this.items = [...this.items, { value: String.fromCharCode(65 + this.items.length) }]}>
-          Add Item
-        </button>
-      </li>
-    </ul>
-  );
-}
-function App(this: FC<{}>) {
-  return <ForWithSignals2 items={[]} />;
-}
-console.log(addTestPage(<App />));
-await new Promise(() => {});
+// console.log(addTestPage(<App />));
+// await new Promise(() => {});
 
 const browser = await puppeteer.launch({
   executablePath: (await chrome()).executablePath,
