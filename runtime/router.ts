@@ -9,7 +9,7 @@ customElements.define(
     #onPopstate?: (e: PopStateEvent) => void;
     #ac?: AbortController;
 
-    async #fetchPage(href: string) {
+    async #fetchPage(href: string | URL) {
       const ac = new AbortController();
       const headers = {
         "x-route": "true",
@@ -46,10 +46,10 @@ customElements.define(
       });
     }
 
-    async navigate(href: string, options?: { replace?: boolean }) {
+    async navigate(href: string | URL, options?: { replace?: boolean }) {
       const url = new URL(href, location.href);
       if (url.origin !== location.origin) {
-        location.href = href;
+        location.href = url.href;
         return;
       }
       await this.#fetchPage(href);

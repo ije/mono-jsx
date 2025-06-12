@@ -1,7 +1,7 @@
 import type { FC, VNode } from "./types/jsx.d.ts";
 import { isSignal, JSX, renderHtml } from "./render.ts";
 import { escapeHTML, isString, NullProtoObj } from "./runtime/utils.ts";
-import { $fragment, $html, $peek, $vnode } from "./symbols.ts";
+import { $fragment, $html, $setup, $vnode } from "./symbols.ts";
 
 export const Fragment = $fragment as unknown as FC;
 
@@ -15,8 +15,8 @@ export const jsx = (tag: string | FC, props: Record<string, unknown> = new NullP
   }
   // if the tag name is `html`, render it to a `Response` object
   if (tag === "html") {
-    if (props.request as unknown === $peek) {
-      // return the props as is for peek request
+    if (props.request as unknown === $setup) {
+      // if the request is a 'setup' request, return the props as a VNode
       return props as unknown as VNode;
     }
     const renderOptions = new NullProtoObj();

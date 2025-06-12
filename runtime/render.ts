@@ -2,12 +2,7 @@ declare global {
   var $renderAttr: (el: Element, attrName: string, getter: () => unknown) => () => void;
   var $renderToggle: (el: Element, getter: () => unknown) => () => void;
   var $renderSwitch: (el: Element, getter: () => unknown) => () => void;
-  var $renderList: (signals: Signals, el: Element, getter: () => unknown) => () => void;
 }
-
-const cloneAll = (nodes: ChildNode[]) => nodes.map(node => node.cloneNode(true) as ChildNode);
-const removeAll = (nodes: ChildNode[]) => nodes.forEach(node => node.remove());
-const setAttr = (el: Element, attrName: string, value: string) => el.setAttribute(attrName, value);
 
 export const renderAttr = (el: Element, attrName: string, getter: () => unknown) => {
   let target: Element = el.parentElement!;
@@ -22,14 +17,14 @@ export const renderAttr = (el: Element, attrName: string, getter: () => unknown)
       typeof value === "object" && value !== null && (attrName === "class" || attrName === "style" || attrName === "props")
     ) {
       if (attrName === "class") {
-        setAttr(target, attrName, $cx(value));
+        target.setAttribute(attrName, $cx(value));
       } else if (attrName === "style") {
         $applyStyle(target, value);
       } else {
-        setAttr(target, attrName, JSON.stringify(value));
+        target.setAttribute(attrName, JSON.stringify(value));
       }
     } else {
-      setAttr(target, attrName, value === true ? "" : value as string);
+      target.setAttribute(attrName, value === true ? "" : value as string);
     }
   };
 };
@@ -80,82 +75,5 @@ export const renderSwitch = (el: Element, getter: () => unknown) => {
     }
     value = "" + getter();
     el.replaceChildren(...(slotsMap.has(value) ? slotsMap.get(value)! : unnamedSlots!));
-  };
-};
-
-export const renderList = (signals: Signals, el: Element, getter: () => unknown) => {
-  let cache: ChildNode[][] = [];
-  let view: ChildNode[][] | null = null;
-  let template: ChildNode[] | null = null;
-  return () => {
-    if (view === null) {
-      view = [];
-      let cur = el.nextSibling;
-      if (cur && cur.nodeType === 8 && (cur as Comment).textContent === "[") {
-        let nodes: ChildNode[] = [];
-        let comments: Comment[] = [cur as Comment];
-        while ((cur = cur.nextSibling)) {
-          if (cur.nodeType === 8) {
-            const { data } = cur as Comment;
-            if (data === "," || data === "]") {
-              comments.push(cur as Comment);
-              view.push(nodes);
-              nodes = [];
-              if (data === "]") {
-                break;
-              }
-            }
-          } else {
-            nodes.push(cur);
-          }
-        }
-        removeAll(comments);
-      }
-      cache = [...view];
-      const { firstElementChild } = el;
-      if (firstElementChild && firstElementChild.tagName === "TEMPLATE" && firstElementChild.hasAttribute("m-slot")) {
-        template = [...(firstElementChild as HTMLTemplateElement).content.childNodes];
-        firstElementChild.remove();
-      }
-    }
-    // flush
-    view.forEach(removeAll);
-    const items = getter();
-    if (Array.isArray(items)) {
-      view = new Array(items.length).fill(null);
-      for (let i = 0; i < items.length; i++) {
-        const item = items[i];
-        let nodes = cache[i];
-        if (!nodes) {
-          nodes = cloneAll(template ?? cache[0] ?? []);
-          cache[i] = nodes;
-        }
-        signals.$forIter(i, item);
-        nodes.forEach(node => {
-          if (node.nodeType === 1) {
-            (node as Element).querySelectorAll("m-index").forEach(indexEl => {
-              if (indexEl.textContent !== "" + i) {
-                indexEl.textContent = "" + i;
-              }
-            });
-            (node as Element).querySelectorAll("m-item").forEach(itemEl => {
-              const at = itemEl.getAttribute(":");
-              if (at?.startsWith(".")) {
-                let value = item;
-                for (const key of at.slice(1).split(".")) {
-                  value = value[key];
-                }
-                if (itemEl.textContent !== "" + value) {
-                  itemEl.textContent = "" + value;
-                }
-              }
-            });
-          }
-        });
-        view[i] = nodes;
-        el.before(...nodes);
-      }
-      signals.$forIter();
-    }
   };
 };

@@ -2,7 +2,6 @@ declare global {
   interface Signals {
     readonly $init: (key: string, value: unknown) => void;
     readonly $watch: (key: string, effect: () => void) => () => void;
-    readonly $forIter: (index?: number, item?: unknown) => void;
   }
 }
 
@@ -42,13 +41,6 @@ const createSignals = (scopeId: number): Signals => {
     get: (_target, prop: string) => document.querySelector("[data-ref='" + scopeId + ":" + prop + "']"),
   });
 
-  let forIndex: number | undefined;
-  let forItem: unknown;
-  let forIter = (index?: number, item?: unknown) => {
-    forIndex = index;
-    forItem = item;
-  };
-
   return new Proxy(store, {
     get: (target, prop: string, receiver) => {
       switch (prop) {
@@ -56,16 +48,10 @@ const createSignals = (scopeId: number): Signals => {
           return init;
         case "$watch":
           return watch;
-        case "$forIter":
-          return forIter;
         case "app":
           return Signals(0);
         case "refs":
           return refs;
-        case "index":
-          return forIndex;
-        case "item":
-          return forItem;
         default:
           collectDeps?.(scopeId, prop);
           return Reflect.get(target, prop, receiver);
@@ -84,14 +70,12 @@ const createSignals = (scopeId: number): Signals => {
   }) as Signals;
 };
 
-const createDomEffect = (signals: Signals, el: Element, mode: string | null, getter: () => unknown) => {
+const createDomEffect = (el: Element, mode: string | null, getter: () => unknown) => {
   switch (mode) {
     case "toggle":
       return $renderToggle(el, getter);
     case "switch":
       return $renderSwitch(el, getter);
-    case "list":
-      return $renderList(signals, el, getter);
     case "html":
       return () => el.innerHTML = "" + getter();
   }
@@ -134,11 +118,11 @@ defineElement("m-signal", (el) => {
   const signals = Signals(Number(getAttr(el, "scope")));
   const key = getAttr(el, "key");
   if (key) {
-    el.disposes.push(signals.$watch(key, createDomEffect(signals, el, getAttr(el, "mode"), () => (signals as any)[key])));
+    el.disposes.push(signals.$watch(key, createDomEffect(el, getAttr(el, "mode"), () => (signals as any)[key])));
   } else {
     const id = Number(getAttr(el, "computed"));
     defer(() => mcs.get(id)).then(([compute, deps]) => {
-      const effect = createDomEffect(signals, el, getAttr(el, "mode"), compute.bind(signals));
+      const effect = createDomEffect(el, getAttr(el, "mode"), compute.bind(signals));
       deps.forEach((dep) => {
         const [scope, key] = resolveSignalID(dep)!;
         el.disposes.push(Signals(scope).$watch(key, effect));

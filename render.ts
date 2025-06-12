@@ -3,10 +3,10 @@ import type { FC, VNode } from "./types/jsx.d.ts";
 import type { MaybeModule, RenderOptions } from "./types/render.d.ts";
 import { CX, EVENT, LAZY, ROUTER, SIGNALS, STYLE, SUSPENSE } from "./runtime/index.ts";
 import { CX_JS, EVENT_JS, LAZY_JS, ROUTER_JS, SIGNALS_JS, STYLE_JS, SUSPENSE_JS } from "./runtime/index.ts";
-import { RENDER_ATTR, RENDER_LIST, RENDER_SWITCH, RENDER_TOGGLE } from "./runtime/index.ts";
-import { RENDER_ATTR_JS, RENDER_LIST_JS, RENDER_SWITCH_JS, RENDER_TOGGLE_JS } from "./runtime/index.ts";
+import { RENDER_ATTR, RENDER_SWITCH, RENDER_TOGGLE } from "./runtime/index.ts";
+import { RENDER_ATTR_JS, RENDER_SWITCH_JS, RENDER_TOGGLE_JS } from "./runtime/index.ts";
 import { cx, escapeHTML, isObject, isString, NullProtoObj, styleToCSS, toHyphenCase } from "./runtime/utils.ts";
-import { $fragment, $html, $index, $item, $path, $signal, $vnode } from "./symbols.ts";
+import { $fragment, $html, $signal, $vnode } from "./symbols.ts";
 import { VERSION } from "./version.ts";
 
 interface RenderContext {
@@ -69,7 +69,6 @@ const customElements = new Map<string, FC>();
 const selfClosingTags = new Set("area,base,br,col,embed,hr,img,input,keygen,link,meta,param,source,track,wbr".split(","));
 const isVNode = (v: unknown): v is VNode => Array.isArray(v) && v.length === 3 && v[2] === $vnode;
 const isSignal = (v: unknown): v is Signal => isObject(v) && !!(v as any)[$signal];
-const isObjectStub = (v: unknown): v is { [$path]: string[] } => isObject(v) && !!((v as any)[$path]);
 const hashCode = (s: string) => [...s].reduce((hash, c) => (Math.imul(31, hash) + c.charCodeAt(0)) | 0, 0);
 const escapeCSSText = (str: string): string => str.replace(/[<>]/g, (m) => m.charCodeAt(0) === 60 ? "&lt;" : "&gt;");
 const toAttrStringLit = (str: string) => '"' + escapeHTML(str) + '"';
@@ -272,7 +271,6 @@ async function render(
       treeshake(RENDER_ATTR, RENDER_ATTR_JS);
       treeshake(RENDER_TOGGLE, RENDER_TOGGLE_JS);
       treeshake(RENDER_SWITCH, RENDER_SWITCH_JS);
-      treeshake(RENDER_LIST, RENDER_LIST_JS);
       treeshake(SIGNALS, SIGNALS_JS, true);
     }
     treeshake(SUSPENSE, SUSPENSE_JS, suspenses.length > 0);
@@ -351,25 +349,6 @@ async function renderNode(rc: RenderContext, node: ChildType, stripSlotProp?: bo
         // skip null
       } else if (isSignal(node)) {
         renderSignal(rc, node, undefined, node[$signal].value);
-      } else if (isObjectStub(node)) {
-        const { fcCtx } = rc;
-        const path = node[$path];
-        if (fcCtx) {
-          let buffer = "";
-          if (fcCtx.forSignal) {
-            const item = fcCtx.signals[$item];
-            let value: any = item;
-            for (const key of path) {
-              value = value[key];
-            }
-            buffer = escapeHTML(String(value));
-          }
-          if (~fcCtx.forSignal) {
-            write("<m-item :=" + toAttrStringLit("." + path.join(".")) + ">" + buffer + "</m-item>");
-          } else {
-            write(buffer);
-          }
-        }
       } else if (isVNode(node)) {
         const [tag, props] = node;
         switch (tag) {
@@ -391,24 +370,6 @@ async function renderNode(rc: RenderContext, node: ChildType, stripSlotProp?: bo
                 write(innerHTML);
               }
             }
-            break;
-          }
-
-          // for iter index
-          case $index: {
-            const { fcCtx } = rc;
-            if (fcCtx) {
-              let buffer = "";
-              if (fcCtx.forSignal) {
-                buffer = String(fcCtx.signals[$index]);
-              }
-              if (~fcCtx.forSignal) {
-                write("<m-index>" + buffer + "</m-index>");
-              } else {
-                write(buffer);
-              }
-            }
-
             break;
           }
 
@@ -530,57 +491,6 @@ async function renderNode(rc: RenderContext, node: ChildType, stripSlotProp?: bo
                 }
                 write("</m-signal>");
               }
-            }
-            break;
-          }
-
-          // `<for>` element
-          case "for": {
-            let { fcCtx } = rc;
-            let { items, children } = props;
-            let signal: Signal | undefined;
-            if (!children || !fcCtx) {
-              // nothing to render
-              break;
-            }
-            if (isSignal(items)) {
-              signal = items;
-              items = signal[$signal].value;
-              rc.flags.runtime |= RENDER_LIST;
-            }
-            if (Array.isArray(items)) {
-              if (signal) {
-                let template = "";
-                const len = items.length;
-                fcCtx.forSignal = len;
-                if (len === 0) {
-                  const write = (chunk: string) => {
-                    template += chunk;
-                  };
-                  write("<template m-slot>");
-                  await renderChildren({ ...rc, write }, children);
-                  write("</template>");
-                }
-                renderSignal(rc, signal, "list", template, true);
-                if (len > 0) {
-                  write("<!--[-->");
-                }
-              }
-              for (let i = 0; i < items.length; i++) {
-                fcCtx.signals[$index] = i;
-                fcCtx.signals[$item] = items[i];
-                if (signal && i > 0) {
-                  write("<!--,-->");
-                }
-                await renderChildren(rc, children);
-              }
-              if (signal && items.length > 0) {
-                write("<!--]-->");
-              }
-              // gc
-              fcCtx.signals[$index] = undefined;
-              fcCtx.signals[$item] = undefined;
-              fcCtx.forSignal = -1;
             }
             break;
           }
@@ -1043,14 +953,6 @@ function createSignals(
         case "computed":
         case "$":
           return computed;
-        case "index":
-        case "item":
-          if (collectDeps) {
-            return Reflect.get(target, key === "item" ? $item : $index, receiver);
-          }
-          return key === "item" ? createObjectStub() : [$index, null, $vnode];
-        case "itemOf":
-          return () => thisProxy.item;
         case "effect":
           return markEffect;
         case Symbol.for("effects"):
@@ -1121,16 +1023,6 @@ function traverseProps(
     }
   }
   return copy;
-}
-
-// @internal
-// e.g. createObjectStub().foo.bar[$path] === ["foo", "bar"]
-function createObjectStub(path: string[] = []) {
-  return new Proxy(Object.create(null), {
-    get(_target, prop) {
-      return typeof prop === "symbol" ? (prop === $path ? path : undefined) : createObjectStub(path.concat(prop));
-    },
-  });
 }
 
 export { isSignal };

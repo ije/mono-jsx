@@ -2,8 +2,8 @@ import type { RenderOptions } from "../types/render.d.ts";
 import { assert, assertEquals } from "jsr:@std/assert";
 import { CX, EVENT, LAZY, ROUTER, SIGNALS, STYLE, SUSPENSE } from "../runtime/index.ts";
 import { CX_JS, EVENT_JS, LAZY_JS, ROUTER_JS, SIGNALS_JS, STYLE_JS, SUSPENSE_JS } from "../runtime/index.ts";
-import { RENDER_ATTR, RENDER_LIST, RENDER_SWITCH, RENDER_TOGGLE } from "../runtime/index.ts";
-import { RENDER_ATTR_JS, RENDER_LIST_JS, RENDER_SWITCH_JS, RENDER_TOGGLE_JS } from "../runtime/index.ts";
+import { RENDER_ATTR, RENDER_SWITCH, RENDER_TOGGLE } from "../runtime/index.ts";
+import { RENDER_ATTR_JS, RENDER_SWITCH_JS, RENDER_TOGGLE_JS } from "../runtime/index.ts";
 import { VERSION } from "../version.ts";
 
 const renderToString = (node: JSX.Element, renderOptions?: RenderOptions) => {
@@ -1423,116 +1423,6 @@ Deno.test("[ssr] <switch>", async () => {
       `/* --- */`,
       `window.$runtimeFlag=${RENDER_SWITCH | SIGNALS};`,
       `$MS("1:select");`,
-      `</script>`,
-    ].join(""),
-  );
-});
-
-Deno.test("[ssr] <for>", async () => {
-  function For(this: FC, props: { items: string[] }) {
-    return (
-      <ul>
-        <for items={props.items}>
-          <li>
-            {this.index}: {this.item}
-          </li>
-        </for>
-      </ul>
-    );
-  }
-
-  function ForWithSignals(this: FC<{ items: string[] }>, props: { items: string[] }) {
-    this.items = props.items;
-    return (
-      <ul>
-        <for items={this.items}>
-          <li>
-            {this.index}: {this.item}
-          </li>
-        </for>
-      </ul>
-    );
-  }
-
-  function ForWithSignals2(this: FC<{ items: { value: string }[] }>, props: { items: { value: string }[] }) {
-    this.items = props.items;
-    return (
-      <ul>
-        <for items={this.items}>
-          <li>
-            {this.index}: {this.itemOf<typeof this.items>().value}
-          </li>
-        </for>
-      </ul>
-    );
-  }
-
-  assertEquals(
-    await renderToString(<For items={["A", "B", "C"]} />),
-    [
-      `<!DOCTYPE html>`,
-      `<html lang="en"><body>`,
-      `<ul>`,
-      `<li>0: A</li>`,
-      `<li>1: B</li>`,
-      `<li>2: C</li>`,
-      `</ul>`,
-      `</body></html>`,
-    ].join(""),
-  );
-
-  assertEquals(
-    await renderToString(<ForWithSignals items={["A", "B", "C"]} />),
-    [
-      `<!DOCTYPE html>`,
-      `<html lang="en"><body>`,
-      `<ul>`,
-      `<m-signal mode="list" scope="1" key="items"></m-signal>`,
-      `<!--[-->`,
-      `<li><m-index>0</m-index>: <m-item :=".">A</m-item></li>`,
-      `<!--,-->`,
-      `<li><m-index>1</m-index>: <m-item :=".">B</m-item></li>`,
-      `<!--,-->`,
-      `<li><m-index>2</m-index>: <m-item :=".">C</m-item></li>`,
-      `<!--]-->`,
-      `</ul>`,
-      `</body></html>`,
-      `<script data-mono-jsx="${VERSION}">`,
-      `(()=>{`,
-      RENDER_LIST_JS,
-      SIGNALS_JS,
-      `})();`,
-      `/* --- */`,
-      `window.$runtimeFlag=${SIGNALS | RENDER_LIST};`,
-      `$MS("1:items",["A","B","C"]);`,
-      `</script>`,
-    ].join(""),
-  );
-
-  assertEquals(
-    await renderToString(<ForWithSignals2 items={[{ value: "A" }, { value: "B" }, { value: "C" }]} />),
-    [
-      `<!DOCTYPE html>`,
-      `<html lang="en"><body>`,
-      `<ul>`,
-      `<m-signal mode="list" scope="1" key="items"></m-signal>`,
-      `<!--[-->`,
-      `<li><m-index>0</m-index>: <m-item :=".value">A</m-item></li>`,
-      `<!--,-->`,
-      `<li><m-index>1</m-index>: <m-item :=".value">B</m-item></li>`,
-      `<!--,-->`,
-      `<li><m-index>2</m-index>: <m-item :=".value">C</m-item></li>`,
-      `<!--]-->`,
-      `</ul>`,
-      `</body></html>`,
-      `<script data-mono-jsx="${VERSION}">`,
-      `(()=>{`,
-      RENDER_LIST_JS,
-      SIGNALS_JS,
-      `})();`,
-      `/* --- */`,
-      `window.$runtimeFlag=${SIGNALS | RENDER_LIST};`,
-      `$MS("1:items",[{"value":"A"},{"value":"B"},{"value":"C"}]);`,
       `</script>`,
     ].join(""),
   );

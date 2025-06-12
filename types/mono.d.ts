@@ -105,12 +105,6 @@ export interface Elements {
     value?: string | number | boolean | null;
   };
   /**
-   * The `for` element is a built-in element for list rendering with signals.
-   */
-  for: BaseAttributes & {
-    items?: unknown[];
-  };
-  /**
    * The `component` element is a built-in element that is used to load components lazily,
    * which can improve performance by reducing the initial load time of the application.
    */
@@ -173,19 +167,6 @@ declare global {
      * The `refs` object is used to store variables in clide side.
      */
     readonly refs: Refs;
-    /**
-     * The `index` funtion returns current for iter index.
-     */
-    readonly index: number;
-    /**
-     * The `item` funtion returns current for iter item.
-     */
-    readonly item: any;
-    /**
-     * The `itemOf` funtion returns current for iter item type.
-     * It is used to infer the type of items in a for loop.
-     */
-    readonly itemOf: <T>() => T extends Array<infer E> ? E : never;
     /**
      * The `computed` method is used to create a computed signal.
      */

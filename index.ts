@@ -7,7 +7,7 @@ type ServerHandler = (req: Request) => Response;
  * `buildRoutes` creates a routing map for bun server.
  */
 export function buildRoutes(handler: ServerHandler): Record<string, ServerHandler> {
-  const { routes = {} } = handler(Symbol.for("mono.peek") as unknown as Request) as unknown as RenderOptions;
+  const { routes = {} } = handler(Symbol.for("mono.setup") as unknown as Request) as unknown as RenderOptions;
   return monoRoutes(routes, handler);
 }
 

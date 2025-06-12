@@ -88,7 +88,6 @@ if (import.meta.main) {
     "render_attr.js": await buildFunction("render.ts", "renderAttr"),
     "render_toggle.js": await buildFunction("render.ts", "renderToggle"),
     "render_switch.js": await buildFunction("render.ts", "renderSwitch"),
-    "render_list.js": await buildFunction("render.ts", "renderList"),
     "signals.js": await buildRuntime("signals"),
     "suspense.js": await buildRuntime("suspense"),
     "lazy.js": await buildRuntime("lazy"),
