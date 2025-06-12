@@ -53,12 +53,12 @@ customElements.define(
         return;
       }
       await this.#fetchPage(href);
-      this.#updateNavLinks();
       if (options?.replace) {
         history.replaceState({}, "", href);
       } else {
         history.pushState({}, "", href);
       }
+      this.#updateNavLinks();
       // scroll to the top of the page after navigation
       window.scrollTo(0, 0);
     }

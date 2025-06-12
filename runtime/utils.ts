@@ -3,11 +3,8 @@ declare global {
   var $applyStyle: (el: Element, style: unknown) => void;
 }
 
+const regexpCssBareUnitProps = /acit|ex(?:s|g|n|p|$)|rph|grid|ows|mnc|ntw|ine[ch]|zoo|^ord|itera/i; // copied https://github.com/preactjs/preact
 const regexpHtmlSafe = /["'&<>]/;
-const cssBareUnitProps = new Set(
-  "animation-iteration-count,aspect-ratio,border-image-outset,border-image-slice,border-image-width,box-flex-group,box-flex,box-ordinal-group,column-count,columns,fill-opacity,flex-grow,flex-negative,flex-order,flex-positive,flex-shrink,flex,flood-opacity,font-weight,grid-area,grid-column-end,grid-column-span,grid-column-start,grid-column,grid-row-end,grid-row-span,grid-row-start,grid-row,line-clamp,line-height,opacity,order,orphans,stop-opacity,stroke-dasharray,stroke-dashoffset,stroke-miterlimit,stroke-opacity,stroke-width,tab-size,widows,z-index,zoom"
-    .split(","),
-);
 
 export const isString = (v: unknown): v is string => typeof v === "string";
 export const isObject = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null;
@@ -15,10 +12,10 @@ export const toHyphenCase = (k: string) => k.replace(/[a-z][A-Z]/g, (m) => m.cha
 
 /** merge class names. */
 export const cx = (className: unknown): string => {
-  if (isString(className)) {
+  if (typeof className === "string") {
     return className;
   }
-  if (isObject(className)) {
+  if (typeof className === "object" && className !== null) {
     if (Array.isArray(className)) {
       return className.map(cx).filter(Boolean).join(" ");
     }
@@ -72,12 +69,12 @@ export const applyStyle = (el: Element, style: Record<string, unknown>): void =>
 
 // @internal
 const renderStyle = (style: unknown): string => {
-  if (isObject(style)) {
+  if (typeof style === "object" && style !== null) {
     let css = "";
     for (const [k, v] of Array.isArray(style) ? style : Object.entries(style)) {
       if (isString(v) || typeof v === "number") {
         const cssKey = toHyphenCase(k);
-        const cssValue = typeof v === "number" ? (cssBareUnitProps.has(cssKey) ? "" + v : v + "px") : "" + v;
+        const cssValue = typeof v === "number" ? (regexpCssBareUnitProps.test(k) ? "" + v : v + "px") : "" + v;
         css += (css ? ";" : "") + cssKey + ":" + (cssKey === "content" ? JSON.stringify(cssValue) : cssValue);
       }
     }

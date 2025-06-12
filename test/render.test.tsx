@@ -97,11 +97,11 @@ Deno.test("[ssr] style to css(inline)", async () => {
   );
 
   assertEquals(
-    await renderToString(<div style={{ display: "flex", border: 1, lineHeight: 1 }} />),
+    await renderToString(<div style={{ display: "flex", fontSize: 1, lineHeight: 1 }} />),
     [
       `<!DOCTYPE html>`,
       `<html lang="en"><body>`,
-      `<div style="display:flex;border:1px;line-height:1"></div>`,
+      `<div style="display:flex;font-size:1px;line-height:1"></div>`,
       `</body></html>`,
     ].join(""),
   );
