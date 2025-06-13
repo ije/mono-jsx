@@ -1047,10 +1047,10 @@ Deno.test("[ssr] this.refs", async () => {
   );
 });
 
-Deno.test("[ssr] this.appRefs", async () => {
+Deno.test("[ssr] this.app.refs", async () => {
   function App(this: Refs<FC, {}, { h1: HTMLElement }>) {
-    this.effect(() => console.log(this.appRefs.h1.textContent));
-    return <h1 ref={this.appRefs.h1}>Welcome to mono-jsx!</h1>;
+    this.effect(() => console.log(this.app.refs.h1.textContent));
+    return <h1 ref={this.app.refs.h1}>Welcome to mono-jsx!</h1>;
   }
 
   assertEquals(
@@ -1066,7 +1066,7 @@ Deno.test("[ssr] this.appRefs", async () => {
       SIGNALS_JS,
       `})();`,
       `/* --- */`,
-      `function $ME_1_0(){return(()=>console.log(this.appRefs.h1.textContent)).call(this)};`,
+      `function $ME_1_0(){return(()=>console.log(this.app.refs.h1.textContent)).call(this)};`,
       `</script>`,
     ].join(""),
   );

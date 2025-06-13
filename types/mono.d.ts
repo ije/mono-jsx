@@ -147,7 +147,12 @@ declare global {
      */
     readonly app: {
       /**
-       * The `url` object contains the current URL information.
+       * The `app.refs` object is used to store variables in the application scope.
+       * It is similar to `refs`, but it is shared across all components in the application.
+       */
+      readonly refs: AppRefs;
+      /**
+       * The `app.url` object contains the current URL information.
        */
       readonly url: URL & { params?: Record<string, string> };
     } & Omit<AppSignals, "url">;
@@ -167,11 +172,6 @@ declare global {
      * The `refs` object is used to store variables in clide side.
      */
     readonly refs: Refs;
-    /**
-     * The `appRefs` object is used to store variables in the application scope.
-     * It is similar to `refs`, but it is shared across all components in the application.
-     */
-    readonly appRefs: AppRefs;
     /**
      * The `computed` method is used to create a computed signal.
      */

@@ -51,8 +51,6 @@ const createSignals = (scopeId: number): Signals => {
           return watch;
         case "app":
           return Signals(0);
-        case "appRefs":
-          return Signals(0).refs;
         case "refs":
           return refs;
         default:

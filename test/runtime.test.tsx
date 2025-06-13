@@ -905,12 +905,12 @@ Deno.test("[runtime] <form> action callback", sanitizeFalse, async () => {
 Deno.test("[runtime] refs", sanitizeFalse, async () => {
   function App(this: Refs<FC, { h2: HTMLElement }, { h1: HTMLElement }>) {
     this.effect(() => {
-      this.appRefs.h1.textContent = "Welcome to mono-jsx!";
+      this.app.refs.h1.textContent = "Welcome to mono-jsx!";
       this.refs.h2.textContent = "Building User Interfaces.";
     });
     return (
       <hgroup>
-        <h1 ref={this.appRefs.h1} />;
+        <h1 ref={this.app.refs.h1} />;
         <h2 ref={this.refs.h2} />;
       </hgroup>
     );
