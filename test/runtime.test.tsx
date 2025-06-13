@@ -768,32 +768,36 @@ Deno.test("[runtime] <component> ref", sanitizeFalse, async () => {
 });
 
 Deno.test("[runtime] <router>", sanitizeFalse, async () => {
-  const testPageUrl = addTestPage(
-    <div>
-      <header>
-        <nav style={{ "& .current": { fontWeight: "bold" } }} data-active-class="current">
-          <ul>
-            <li>
-              <a href="/">Home</a>
-            </li>
-            <li>
-              <a href="/about">About</a>
-            </li>
-            <li>
-              <a href="/post/hello-world">Hello World</a>
-            </li>
-            <li>
-              <a href="/e404">E404</a>
-            </li>
-          </ul>
-        </nav>
+  function App(this: FC) {
+    return (
+      <>
+        <header>
+          <nav style={{ "& .current": { fontWeight: "bold" } }} data-active-class="current">
+            <ul>
+              <li>
+                <a href="/">Home</a>
+              </li>
+              <li>
+                <a href="/about">About</a>
+              </li>
+              <li>
+                <a href="/post/hello-world">Hello World</a>
+              </li>
+              <li>
+                <a href="/e404">E404</a>
+              </li>
+            </ul>
+          </nav>
+          <em>{this.$(() => this.app.url.href)}</em>
+        </header>
         <router>
           <p>Page not found</p>
         </router>
-      </header>
-    </div>,
-  );
+      </>
+    );
+  }
 
+  const testPageUrl = addTestPage(<App />);
   const page = await browser.newPage();
   await page.goto(testPageUrl);
 
@@ -814,6 +818,10 @@ Deno.test("[runtime] <router>", sanitizeFalse, async () => {
   assert(h1);
   assertEquals(await h1.evaluate((el: HTMLElement) => el.textContent), "Home");
 
+  let em = await page.$("em");
+  assert(em);
+  assertEquals(await em.evaluate((el: HTMLElement) => el.textContent), "http://localhost:8687/");
+
   link = await page.$("nav a[href='/about']");
   assert(link);
   await link.click();
@@ -824,6 +832,10 @@ Deno.test("[runtime] <router>", sanitizeFalse, async () => {
   assert(h1);
   assertEquals(await h1.evaluate((el: HTMLElement) => el.textContent), "About");
 
+  em = await page.$("em");
+  assert(em);
+  assertEquals(await em.evaluate((el: HTMLElement) => el.textContent), "http://localhost:8687/about");
+
   link = await page.$("nav a[href='/post/hello-world']");
   assert(link);
   await link.click();
@@ -833,6 +845,10 @@ Deno.test("[runtime] <router>", sanitizeFalse, async () => {
   h1 = await page.$("h1");
   assert(h1);
   assertEquals(await h1.evaluate((el: HTMLElement) => el.textContent), "Post: hello-world");
+
+  em = await page.$("em");
+  assert(em);
+  assertEquals(await em.evaluate((el: HTMLElement) => el.textContent), "http://localhost:8687/post/hello-world");
 
   link = await page.$("nav a[href='/e404']");
   assert(link);
@@ -846,6 +862,10 @@ Deno.test("[runtime] <router>", sanitizeFalse, async () => {
   p = await page.$("p");
   assert(p);
   assertEquals(await p.evaluate((el: HTMLElement) => el.textContent), "Page not found");
+
+  em = await page.$("em");
+  assert(em);
+  assertEquals(await em.evaluate((el: HTMLElement) => el.textContent), "http://localhost:8687/e404");
 
   await page.close();
 });

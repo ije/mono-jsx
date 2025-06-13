@@ -321,10 +321,15 @@ async function render(
     if (hasEffect) {
       js += signals.effects.splice(0, signals.effects.length).join("");
     }
-    if ((runtimeFlag & ROUTER) && request && (rc.mcs.size > 0 || hasEffect)) {
+    if ((runtimeFlag & ROUTER) && (runtimeFlag & SIGNALS) && request) {
       const { params } = request as Request & { params?: Record<string, string> };
       const url = "new URL(" + stringify(request.url) + ")";
-      js += '$MS("0:url",' + (params ? "Object.assign(" + url + "," + stringify(params) + ")" : url) + ");";
+      const urlWithParams = params ? "Object.assign(" + url + "," + stringify(params) + ")" : url;
+      if (componentMode) {
+        js += "$signals(0).url=" + urlWithParams + ";";
+      } else {
+        js += '$MS("0:url",' + urlWithParams + ");";
+      }
     }
     if (signals.store.size > 0) {
       for (const [key, value] of signals.store.entries()) {
@@ -1001,6 +1006,7 @@ function createSignals(
           return mark;
         case "url":
           if (scopeId === 0) {
+            collectDeps?.(0, key);
             return request ? request.URL ?? (request.URL = new URL(request.url)) : undefined;
           }
           // fallthrough

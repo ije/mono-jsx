@@ -4,8 +4,9 @@ declare global {
 }
 
 const doc = document;
+const loc = location;
 const stripHash = (href: string) => href.split("#", 1)[0];
-const isLocationHref = (href: string) => stripHash(href) === stripHash(location.href);
+const isLocationHref = (href: string) => stripHash(href) === stripHash(loc.href);
 
 customElements.define(
   "m-router",
@@ -26,7 +27,7 @@ customElements.define(
       const res = await fetch(href, { headers, signal: ac.signal });
       if (res.status === 404) {
         this.replaceChildren(...(this.#fallback!));
-        return;
+        return true;
       }
       if (!res.ok) {
         this.replaceChildren();
@@ -52,9 +53,9 @@ customElements.define(
     }
 
     navigate(href: string, options?: { replace?: boolean }) {
-      const url = new URL(href, location.href);
-      if (url.origin !== location.origin) {
-        location.href = href;
+      const url = new URL(href, loc.href);
+      if (url.origin !== loc.origin) {
+        loc.href = href;
         return;
       }
       if (!isLocationHref(url.href)) {
@@ -63,13 +64,13 @@ customElements.define(
     }
 
     async #navigate(href: string, options?: { replace?: boolean }) {
-      await this.#fetchPage(href);
+      const e404 = await this.#fetchPage(href);
       if (options?.replace) {
         history.replaceState({}, "", href);
       } else {
         history.pushState({}, "", href);
       }
-      if (typeof $signals !== "undefined") {
+      if (e404 && typeof $signals !== "undefined") {
         $signals(0).url = new URL(href);
       }
       this.#updateNavLinks();
@@ -110,7 +111,7 @@ customElements.define(
           download
           || rel === "external"
           || target === "_blank"
-          || !href.startsWith(location.origin)
+          || !href.startsWith(loc.origin)
         ) {
           return;
         }
@@ -119,7 +120,7 @@ customElements.define(
         this.navigate(href);
       };
 
-      this.#onPopstate = () => this.#navigate(location.href);
+      this.#onPopstate = () => this.#navigate(loc.href);
 
       addEventListener("popstate", this.#onPopstate);
       doc.addEventListener("click", this.#onClick);
