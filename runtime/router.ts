@@ -1,5 +1,6 @@
 declare global {
   var $FLAGS: string;
+  var $signals: ((n: number) => { url: URL }) | undefined;
 }
 
 const doc = document;
@@ -67,6 +68,9 @@ customElements.define(
         history.replaceState({}, "", href);
       } else {
         history.pushState({}, "", href);
+      }
+      if (typeof $signals !== "undefined") {
+        $signals(0).url = new URL(href);
       }
       this.#updateNavLinks();
       // scroll to the top of the page after navigation
