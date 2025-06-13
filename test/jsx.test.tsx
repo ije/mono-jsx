@@ -144,11 +144,18 @@ Deno.test("[jsx] jsx transform", () => {
 Deno.test("[jsx] <html> as a `Response`", async () => {
   const res: Response = (
     <html lang="en" headers={{ cacheControl: "public" }}>
-      <head />
-      <body />
+      <head>
+        <meta name="description" content="A simple HTML document" />
+      </head>
+      <body>
+        <h1>Welcome to mono-jsx!</h1>
+      </body>
     </html>
   );
   assert(res instanceof Response);
   assertEquals(res.headers.get("cache-control"), "public");
-  assertEquals(await res.text(), '<!DOCTYPE html><html lang="en"><head></head><body></body></html>');
+  assertEquals(
+    await res.text(),
+    '<!DOCTYPE html><html lang="en"><head><meta name="description" content="A simple HTML document"></head><body><h1>Welcome to mono-jsx!</h1></body></html>',
+  );
 });

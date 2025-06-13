@@ -2,11 +2,12 @@ import { assert, assertEquals } from "jsr:@std/assert";
 import puppeteer from "npm:puppeteer-core@23.1.1";
 import chrome from "npm:puppeteer-chromium-resolver@23.0.0";
 
-let routeIndex = 0;
+let routeSeq = 0;
 let testRoutes: Map<string, JSX.Element> = new Map();
+let count = 0;
 
 function addTestPage(page: JSX.Element, query?: string) {
-  let pathname = `/test_${routeIndex++}`;
+  let pathname = `/test_${routeSeq++}`;
   testRoutes.set(pathname, page);
   return `http://localhost:8687${pathname}${query ? `?${query}` : ""}`;
 }
@@ -38,19 +39,23 @@ Deno.serve({ port: 8687, onListen: () => {} }, (request) => {
       }}
       components={{
         greeting: async (props: { message: string }) => {
-          await sleep(50);
+          await sleep(20);
           return <h1>{props.message}</h1>;
         },
+        count: async () => {
+          await sleep(20);
+          return <span>{count++}</span>;
+        },
         a: async (props: { name: string }) => {
-          await sleep(50);
+          await sleep(20);
           return <strong>{props.name.toUpperCase()}</strong>;
         },
         b: async (props: { name: string }) => {
-          await sleep(50);
+          await sleep(20);
           return <strong>{props.name.toUpperCase()}</strong>;
         },
         c: async (props: { name: string }) => {
-          await sleep(50);
+          await sleep(20);
           return <strong>{props.name.toUpperCase()}</strong>;
         },
       }}
@@ -71,9 +76,6 @@ Deno.serve({ port: 8687, onListen: () => {} }, (request) => {
   );
 });
 
-// function App(this: FC<{}>) {
-//   return <h1>Welcome to mono-jsx!</h1>;
-// }
 // console.log(addTestPage(<App />));
 // await new Promise(() => {});
 
@@ -714,33 +716,88 @@ Deno.test("[runtime] <component> with signal name/props", sanitizeFalse, async (
   await page.close();
 });
 
+Deno.test("[runtime] <component> ref", sanitizeFalse, async () => {
+  function App(this: Refs<FC, { comp: ComponentElement }>) {
+    return (
+      <div>
+        <component name="count" props={{}} ref={this.refs.comp} placeholder={<p>loading...</p>} />
+        <button class="refresh" type="button" onClick={() => this.refs.comp.refresh()} />
+        <button
+          class="greet"
+          type="button"
+          onClick={() => {
+            this.refs.comp.name = "greeting";
+            this.refs.comp.props = { message: "Hello, world!" };
+          }}
+        />
+      </div>
+    );
+  }
+
+  const testPageUrl = addTestPage(<App />);
+  const page = await browser.newPage();
+  await page.goto(testPageUrl);
+
+  await page.waitForNetworkIdle();
+  const span = await page.$("div span");
+  assert(span);
+  assertEquals(await span.evaluate((el: HTMLElement) => el.textContent), "0");
+
+  const refreshButton = await page.$("div button.refresh");
+  assert(refreshButton);
+  await refreshButton.click();
+  await page.waitForNetworkIdle();
+
+  const refreshedSpan = await page.$("div span");
+  assert(refreshedSpan);
+  assertEquals(await refreshedSpan.evaluate((el: HTMLElement) => el.textContent), "1");
+
+  const greetButton = await page.$("div button.greet");
+  assert(greetButton);
+  await greetButton.click();
+  await page.waitForNetworkIdle();
+
+  const removedSpan = await page.$("div span");
+  assert(!removedSpan);
+
+  const h1 = await page.$("div h1");
+  assert(h1);
+  assertEquals(await h1.evaluate((el: HTMLElement) => el.textContent), "Hello, world!");
+
+  await page.close();
+});
+
 Deno.test("[runtime] <router>", sanitizeFalse, async () => {
-  const testPageUrl = addTestPage(
-    <div>
-      <header>
-        <nav style={{ "& .current": { fontWeight: "bold" } }} data-active-class="current">
-          <ul>
-            <li>
-              <a href="/">Home</a>
-            </li>
-            <li>
-              <a href="/about">About</a>
-            </li>
-            <li>
-              <a href="/post/hello-world">Hello World</a>
-            </li>
-            <li>
-              <a href="/e404">E404</a>
-            </li>
-          </ul>
-        </nav>
+  function App(this: FC) {
+    return (
+      <>
+        <header>
+          <nav style={{ "& .current": { fontWeight: "bold" } }} data-active-class="current">
+            <ul>
+              <li>
+                <a href="/">Home</a>
+              </li>
+              <li>
+                <a href="/about">About</a>
+              </li>
+              <li>
+                <a href="/post/hello-world">Hello World</a>
+              </li>
+              <li>
+                <a href="/e404">E404</a>
+              </li>
+            </ul>
+          </nav>
+          <em>{this.$(() => this.app.url.href)}</em>
+        </header>
         <router>
           <p>Page not found</p>
         </router>
-      </header>
-    </div>,
-  );
+      </>
+    );
+  }
 
+  const testPageUrl = addTestPage(<App />);
   const page = await browser.newPage();
   await page.goto(testPageUrl);
 
@@ -761,6 +818,10 @@ Deno.test("[runtime] <router>", sanitizeFalse, async () => {
   assert(h1);
   assertEquals(await h1.evaluate((el: HTMLElement) => el.textContent), "Home");
 
+  let em = await page.$("em");
+  assert(em);
+  assertEquals(await em.evaluate((el: HTMLElement) => el.textContent), "http://localhost:8687/");
+
   link = await page.$("nav a[href='/about']");
   assert(link);
   await link.click();
@@ -771,6 +832,10 @@ Deno.test("[runtime] <router>", sanitizeFalse, async () => {
   assert(h1);
   assertEquals(await h1.evaluate((el: HTMLElement) => el.textContent), "About");
 
+  em = await page.$("em");
+  assert(em);
+  assertEquals(await em.evaluate((el: HTMLElement) => el.textContent), "http://localhost:8687/about");
+
   link = await page.$("nav a[href='/post/hello-world']");
   assert(link);
   await link.click();
@@ -780,6 +845,10 @@ Deno.test("[runtime] <router>", sanitizeFalse, async () => {
   h1 = await page.$("h1");
   assert(h1);
   assertEquals(await h1.evaluate((el: HTMLElement) => el.textContent), "Post: hello-world");
+
+  em = await page.$("em");
+  assert(em);
+  assertEquals(await em.evaluate((el: HTMLElement) => el.textContent), "http://localhost:8687/post/hello-world");
 
   link = await page.$("nav a[href='/e404']");
   assert(link);
@@ -793,6 +862,10 @@ Deno.test("[runtime] <router>", sanitizeFalse, async () => {
   p = await page.$("p");
   assert(p);
   assertEquals(await p.evaluate((el: HTMLElement) => el.textContent), "Page not found");
+
+  em = await page.$("em");
+  assert(em);
+  assertEquals(await em.evaluate((el: HTMLElement) => el.textContent), "http://localhost:8687/e404");
 
   await page.close();
 });
@@ -830,11 +903,17 @@ Deno.test("[runtime] <form> action callback", sanitizeFalse, async () => {
 });
 
 Deno.test("[runtime] refs", sanitizeFalse, async () => {
-  function App(this: FC) {
+  function App(this: Refs<FC, { h2: HTMLElement }, { h1: HTMLElement }>) {
     this.effect(() => {
-      this.refs.h1!.textContent = "Welcome to mono-jsx!";
+      this.app.refs.h1.textContent = "Welcome to mono-jsx!";
+      this.refs.h2.textContent = "Building User Interfaces.";
     });
-    return <h1 ref={this.refs.h1} />;
+    return (
+      <hgroup>
+        <h1 ref={this.app.refs.h1} />;
+        <h2 ref={this.refs.h2} />;
+      </hgroup>
+    );
   }
   const testPageUrl = addTestPage(
     <App />,
@@ -846,6 +925,10 @@ Deno.test("[runtime] refs", sanitizeFalse, async () => {
   const h1 = await page.$("h1");
   assert(h1);
   assertEquals(await h1.evaluate((el: HTMLElement) => el.textContent), "Welcome to mono-jsx!");
+
+  const h2 = await page.$("h2");
+  assert(h2);
+  assertEquals(await h2.evaluate((el: HTMLElement) => el.textContent), "Building User Interfaces.");
 
   await page.close();
 });

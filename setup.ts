@@ -35,6 +35,8 @@ export async function setup() {
     compilerOptions.lib ??= ["dom", "es2022"];
     compilerOptions.module ??= "es2022";
     compilerOptions.moduleResolution ??= "bundler";
+    compilerOptions.allowImportingTsExtensions ??= true;
+    compilerOptions.noEmit ??= true;
   }
   compilerOptions.jsx = "react-jsx";
   compilerOptions.jsxImportSource = "mono-jsx";

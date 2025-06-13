@@ -1,10 +1,12 @@
 declare global {
-  var $runtimeFlag: number;
-  var $scopeSeq: number;
+  var $FLAGS: string;
+  var $signals: ((n: number) => { url: URL }) | undefined;
 }
 
 const doc = document;
+const loc = location;
 const stripHash = (href: string) => href.split("#", 1)[0];
+const isLocationHref = (href: string) => stripHash(href) === stripHash(loc.href);
 
 customElements.define(
   "m-router",
@@ -18,15 +20,14 @@ customElements.define(
       const ac = new AbortController();
       const headers = {
         "x-route": "true",
-        "x-runtime-flag": "" + $runtimeFlag,
-        "x-scope-seq": "" + $scopeSeq,
+        "x-flags": $FLAGS,
       };
       this.#ac?.abort();
       this.#ac = ac;
       const res = await fetch(href, { headers, signal: ac.signal });
       if (res.status === 404) {
         this.replaceChildren(...(this.#fallback!));
-        return;
+        return true;
       }
       if (!res.ok) {
         this.replaceChildren();
@@ -43,7 +44,7 @@ customElements.define(
       doc.querySelectorAll<HTMLAnchorElement>("nav a").forEach((link) => {
         const { href, classList } = link;
         const activeClass = link.closest("nav")?.getAttribute("data-active-class") ?? "active";
-        if (stripHash(href) === stripHash(location.href)) {
+        if (isLocationHref(href)) {
           classList.add(activeClass);
         } else {
           classList.remove(activeClass);
@@ -51,9 +52,30 @@ customElements.define(
       });
     }
 
-    #goto(href: string) {
-      this.#fetchPage(href);
+    navigate(href: string, options?: { replace?: boolean }) {
+      const url = new URL(href, loc.href);
+      if (url.origin !== loc.origin) {
+        loc.href = href;
+        return;
+      }
+      if (!isLocationHref(url.href)) {
+        this.#navigate(href, options);
+      }
+    }
+
+    async #navigate(href: string, options?: { replace?: boolean }) {
+      const e404 = await this.#fetchPage(href);
+      if (options?.replace) {
+        history.replaceState({}, "", href);
+      } else {
+        history.pushState({}, "", href);
+      }
+      if (e404 && typeof $signals !== "undefined") {
+        $signals(0).url = new URL(href);
+      }
       this.#updateNavLinks();
+      // scroll to the top of the page after navigation
+      window.scrollTo(0, 0);
     }
 
     connectedCallback() {
@@ -89,24 +111,16 @@ customElements.define(
           download
           || rel === "external"
           || target === "_blank"
-          || !href
-          || !href.startsWith(location.origin)
-          || stripHash(href) === stripHash(location.href)
+          || !href.startsWith(loc.origin)
         ) {
           return;
         }
 
-        // prevent the default action of the link
         e.preventDefault();
-
-        // update the url in the browser's address bar
-        history.pushState({}, "", href);
-
-        // fetch the new page and update the navigation links
-        this.#goto(href);
+        this.navigate(href);
       };
 
-      this.#onPopstate = () => this.#goto(location.href);
+      this.#onPopstate = () => this.#navigate(loc.href);
 
       addEventListener("popstate", this.#onPopstate);
       doc.addEventListener("click", this.#onClick);
@@ -117,9 +131,9 @@ customElements.define(
       removeEventListener("popstate", this.#onPopstate!);
       doc.removeEventListener("click", this.#onClick!);
       this.#ac?.abort();
-      this.#onPopstate = undefined;
-      this.#onClick = undefined;
       this.#ac = undefined;
+      this.#onClick = undefined;
+      this.#onPopstate = undefined;
     }
   },
 );

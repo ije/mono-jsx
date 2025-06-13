@@ -158,11 +158,13 @@ mono-jsx supports [pseudo classes](https://developer.mozilla.org/en-US/docs/Web/
 ```tsx
 <a
   style={{
+    display: "inline-flex",
+    gap: "0.5em",
     color: "black",
     "::after": { content: "↩️" },
     ":hover": { textDecoration: "underline" },
     "@media (prefers-color-scheme: dark)": { color: "white" },
-    "& .icon": { width: "1em", height: "1em", marginRight: "0.5em" },
+    "& .icon": { width: "1em", height: "1em" },
   }}
 >
   <img class="icon" src="link.png" />
@@ -369,7 +371,7 @@ interface AppSignals {
 function Header(this: FC<{}, AppSignals>) {
   return (
     <header>
-      <h1 style={this.computed(() => ({ color: this.app.themeColor }))}>Welcome to mono-jsx!</h1>
+      <h1 style={{ color: this.app.themeColor }}>Welcome to mono-jsx!</h1>
     </header>
   )
 }
@@ -377,7 +379,7 @@ function Header(this: FC<{}, AppSignals>) {
 function Footer(this: FC<{}, AppSignals>) {
   return (
     <footer>
-      <p style={this.computed(() => ({ color: this.app.themeColor }))}>(c) 2025 mono-jsx.</p>
+      <p style={{ color: this.app.themeColor }}>(c) 2025 mono-jsx.</p>
     </footer>
   )
 }
@@ -625,7 +627,7 @@ mono-jsx binds a scoped signals object to `this` of your component functions. Th
 
 The `this` object has the following built-in properties:
 
-- `app`: The app signals defined on the root `<html>` element.
+- `app`: The app global signals..
 - `context`: The context defined on the root `<html>` element.
 - `request`: The request object from the `fetch` handler.
 - `refs`: A map of refs defined in the component.
@@ -633,11 +635,11 @@ The `this` object has the following built-in properties:
 - `effect`: A method to create side effects.
 
 ```ts
-type FC<Signals = {}, AppSignals = {}, Context = {}> = {
-  readonly app: AppSignals;
+type FC<Signals = {}, AppSignals = {}, Context = {}, Refs = {}> = {
+  readonly app: AppSignals & { url: URL }
   readonly context: Context;
-  readonly request: Request & { params?: Record<string, string> };
-  readonly refs: Record<string, HTMLElement | null>;
+  readonly request: Request & { URL: URL, params?: Record<string, string> };
+  readonly refs: Refs;
   readonly computed: <T = unknown>(fn: () => T) => T;
   readonly effect: (fn: () => void | (() => void)) => void;
 } & Omit<Signals, "app" | "context" | "request" | "computed" | "effect">;
@@ -652,7 +654,7 @@ See the [Using Signals](#using-signals) section for more details on how to use s
 You can use `this.refs` to access refs in your components. Define refs in your component using the `ref` attribute:
 
 ```tsx
-function App(this: FC) {
+function App(this: Refs<FC, { input: HTMLInputElement }>) {
   this.effect(() => {
     this.refs.input?.addEventListener("input", (evt) => {
       console.log("Input changed:", evt.target.value);
@@ -673,7 +675,7 @@ function App(this: FC) {
 You can use the `context` property in `this` to access context values in your components. The context is defined on the root `<html>` element:
 
 ```tsx
-function Dash(this: FC<{}, {}, { auth: { uuid: string; name: string } }>) {
+function Dash(this: Context<FC, { auth: { uuid: string; name: string } }>) {
   const { auth } = this.context;
   return (
     <div>
@@ -796,7 +798,7 @@ async function Lazy(this: FC<{ show: boolean }>, props: { url: string }) {
   this.show = false;
   return (
     <div>
-      <toggle value={this.show}>
+      <toggle show={this.show}>
         <component name="Foo" props={{ /* props for the component */ }} placeholder={<p>Loading...</p>} />
       </toggle>
      <button onClick={() => this.show = true }>Load `Foo` Component</button>
@@ -844,7 +846,7 @@ export default {
 }
 ```
 
-## Using Router(SPA)
+## Using Router(SPA Mode)
 
 mono-jsx provides a built-in `<router>` element that allows your app to render components based on the current URL. On client side, it listens all `click` events on `<a>` elements and asynchronously fetches the route component without reloading the entire page.
 
@@ -861,13 +863,11 @@ const routes = {
 export default {
   fetch: (req) => (
     <html request={req} routes={routes}>
-      <header>
-        <nav>
-          <a href="/">Home</a>
-          <a href="/about">About</a>
-          <a href="/blog">Blog</a>
-        </nav>
-      </header>
+      <nav>
+        <a href="/">Home</a>
+        <a href="/about">About</a>
+        <a href="/blog">Blog</a>
+      </nav>
       <router />
     </html>
   )
@@ -880,12 +880,10 @@ mono-jsx router requires [URLPattern](https://developer.mozilla.org/en-US/docs/W
 - ✅ Cloudflare Workers
 - ✅ Nodejs (>= 24)
 
-For Bun users, mono-jsx provides a `monoRoutes` function that uses Bun's built-in routing:
+For Bun users, mono-jsx provides a `buildRoutes` function that uses Bun's built-in server routing:
 
 ```tsx
-// bun app.tsx
-
-import { monoRoutes } from "mono-jsx"
+import { buildRoutes } from "mono-jsx"
 
 const routes = {
   "/": Home,
@@ -894,13 +892,18 @@ const routes = {
   "/post/:id": Post,
 }
 
-export default {
-  routes: monoRoutes(routes, (request) => (
-    <html request={request}>
+Bun.serve({
+  routes: buildRoutes((req) => (
+    <html request={req} routes={routes}>
+      <nav>
+        <a href="/">Home</a>
+        <a href="/about">About</a>
+        <a href="/blog">Blog</a>
+      </nav>
       <router />
     </html>
   ))
-}
+})
 ```
 
 ### Using Route `params`
@@ -917,18 +920,22 @@ function Post(this: FC) {
 }
 ```
 
-### Using DB/Storage in Route Components
+### Navigation between Pages
 
-Route components are always rendered on server-side, you can use any database or storage API to fetch data in your route components.
+To navigate between pages, you can use `<a>` elements with `href` attributes that match the defined routes. The router will intercept the click events of these links and fetch the corresponding route component without reloading the page:
 
 ```tsx
-async function Post(this: FC) {
-  const post = await sql`SELECT * FROM posts WHERE id = ${ this.request.params!.id }`
-  return (
-    <article>
-      <h2>{post.title}<h2>
-      <div>html`${post.content}`</div>
-    </article>
+function App() {
+  export default {
+  fetch: (req) => (
+    <html request={req} routes={routes}>
+      <nav>
+        <a href="/">Home</a>
+        <a href="/about">About</a>
+        <a href="/blog">Blog</a>
+      </nav>
+      <router />
+    </html>
   )
 }
 ```
@@ -941,15 +948,31 @@ Links under the `<nav>` element will be treated as navigation links by the route
 export default {
   fetch: (req) => (
     <html request={req} routes={routes}>
-      <header>
-        <nav style={{ "& a.active": { fontWeight: "bold" } }} data-active-class="active">
-          <a href="/">Home</a>
-          <a href="/about">About</a>
-          <a href="/blog">Blog</a>
-        </nav>
-      </header>
+      <nav style={{ "& a.active": { fontWeight: "bold" } }} data-active-class="active">
+        <a href="/">Home</a>
+        <a href="/about">About</a>
+        <a href="/blog">Blog</a>
+      </nav>
       <router />
     </html>
+  )
+}
+```
+
+### Using DB/Storage in Route Components
+
+Route components are always rendered on server-side, you can use any database or storage API to fetch data in your route components.
+
+```tsx
+async function Post(this: FC) {
+  const post = await sql`SELECT * FROM posts WHERE id = ${ this.request.params!.id }`
+  return (
+    <article>
+      <h2>{post.title}<h2>
+      <section>
+        {html(post.content)}
+      </section>
+    </article>
   )
 }
 ```

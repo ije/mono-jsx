@@ -91,72 +91,121 @@ export interface AsyncComponentAttributes {
 
 export interface Elements {
   /**
-   * The `toggle` element is a builtin element that toggles the visibility of its children.
+   * The `toggle` element is a built-in element that toggles the visibility of its children.
    */
   toggle: BaseAttributes & {
-    show?: boolean | 0 | 1;
+    show?: any;
+    hidden?: any;
   };
   /**
-   * The `switch` element is a builtin element that chooses one of its children based on the `slot` attribute to display.
+   * The `switch` element is a built-in element that chooses one of its children based on the `slot` attribute to display.
    * It is similar to a switch statement in programming languages.
    */
   switch: BaseAttributes & {
     value?: string | number | boolean | null;
   };
   /**
-   * The `component` element is a builtin element that is used to load components lazily,
+   * The `component` element is a built-in element that is used to load components lazily,
    * which can improve performance by reducing the initial load time of the application.
    */
   component: BaseAttributes & AsyncComponentAttributes & {
     name: string;
     props?: Record<string, unknown>;
+    ref?: ComponentElement | ((el: ComponentElement) => void);
   };
   /**
-   * The `router` element is a builtin element that implements client-side routing.
+   * The `router` element is a built-in element that implements client-side routing.
    */
-  router: BaseAttributes & AsyncComponentAttributes & {};
+  router: BaseAttributes & AsyncComponentAttributes & {
+    /**
+     * The `base` attribute is used to set the base URL for the router.
+     */
+    base?: string;
+    ref?: RouterElement | ((el: RouterElement) => void);
+  };
 }
 
 declare global {
   /**
-   * The `html` function is used to create XSS-unsafe HTML elements.
+   * The `html` function is used to create XSS-unsafed HTML content.
    */
   var html: JSX.Raw;
-  var css: JSX.Raw;
-  var js: JSX.Raw;
-
   /**
-   * mono-jsx `this` object that is bound to the function component.
+   * The `css` function is an alias to `html`.
    */
-  type FC<Signals = {}, AppSignals = {}, Context = {}> = {
+  var css: JSX.Raw;
+  /**
+   * The `js` function is an alias to `html`.
+   */
+  var js: JSX.Raw;
+  /**
+   *  The `FC` type defines Signals/Context/Refs API.
+   */
+  type FC<Signals = {}, AppSignals = {}, Context = {}, Refs = {}, AppRefs = {}> = {
     /**
-     * Application signals.
+     * The global signals shared across the application.
      */
-    readonly app: AppSignals;
+    readonly app: {
+      /**
+       * The `app.refs` object is used to store variables in the application scope.
+       * It is similar to `refs`, but it is shared across all components in the application.
+       */
+      readonly refs: AppRefs;
+      /**
+       * The `app.url` object contains the current URL information.
+       */
+      readonly url: URL & { params?: Record<string, string> };
+    } & Omit<AppSignals, "url">;
     /**
-     * Rendering context.
+     * The rendering context.
      *
      * **⚠ This is a server-side only API.**
      */
     readonly context: Context;
     /**
-     * Current request object.
+     * The `request` object contains the current request information.
      *
      * **⚠ This is a server-side only API.**
      */
-    readonly request: Request & { params?: Record<string, string> };
+    readonly request: Request & { URL: URL; params?: Record<string, string> };
     /**
-     * The `refs` object is used to store references to DOM elements.
+     * The `refs` object is used to store variables in clide side.
      */
-    readonly refs: Record<string, HTMLElement | null>;
+    readonly refs: Refs;
     /**
      * The `computed` method is used to create a computed signal.
      */
     readonly computed: <T = unknown>(fn: () => T) => T;
     /**
+     * `this.$(fn)` is a shortcut for `this.computed(fn)`.
+     */
+    readonly $: FC["computed"];
+    /**
      * The `effect` method is used to create a side effect.
      * **The effect function is only called on client side.**
      */
     readonly effect: (fn: () => void | (() => void)) => void;
-  } & Omit<Signals, "app" | "context" | "request" | "computed" | "effect">;
+  } & Omit<Signals, "app" | "context" | "request" | "refs" | "forIndex" | "forItem" | "computed" | "$" | "effect">;
+  /**
+   *  The `Refs` defines the `refs` types.
+   */
+  type Refs<T, R = {}, RR = {}> = T extends FC<infer S, infer A, infer C> ? FC<S, A, C, R, RR> : never;
+  /**
+   * The `Context` defines the `context` types.
+   */
+  type Context<T, C = {}> = T extends FC<infer S, infer A, infer _, infer R, infer RR> ? FC<S, A, C, R, RR> : never;
+  /**
+   * The `ComponentElement` type defines the component element.
+   */
+  type ComponentElement = {
+    name: string;
+    props: Record<string, unknown> | undefined;
+    refresh: () => Promise<void>;
+  };
+  /**
+   * The `RouterElement` type defines the router element.
+   */
+  type RouterElement = {
+    navigate: (url: string | URL, options?: { replace?: boolean }) => Promise<void>;
+  };
 }

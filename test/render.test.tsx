@@ -1,15 +1,9 @@
 import type { RenderOptions } from "../types/render.d.ts";
 import { assert, assertEquals } from "jsr:@std/assert";
+import { LAZY, RENDER_ATTR, ROUTER, SIGNALS } from "../runtime/index.ts";
 import { CX_JS, EVENT_JS, LAZY_JS, ROUTER_JS, SIGNALS_JS, STYLE_JS, SUSPENSE_JS } from "../runtime/index.ts";
+import { RENDER_ATTR_JS, RENDER_SWITCH_JS, RENDER_TOGGLE_JS } from "../runtime/index.ts";
 import { VERSION } from "../version.ts";
-
-const RUNTIME_CX = 1;
-const RUNTIME_STYLE = 2;
-const RUNTIME_EVENT = 4;
-const RUNTIME_SIGNALS = 8;
-const RUNTIME_SUSPENSE = 16;
-const RUNTIME_LAZY = 32;
-const RUNTIME_ROUTER = 64;
 
 const renderToString = (node: JSX.Element, renderOptions?: RenderOptions) => {
   const res = (
@@ -102,11 +96,11 @@ Deno.test("[ssr] style to css(inline)", async () => {
   );
 
   assertEquals(
-    await renderToString(<div style={{ display: "flex", border: 1, lineHeight: 1 }} />),
+    await renderToString(<div style={{ display: "flex", fontSize: 1, lineHeight: 1 }} />),
     [
       `<!DOCTYPE html>`,
       `<html lang="en"><body>`,
-      `<div style="display:flex;border:1px;line-height:1"></div>`,
+      `<div style="display:flex;font-size:1px;line-height:1"></div>`,
       `</body></html>`,
     ].join(""),
   );
@@ -194,15 +188,14 @@ Deno.test("[ssr] serialize event handler", async () => {
     [
       `<!DOCTYPE html>`,
       `<html lang="en"><body>`,
-      `<button type="button" onclick="$emit(event,$MF_0)">Click me</button>`,
+      `<button type="button" onclick="$emit(event,$MF_0_0)">Click me</button>`,
       `</body></html>`,
       `<script data-mono-jsx="${VERSION}">`,
       `(()=>{`,
       EVENT_JS,
       `})();`,
       `/* --- */`,
-      `window.$runtimeFlag=${RUNTIME_EVENT};`,
-      `function $MF_0(){(()=>console.log("🔥")).apply(this,arguments)};`,
+      `function $MF_0_0(){(()=>console.log("🔥")).apply(this,arguments)};`,
       `</script>`,
     ].join(""),
   );
@@ -216,7 +209,7 @@ Deno.test("[ssr] serialize event handler", async () => {
     [
       `<!DOCTYPE html>`,
       `<html lang="en"><body>`,
-      `<form onsubmit="$onsubmit(event,$MF_0)">`,
+      `<form onsubmit="$onsubmit(event,$MF_0_0)">`,
       `<input name="foo">`,
       `</form>`,
       `</body></html>`,
@@ -225,8 +218,7 @@ Deno.test("[ssr] serialize event handler", async () => {
       EVENT_JS,
       `})();`,
       `/* --- */`,
-      `window.$runtimeFlag=${RUNTIME_EVENT};`,
-      `function $MF_0(){((data)=>console.log(data)).apply(this,arguments)};`,
+      `function $MF_0_0(){((data)=>console.log(data)).apply(this,arguments)};`,
       `</script>`,
     ].join(""),
   );
@@ -312,7 +304,6 @@ Deno.test("[ssr] async component", async () => {
         SUSPENSE_JS,
         `})();`,
         `/* --- */`,
-        `window.$runtimeFlag=${RUNTIME_SUSPENSE};`,
         `</script>`,
         `<m-chunk chunk-id="0"><template>`,
         `<ul>`,
@@ -339,7 +330,6 @@ Deno.test("[ssr] async component", async () => {
         SUSPENSE_JS,
         `})();`,
         `/* --- */`,
-        `window.$runtimeFlag=${RUNTIME_SUSPENSE};`,
         `</script>`,
         `<m-chunk chunk-id="0"><template>`,
         `<ul>`,
@@ -383,7 +373,6 @@ Deno.test("[ssr] async component", async () => {
         SUSPENSE_JS,
         `})();`,
         `/* --- */`,
-        `window.$runtimeFlag=${RUNTIME_SUSPENSE};`,
         `</script>`,
         `<m-chunk chunk-id="0"><template>`,
         `<ul>`,
@@ -412,7 +401,6 @@ Deno.test("[ssr] async component", async () => {
         SUSPENSE_JS,
         `})();`,
         `/* --- */`,
-        `window.$runtimeFlag=${RUNTIME_SUSPENSE};`,
         `</script>`,
         `<m-chunk chunk-id="0"><template><div class="layout"><m-portal chunk-id="1"></m-portal></div></template></m-chunk>`,
         `<m-chunk chunk-id="1"><template>`,
@@ -448,7 +436,6 @@ Deno.test("[ssr] async component", async () => {
         SUSPENSE_JS,
         `})();`,
         `/* --- */`,
-        `window.$runtimeFlag=${RUNTIME_SUSPENSE};`,
         `</script>`,
         `<m-chunk chunk-id="0"><template><m-portal chunk-id="1"></m-portal></template></m-chunk>`,
         `<m-chunk chunk-id="1"><template><div class="layout"><m-portal chunk-id="2"></m-portal></div></template></m-chunk>`,
@@ -480,7 +467,6 @@ Deno.test("[ssr] async component", async () => {
         SUSPENSE_JS,
         `})();`,
         `/* --- */`,
-        `window.$runtimeFlag=${RUNTIME_SUSPENSE};`,
         `</script>`,
         indexes.map((i) => [
           `<m-chunk chunk-id="${i}"><template>`,
@@ -524,7 +510,6 @@ Deno.test("[ssr] async generator component", async () => {
         SUSPENSE_JS,
         `})();`,
         `/* --- */`,
-        `window.$runtimeFlag=${RUNTIME_SUSPENSE};`,
         `</script>`,
         ...words.map((word) => `<m-chunk chunk-id="0" next><template><span>${word}</span></template></m-chunk>`),
         `<m-chunk chunk-id="0" done></m-chunk>`,
@@ -552,7 +537,6 @@ Deno.test("[ssr] async generator component", async () => {
         SUSPENSE_JS,
         `})();`,
         `/* --- */`,
-        `window.$runtimeFlag=${RUNTIME_SUSPENSE};`,
         `</script>`,
         ...words.map((word) => `<m-chunk chunk-id="0" next><template><span>${word}</span></template></m-chunk>`),
         `<m-chunk chunk-id="0" done></m-chunk>`,
@@ -616,7 +600,6 @@ Deno.test("[ssr] signals", async () => {
       SIGNALS_JS,
       `})();`,
       `/* --- */`,
-      `window.$runtimeFlag=${RUNTIME_SIGNALS};`,
       `$MS("1:foo");`,
       `</script>`,
     ].join(""),
@@ -638,10 +621,10 @@ Deno.test("[ssr] signals", async () => {
       `</body></html>`,
       `<script data-mono-jsx="${VERSION}">`,
       `(()=>{`,
+      RENDER_ATTR_JS,
       SIGNALS_JS,
       `})();`,
       `/* --- */`,
-      `window.$runtimeFlag=${RUNTIME_SIGNALS};`,
       `$MS("1:foo","bar");`,
       `</script>`,
     ].join(""),
@@ -663,10 +646,10 @@ Deno.test("[ssr] signals", async () => {
       `</body></html>`,
       `<script data-mono-jsx="${VERSION}">`,
       `(()=>{`,
+      RENDER_ATTR_JS,
       SIGNALS_JS,
       `})();`,
       `/* --- */`,
-      `window.$runtimeFlag=${RUNTIME_SIGNALS};`,
       `$MS("1:value","Welcome to mono-jsx!");`,
       `</script>`,
     ].join(""),
@@ -692,17 +675,17 @@ Deno.test("[ssr] signals", async () => {
       `</div></body></html>`,
       `<script data-mono-jsx="${VERSION}">`,
       `(()=>{`,
+      RENDER_ATTR_JS,
       SIGNALS_JS,
       `})();`,
       `/* --- */`,
-      `window.$runtimeFlag=${RUNTIME_SIGNALS};`,
       [1, 2, 3].map((i) => `$MS("${i}:value",${i});`).join(""),
       `</script>`,
     ].join(""),
   );
 });
 
-Deno.test("[ssr] signal as a prop", async () => {
+Deno.test("[ssr] pass signal via prop", async () => {
   function Foo(props: { foo: string }) {
     return <span>{props.foo}</span>;
   }
@@ -726,7 +709,7 @@ Deno.test("[ssr] signal as a prop", async () => {
       `<span>`,
       `<m-signal scope="1" key="foo">bar</m-signal>`,
       `</span>`,
-      `<button type="button" onclick="$emit(event,$MF_0,1)">Click Me</button>`,
+      `<button type="button" onclick="$emit(event,$MF_1_0,1)">Click Me</button>`,
       `</div>`,
       `</body></html>`,
       `<script data-mono-jsx="${VERSION}">`,
@@ -735,8 +718,7 @@ Deno.test("[ssr] signal as a prop", async () => {
       SIGNALS_JS,
       `})();`,
       `/* --- */`,
-      `window.$runtimeFlag=${RUNTIME_EVENT | RUNTIME_SIGNALS};`,
-      `function $MF_0(){(()=>this.foo = "baz").apply(this,arguments)};`,
+      `function $MF_1_0(){(()=>this.foo = "baz").apply(this,arguments)};`,
       `$MS("1:foo","bar");`,
       `</script>`,
     ].join(""),
@@ -785,7 +767,7 @@ Deno.test("[ssr] app signals", async () => {
       `<m-signal scope="0" key="title">Welcome to mono-jsx!</m-signal>`,
       `</h1></header>`,
       `<main>`,
-      `<form onsubmit="$onsubmit(event,$MF_0,2)">`,
+      `<form onsubmit="$onsubmit(event,$MF_2_0,2)">`,
       `<input name="title" value="Welcome to mono-jsx!">`,
       `<m-group><m-signal mode="[value]" scope="0" key="title"></m-signal></m-group>`,
       `</form>`,
@@ -798,11 +780,11 @@ Deno.test("[ssr] app signals", async () => {
       `<script data-mono-jsx="${VERSION}">`,
       `(()=>{`,
       EVENT_JS,
+      RENDER_ATTR_JS,
       SIGNALS_JS,
       `})();`,
       `/* --- */`,
-      `window.$runtimeFlag=${RUNTIME_EVENT | RUNTIME_SIGNALS};`,
-      `function $MF_0(){((fd)=>this.app.title = fd.get("title")).apply(this,arguments)};`,
+      `function $MF_2_0(){((fd)=>this.app.title = fd.get("title")).apply(this,arguments)};`,
       `$MS("0:title","Welcome to mono-jsx!");`,
       `</script>`,
     ].join(""),
@@ -815,7 +797,7 @@ Deno.test("[ssr] computed signals", async () => {
     this.bar = "bar";
     const className = this.computed(() => [this.foo, this.bar]);
     const style = this.computed(() => ({ color: this.app.themeColor }));
-    const text = this.computed(() => this.foo + this.bar + this.app.tailing);
+    const text = this.$(() => this.foo + this.bar + this.app.tailing);
     return <span class={className} style={style} title={text}>{text}</span>;
   }
 
@@ -835,21 +817,21 @@ Deno.test("[ssr] computed signals", async () => {
       `(()=>{`,
       CX_JS,
       STYLE_JS,
+      RENDER_ATTR_JS,
       SIGNALS_JS,
       `})();`,
       `/* --- */`,
-      `window.$runtimeFlag=${RUNTIME_CX | RUNTIME_STYLE | RUNTIME_SIGNALS};`,
       `$MS("1:foo","foo");`,
       `$MS("1:bar","bar");`,
       `$MS("0:themeColor","black");`,
       `$MS("0:tailing","!");`,
-      `$MC(0,function(){return(${
+      `$MC(1,0,function(){return(${
         // @ts-ignore this
         String(() => [this.foo, this.bar])}).call(this)},["1:foo","1:bar"]);`,
-      `$MC(1,function(){return(${
+      `$MC(1,1,function(){return(${
         // @ts-ignore this
         String(() => ({ color: this.app.themeColor }))}).call(this)},["0:themeColor"]);`,
-      `$MC(2,function(){return(${
+      `$MC(1,2,function(){return(${
         // @ts-ignore this
         String(() => this.foo + this.bar + this.app.tailing)}).call(this)},["1:foo","1:bar","0:tailing"]);`,
       `</script>`,
@@ -877,13 +859,13 @@ Deno.test("[ssr] computed signals", async () => {
       `<script data-mono-jsx="${VERSION}">`,
       `(()=>{`,
       CX_JS,
+      RENDER_ATTR_JS,
       SIGNALS_JS,
       `})();`,
       `/* --- */`,
-      `window.$runtimeFlag=${RUNTIME_CX | RUNTIME_SIGNALS};`,
       `$MS("1:color","blue");`,
       `$MS("0:themeColor","black");`,
-      `$MC(0,function(){return(()=>$patch(["blue","black"],[this["color"],0],[$signals(0)["themeColor"],1])).call(this)},["1:color","0:themeColor"]);`,
+      `$MC(1,0,function(){return(()=>$patch(["blue","black"],[this["color"],0],[$signals(0)["themeColor"],1])).call(this)},["1:color","0:themeColor"]);`,
       `</script>`,
     ].join(""),
   );
@@ -912,13 +894,13 @@ Deno.test("[ssr] computed signals", async () => {
       `<script data-mono-jsx="${VERSION}">`,
       `(()=>{`,
       STYLE_JS,
+      RENDER_ATTR_JS,
       SIGNALS_JS,
       `})();`,
       `/* --- */`,
-      `window.$runtimeFlag=${RUNTIME_STYLE | RUNTIME_SIGNALS};`,
       `$MS("1:color","blue");`,
       `$MS("0:themeColor","black");`,
-      `$MC(0,function(){return(()=>$patch({"color":"blue","backgroundColor":"black"},[this["color"],"color"],[$signals(0)["themeColor"],"backgroundColor"])).call(this)},["1:color","0:themeColor"]);`,
+      `$MC(1,0,function(){return(()=>$patch({"color":"blue","backgroundColor":"black"},[this["color"],"color"],[$signals(0)["themeColor"],"backgroundColor"])).call(this)},["1:color","0:themeColor"]);`,
       `</script>`,
     ].join(""),
   );
@@ -945,7 +927,7 @@ Deno.test("[ssr] this.effect", async () => {
       `<h1>`,
       `<m-signal scope="1" key="count">0</m-signal>`,
       `</h1>`,
-      `<button type="button" onclick="$emit(event,$MF_0,1)">Click Me</button>`,
+      `<button type="button" onclick="$emit(event,$MF_1_0,1)">Click Me</button>`,
       `</div>`,
       `<m-effect scope="1" n="1"></m-effect>`,
       `</body></html>`,
@@ -955,8 +937,7 @@ Deno.test("[ssr] this.effect", async () => {
       SIGNALS_JS,
       `})();`,
       `/* --- */`,
-      `window.$runtimeFlag=${RUNTIME_EVENT | RUNTIME_SIGNALS};`,
-      `function $MF_0(){(()=>this.count++).apply(this,arguments)};`,
+      `function $MF_1_0(){(()=>this.count++).apply(this,arguments)};`,
       `function $ME_1_0(){return(()=>console.log("count changed", this.count)).call(this)};`,
       `$MS("1:count",0);`,
       `</script>`,
@@ -984,22 +965,22 @@ Deno.test("[ssr] this.effect", async () => {
       `<m-signal mode="toggle" scope="1" key="show">`,
       `<div>`,
       `<h1><m-signal scope="2" key="count">0</m-signal></h1>`,
-      `<button type="button" onclick="$emit(event,$MF_0,2)">Click Me</button>`,
+      `<button type="button" onclick="$emit(event,$MF_2_0,2)">Click Me</button>`,
       `</div>`,
       `<m-effect scope="2" n="1"></m-effect>`,
       `</m-signal>`,
-      `<button type="button" onclick="$emit(event,$MF_1,1)">Toggle</button>`,
+      `<button type="button" onclick="$emit(event,$MF_1_0,1)">Toggle</button>`,
       `<m-effect scope="1" n="1"></m-effect>`,
       `</body></html>`,
       `<script data-mono-jsx="${VERSION}">`,
       `(()=>{`,
       EVENT_JS,
+      RENDER_TOGGLE_JS,
       SIGNALS_JS,
       `})();`,
       `/* --- */`,
-      `window.$runtimeFlag=${RUNTIME_EVENT | RUNTIME_SIGNALS};`,
-      `function $MF_0(){(()=>this.count++).apply(this,arguments)};`,
-      `function $MF_1(){(()=>this.show = !this.show).apply(this,arguments)};`,
+      `function $MF_2_0(){(()=>this.count++).apply(this,arguments)};`,
+      `function $MF_1_0(){(()=>this.show = !this.show).apply(this,arguments)};`,
       `function $ME_2_0(){return(()=>console.log("count changed", this.count)).call(this)};`,
       `function $ME_1_0(){return(()=>console.log("Welcome to mono-jsx!")).call(this)};`,
       `$MS("2:count",0);`,
@@ -1010,8 +991,8 @@ Deno.test("[ssr] this.effect", async () => {
 });
 
 Deno.test("[ssr] this.refs", async () => {
-  function App(this: FC) {
-    this.effect(() => console.log(this.refs.h1!.textContent));
+  function App(this: Refs<FC, { h1: HTMLElement }>) {
+    this.effect(() => console.log(this.refs.h1.textContent));
     return <h1 ref={this.refs.h1}>Welcome to mono-jsx!</h1>;
   }
 
@@ -1028,8 +1009,64 @@ Deno.test("[ssr] this.refs", async () => {
       SIGNALS_JS,
       `})();`,
       `/* --- */`,
-      `window.$runtimeFlag=${RUNTIME_SIGNALS};`,
       `function $ME_1_0(){return(()=>console.log(this.refs.h1.textContent)).call(this)};`,
+      `</script>`,
+    ].join(""),
+  );
+
+  function Component(this: Refs<FC, { h1: HTMLElement; component: ComponentElement }>) {
+    return (
+      <>
+        <h1 ref={this.refs.h1}>Welcome to mono-jsx!</h1>
+        <component name="Foo" ref={this.refs.component} />
+      </>
+    );
+  }
+
+  assertEquals(
+    await renderToString(<Component />, {
+      components: {
+        Foo: () => <div>Foo Component</div>,
+      },
+    }),
+    [
+      `<!DOCTYPE html>`,
+      `<html lang="en"><body>`,
+      `<h1 data-ref="1:h1">Welcome to mono-jsx!</h1>`,
+      `<m-component name="Foo" data-ref="1:component"></m-component>`,
+      `</body></html>`,
+      `<script data-mono-jsx="${VERSION}">`,
+      `(()=>{`,
+      SIGNALS_JS,
+      LAZY_JS,
+      `})();`,
+      `/* --- */`,
+      `window.$FLAGS="1|0|2|${SIGNALS | LAZY}";`,
+      `</script>`,
+    ].join(""),
+  );
+});
+
+Deno.test("[ssr] this.app.refs", async () => {
+  function App(this: Refs<FC, {}, { h1: HTMLElement }>) {
+    this.effect(() => console.log(this.app.refs.h1.textContent));
+    return <h1 ref={this.app.refs.h1}>Welcome to mono-jsx!</h1>;
+  }
+
+  assertEquals(
+    await renderToString(<App />),
+    [
+      `<!DOCTYPE html>`,
+      `<html lang="en"><body>`,
+      `<h1 data-ref="0:h1">Welcome to mono-jsx!</h1>`,
+      `<m-effect scope="1" n="1"></m-effect>`,
+      `</body></html>`,
+      `<script data-mono-jsx="${VERSION}">`,
+      `(()=>{`,
+      SIGNALS_JS,
+      `})();`,
+      `/* --- */`,
+      `function $ME_1_0(){return(()=>console.log(this.app.refs.h1.textContent)).call(this)};`,
       `</script>`,
     ].join(""),
   );
@@ -1053,7 +1090,6 @@ Deno.test("[ssr] ref callback", async () => {
       SIGNALS_JS,
       `})();`,
       `/* --- */`,
-      `window.$runtimeFlag=${RUNTIME_SIGNALS};`,
       `function $ME_1_0(){return(()=>((el)=>console.log(el.textContent))(this.refs["0"])).call(this)};`,
       `</script>`,
     ].join(""),
@@ -1090,14 +1126,13 @@ Deno.test("[ssr] stateful async component", async () => {
       SUSPENSE_JS,
       `})();`,
       `/* --- */`,
-      `window.$runtimeFlag=${RUNTIME_SUSPENSE};`,
       `</script>`,
       `<m-chunk chunk-id="0"><template>`,
       `<div>`,
       `<h1>`,
       `<m-signal scope="1" computed="0">Hello, me</m-signal>`,
       `!</h1>`,
-      `<button type="button" onclick="$emit(event,$MF_0,1)">Logout</button>`,
+      `<button type="button" onclick="$emit(event,$MF_1_0,1)">Logout</button>`,
       `</div>`,
       `</template></m-chunk>`,
       `<script data-mono-jsx="${VERSION}">`,
@@ -1106,10 +1141,9 @@ Deno.test("[ssr] stateful async component", async () => {
       SIGNALS_JS,
       `})();`,
       `/* --- */`,
-      `window.$runtimeFlag=${RUNTIME_SUSPENSE | RUNTIME_EVENT | RUNTIME_SIGNALS};`,
-      `function $MF_0(){(()=>this.username = null).apply(this,arguments)};`,
+      `function $MF_1_0(){(()=>this.username = null).apply(this,arguments)};`,
       `$MS("1:username","me");`,
-      `$MC(0,function(){return(()=>this.username ? "Hello, " + this.username : "Please login").call(this)},["1:username"]);`,
+      `$MC(1,0,function(){return(()=>this.username ? "Hello, " + this.username : "Please login").call(this)},["1:username"]);`,
       `</script>`,
     ].join(""),
   );
@@ -1139,7 +1173,7 @@ Deno.test("[ssr] this.request", async () => {
 });
 
 Deno.test("[ssr] this.context", async () => {
-  function App(this: FC<{}, {}, { foo: string }>) {
+  function App(this: Context<FC, { foo: string }>) {
     const { context } = this;
     return (
       <div>
@@ -1197,6 +1231,15 @@ Deno.test("[ssr] <toggle>", async () => {
     );
   }
 
+  function ToggleWithHiddenProp(this: FC<{ hidden: boolean }>, props: { hidden?: boolean }) {
+    this.hidden = !!props.hidden;
+    return (
+      <toggle hidden={this.hidden}>
+        <h1>👋</h1>
+      </toggle>
+    );
+  }
+
   assertEquals(
     await renderToString(<Toggle />),
     [
@@ -1208,10 +1251,10 @@ Deno.test("[ssr] <toggle>", async () => {
       `</body></html>`,
       `<script data-mono-jsx="${VERSION}">`,
       `(()=>{`,
+      RENDER_TOGGLE_JS,
       SIGNALS_JS,
       `})();`,
       `/* --- */`,
-      `window.$runtimeFlag=${RUNTIME_SIGNALS};`,
       `$MS("1:show",false);`,
       `</script>`,
     ].join(""),
@@ -1228,11 +1271,53 @@ Deno.test("[ssr] <toggle>", async () => {
       `</body></html>`,
       `<script data-mono-jsx="${VERSION}">`,
       `(()=>{`,
+      RENDER_TOGGLE_JS,
       SIGNALS_JS,
       `})();`,
       `/* --- */`,
-      `window.$runtimeFlag=${RUNTIME_SIGNALS};`,
       `$MS("1:show",true);`,
+      `</script>`,
+    ].join(""),
+  );
+
+  assertEquals(
+    await renderToString(<ToggleWithHiddenProp />),
+    [
+      `<!DOCTYPE html>`,
+      `<html lang="en"><body>`,
+      `<m-signal mode="toggle" scope="1" computed="0">`,
+      `<h1>👋</h1>`,
+      `</m-signal>`,
+      `</body></html>`,
+      `<script data-mono-jsx="${VERSION}">`,
+      `(()=>{`,
+      RENDER_TOGGLE_JS,
+      SIGNALS_JS,
+      `})();`,
+      `/* --- */`,
+      `$MS("1:hidden",false);`,
+      `$MC(1,0,function(){return(()=>!this["hidden"]).call(this)},["1:hidden"]);`,
+      `</script>`,
+    ].join(""),
+  );
+
+  assertEquals(
+    await renderToString(<ToggleWithHiddenProp hidden />),
+    [
+      `<!DOCTYPE html>`,
+      `<html lang="en"><body>`,
+      `<m-signal mode="toggle" scope="1" computed="0">`,
+      `<template m-slot><h1>👋</h1></template>`,
+      `</m-signal>`,
+      `</body></html>`,
+      `<script data-mono-jsx="${VERSION}">`,
+      `(()=>{`,
+      RENDER_TOGGLE_JS,
+      SIGNALS_JS,
+      `})();`,
+      `/* --- */`,
+      `$MS("1:hidden",true);`,
+      `$MC(1,0,function(){return(()=>!this["hidden"]).call(this)},["1:hidden"]);`,
       `</script>`,
     ].join(""),
   );
@@ -1315,10 +1400,10 @@ Deno.test("[ssr] <switch>", async () => {
       `</body></html>`,
       `<script data-mono-jsx="${VERSION}">`,
       `(()=>{`,
+      RENDER_SWITCH_JS,
       SIGNALS_JS,
       `})();`,
       `/* --- */`,
-      `window.$runtimeFlag=${RUNTIME_SIGNALS};`,
       `$MS("1:select","a");`,
       `</script>`,
     ].join(""),
@@ -1336,10 +1421,10 @@ Deno.test("[ssr] <switch>", async () => {
       `</body></html>`,
       `<script data-mono-jsx="${VERSION}">`,
       `(()=>{`,
+      RENDER_SWITCH_JS,
       SIGNALS_JS,
       `})();`,
       `/* --- */`,
-      `window.$runtimeFlag=${RUNTIME_SIGNALS};`,
       `$MS("1:select","b");`,
       `</script>`,
     ].join(""),
@@ -1357,10 +1442,10 @@ Deno.test("[ssr] <switch>", async () => {
       `</body></html>`,
       `<script data-mono-jsx="${VERSION}">`,
       `(()=>{`,
+      RENDER_SWITCH_JS,
       SIGNALS_JS,
       `})();`,
       `/* --- */`,
-      `window.$runtimeFlag=${RUNTIME_SIGNALS};`,
       `$MS("1:select");`,
       `</script>`,
     ].join(""),
@@ -1408,8 +1493,7 @@ Deno.test("[ssr] <component>", async () => {
       LAZY_JS,
       `})();`,
       `/* --- */`,
-      `window.$runtimeFlag=${RUNTIME_LAZY};`,
-      `window.$scopeSeq=0;`,
+      `window.$FLAGS="0|0|0|${LAZY}";`,
       `</script>`,
     ].join(""),
   );
@@ -1424,12 +1508,12 @@ Deno.test("[ssr] <component>", async () => {
       `</body></html>`,
       `<script data-mono-jsx="${VERSION}">`,
       `(()=>{`,
+      RENDER_ATTR_JS,
       SIGNALS_JS,
       LAZY_JS,
       `})();`,
       `/* --- */`,
-      `window.$runtimeFlag=${RUNTIME_LAZY | RUNTIME_SIGNALS};`,
-      `window.$scopeSeq=1;`,
+      `window.$FLAGS="1|0|0|${RENDER_ATTR | SIGNALS | LAZY}";`,
       `$MS("1:name","App");`,
       `</script>`,
     ].join(""),
@@ -1445,12 +1529,12 @@ Deno.test("[ssr] <component>", async () => {
       `</body></html>`,
       `<script data-mono-jsx="${VERSION}">`,
       `(()=>{`,
+      RENDER_ATTR_JS,
       SIGNALS_JS,
       LAZY_JS,
       `})();`,
       `/* --- */`,
-      `window.$runtimeFlag=${RUNTIME_LAZY | RUNTIME_SIGNALS};`,
-      `window.$scopeSeq=1;`,
+      `window.$FLAGS="1|0|0|${RENDER_ATTR | SIGNALS | LAZY}";`,
       `$MS("1:props",{"foo":"bar"});`,
       `</script>`,
     ].join(""),
@@ -1466,14 +1550,14 @@ Deno.test("[ssr] <component>", async () => {
       `</body></html>`,
       `<script data-mono-jsx="${VERSION}">`,
       `(()=>{`,
+      RENDER_ATTR_JS,
       SIGNALS_JS,
       LAZY_JS,
       `})();`,
       `/* --- */`,
-      `window.$runtimeFlag=${RUNTIME_LAZY | RUNTIME_SIGNALS};`,
-      `window.$scopeSeq=1;`,
+      `window.$FLAGS="1|0|0|${RENDER_ATTR | SIGNALS | LAZY}";`,
       `$MS("1:foo","bar");`,
-      `$MC(0,function(){return(${
+      `$MC(1,0,function(){return(${
         // @ts-ignore this
         String(() => ({ foo: this.foo }))}).call(this)},["1:foo"]);`,
       `</script>`,
@@ -1490,14 +1574,14 @@ Deno.test("[ssr] <component>", async () => {
       `</body></html>`,
       `<script data-mono-jsx="${VERSION}">`,
       `(()=>{`,
+      RENDER_ATTR_JS,
       SIGNALS_JS,
       LAZY_JS,
       `})();`,
       `/* --- */`,
-      `window.$runtimeFlag=${RUNTIME_LAZY | RUNTIME_SIGNALS};`,
-      `window.$scopeSeq=1;`,
+      `window.$FLAGS="1|0|0|${RENDER_ATTR | SIGNALS | LAZY}";`,
       `$MS("1:foo","bar");`,
-      `$MC(0,function(){return(()=>$patch({"foo":"bar","color":"blue"},[this["foo"],"foo"])).call(this)},["1:foo"]);`,
+      `$MC(1,0,function(){return(()=>$patch({"foo":"bar","color":"blue"},[this["foo"],"foo"])).call(this)},["1:foo"]);`,
       `</script>`,
     ].join(""),
   );
@@ -1510,8 +1594,7 @@ Deno.test("[ssr] <component>", async () => {
           headers: {
             "x-component": "App",
             "x-props": JSON.stringify({ foo: "bar" }),
-            "x-runtime-flag": RUNTIME_LAZY.toString(),
-            "x-scope-seq": "1",
+            "x-flags": "1|0|0|" + LAZY,
           },
         }),
       }),
@@ -1523,8 +1606,7 @@ Deno.test("[ssr] <component>", async () => {
         SIGNALS_JS,
         `})();`,
         `/* --- */`,
-        `window.$runtimeFlag=${RUNTIME_LAZY | RUNTIME_SIGNALS};`,
-        `window.$scopeSeq=2;`,
+        `window.$FLAGS="2|0|0|${SIGNALS | LAZY}";`,
         `$MS("2:message","Welcome to mono-jsx!");`,
       ].join(""),
     ],
@@ -1561,8 +1643,7 @@ Deno.test("[ssr] <router>", async () => {
       ROUTER_JS,
       `})();`,
       `/* --- */`,
-      `window.$runtimeFlag=${RUNTIME_ROUTER};`,
-      `window.$scopeSeq=2;`,
+      `window.$FLAGS="2|0|0|${ROUTER}";`,
       `</script>`,
     ].join(""),
   );
@@ -1588,8 +1669,7 @@ Deno.test("[ssr] <router>", async () => {
       ROUTER_JS,
       `})();`,
       `/* --- */`,
-      `window.$runtimeFlag=${RUNTIME_ROUTER};`,
-      `window.$scopeSeq=2;`,
+      `window.$FLAGS="2|0|0|${ROUTER}";`,
       `</script>`,
     ].join(""),
   );
@@ -1614,8 +1694,7 @@ Deno.test("[ssr] <router>", async () => {
       ROUTER_JS,
       `})();`,
       `/* --- */`,
-      `window.$runtimeFlag=${RUNTIME_ROUTER};`,
-      `window.$scopeSeq=1;`,
+      `window.$FLAGS="1|0|0|${ROUTER}";`,
       `</script>`,
     ].join(""),
   );
@@ -1630,15 +1709,14 @@ Deno.test("[ssr] <router>", async () => {
         request: new Request("https://example.com", {
           headers: {
             "x-route": "true",
-            "x-runtime-flag": RUNTIME_ROUTER.toString(),
-            "x-scope-seq": "1",
+            "x-flags": "1|0|0|" + ROUTER.toString(),
           },
         }),
       }),
     ),
     [
       `<h1>Home</h1>`,
-      `window.$scopeSeq=2;`,
+      'window.$FLAGS="2|0|0|512";',
     ],
   );
 
@@ -1652,15 +1730,14 @@ Deno.test("[ssr] <router>", async () => {
         request: new Request("https://example.com/about", {
           headers: {
             "x-route": "true",
-            "x-runtime-flag": RUNTIME_ROUTER.toString(),
-            "x-scope-seq": "1",
+            "x-flags": "1|0|0|" + ROUTER.toString(),
           },
         }),
       }),
     ),
     [
       `<h1>About</h1>`,
-      `window.$scopeSeq=2;`,
+      'window.$FLAGS="2|0|0|512";',
     ],
   );
 
@@ -1674,8 +1751,7 @@ Deno.test("[ssr] <router>", async () => {
         request: new Request("https://example.com/404", {
           headers: {
             "x-route": "true",
-            "x-runtime-flag": RUNTIME_ROUTER.toString(),
-            "x-scope-seq": "1",
+            "x-flags": "1|0|0|" + ROUTER.toString(),
           },
         }),
       }),
@@ -1684,6 +1760,47 @@ Deno.test("[ssr] <router>", async () => {
       error: { message: "Route not found" },
       status: 404,
     },
+  );
+});
+
+Deno.test("[ssr] this.app.url", async () => {
+  function Router(this: FC) {
+    this.effect(() => console.log(this.app.url));
+    return (
+      <router>
+        <p>Page not found</p>
+      </router>
+    );
+  }
+
+  assertEquals(
+    await renderToString(<Router />, {
+      routes: {
+        "/": () => <h1>Home</h1>,
+        "/about": () => <h1>About</h1>,
+      },
+      request: new Request("https://example.com/"),
+    }),
+    [
+      `<!DOCTYPE html>`,
+      `<html lang="en"><body>`,
+      `<m-router status="200">`,
+      `<h1>Home</h1>`,
+      `<template m-slot><p>Page not found</p></template>`,
+      `</m-router>`,
+      `<m-effect scope="1" n="1"></m-effect>`,
+      `</body></html>`,
+      `<script data-mono-jsx="${VERSION}">`,
+      `(()=>{`,
+      SIGNALS_JS,
+      ROUTER_JS,
+      `})();`,
+      `/* --- */`,
+      `window.$FLAGS="2|0|0|${SIGNALS | ROUTER}";`,
+      `function $ME_1_0(){return(()=>console.log(this.app.url)).call(this)};`,
+      `$MS("0:url",new URL("https://example.com/"));`,
+      `</script>`,
+    ].join(""),
   );
 });
 

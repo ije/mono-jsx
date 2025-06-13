@@ -1,11 +1,9 @@
 declare global {
-  var $cx: (className: unknown) => string;
-  var $applyStyle: (el: Element, style: unknown) => void;
-}
-
-interface Signals {
-  readonly $init: (key: string, value: unknown) => void;
-  readonly $watch: (key: string, effect: () => void) => () => void;
+  interface Signals {
+    readonly $init: (key: string, value: unknown) => void;
+    readonly $watch: (key: string, effect: () => void) => () => void;
+    readonly refs: Record<string, unknown>;
+  }
 }
 
 let collectDeps: ((scopeId: number, key: string) => void) | undefined;
@@ -15,10 +13,8 @@ const mcs = new Map<number, [Function, string[]]>();
 const scopes = new Map<number, Signals>();
 const Signals = (scopeId: number) => scopes.get(scopeId) ?? scopes.set(scopeId, createSignals(scopeId)).get(scopeId)!;
 
-const getAttr = (el: Element, name: string) => el.getAttribute(name);
-const setAttr = (el: Element, name: string, value: string) => el.setAttribute(name, value);
-const replaceChildren = (el: Element, children: Node[]) => el.replaceChildren(...children);
 const createNullObject = () => Object.create(null);
+const getAttr = (el: Element, name: string) => el.getAttribute(name);
 
 const createSignals = (scopeId: number): Signals => {
   const store = createNullObject();
@@ -76,75 +72,16 @@ const createSignals = (scopeId: number): Signals => {
 };
 
 const createDomEffect = (el: Element, mode: string | null, getter: () => unknown) => {
-  if (mode === "toggle") {
-    let slots: Array<ChildNode> | undefined;
-    return () => {
-      if (!slots) {
-        const firstChild = el.firstElementChild;
-        if (firstChild && firstChild.tagName === "TEMPLATE" && firstChild.hasAttribute("m-slot")) {
-          slots = [...(firstChild as HTMLTemplateElement).content.childNodes];
-        } else {
-          slots = [...el.childNodes];
-        }
-      }
-      replaceChildren(el, getter() ? slots : []);
-    };
-  }
-  if (mode === "switch") {
-    let value: string;
-    let toMatch = getAttr(el, "match");
-    let slotsMap: Map<string, Array<ChildNode>> | undefined;
-    let unnamedSlots: Array<ChildNode> | undefined;
-    let getNamedSlots = (slotName: string) => slotsMap!.get(slotName) ?? slotsMap!.set(slotName, []).get(slotName)!;
-    return () => {
-      if (!slotsMap) {
-        slotsMap = new Map();
-        unnamedSlots = [];
-        for (const slot of el.childNodes) {
-          if (slot.nodeType === 1 && (slot as HTMLElement).tagName === "TEMPLATE" && (slot as HTMLElement).hasAttribute("m-slot")) {
-            for (const node of (slot as HTMLTemplateElement).content.childNodes) {
-              if (node.nodeType === 1 && (node as HTMLElement).hasAttribute("slot")) {
-                getNamedSlots(getAttr(node as HTMLElement, "slot")!).push(node);
-              } else {
-                unnamedSlots.push(node);
-              }
-            }
-            slot.remove();
-          } else {
-            if (toMatch) {
-              getNamedSlots(toMatch).push(slot);
-            } else {
-              unnamedSlots.push(slot);
-            }
-          }
-        }
-      }
-      value = "" + getter();
-      replaceChildren(el, slotsMap.has(value) ? slotsMap.get(value)! : unnamedSlots!);
-    };
+  switch (mode) {
+    case "toggle":
+      return $renderToggle(el, getter);
+    case "switch":
+      return $renderSwitch(el, getter);
+    case "html":
+      return () => el.innerHTML = "" + getter();
   }
   if (mode && mode.length > 2 && mode.startsWith("[") && mode.endsWith("]")) {
-    let attrName = mode.slice(1, -1);
-    let target: Element = el.parentElement!;
-    if (target.tagName === "M-GROUP") {
-      target = target.previousElementSibling!;
-    }
-    return () => {
-      const value = getter();
-      if (value === false || value === null || value === undefined) {
-        target.removeAttribute(attrName);
-      } else if (typeof value === "object" && value !== null && (attrName === "class" || attrName === "style" || attrName === "props")) {
-        if (attrName === "class") {
-          setAttr(target, attrName, $cx(value));
-        } else if (attrName === "style") {
-          $applyStyle(target, value);
-        } else {
-          setAttr(target, attrName, JSON.stringify(value));
-        }
-      } else {
-        setAttr(target, attrName, value === true ? "" : value as string);
-      }
-    };
+    return $renderAttr(el, mode.slice(1, -1), getter);
   }
   return () => el.textContent = "" + getter();
 };
@@ -179,13 +116,14 @@ const defineElement = (tag: string, callback: (el: Element & { disposes: (() => 
   );
 
 defineElement("m-signal", (el) => {
-  const signals = Signals(Number(getAttr(el, "scope")));
+  const scope = Number(getAttr(el, "scope"));
+  const signals = Signals(scope);
   const key = getAttr(el, "key");
   if (key) {
     el.disposes.push(signals.$watch(key, createDomEffect(el, getAttr(el, "mode"), () => (signals as any)[key])));
   } else {
     const id = Number(getAttr(el, "computed"));
-    defer(() => mcs.get(id)).then(([compute, deps]) => {
+    defer(() => mcs.get(scope * 1e9 + id)).then(([compute, deps]) => {
       const effect = createDomEffect(el, getAttr(el, "mode"), compute.bind(signals));
       deps.forEach((dep) => {
         const [scope, key] = resolveSignalID(dep)!;
@@ -222,9 +160,6 @@ defineElement("m-effect", (el) => {
   }
 });
 
-// get the signals
-win.$signals = (scope?: number) => scope !== undefined ? Signals(scope) : undefined;
-
 // initialize a signal with the given value
 win.$MS = (id: string, value: unknown) => {
   const [scope, key] = resolveSignalID(id)!;
@@ -232,8 +167,8 @@ win.$MS = (id: string, value: unknown) => {
 };
 
 // define a computed signal
-win.$MC = (id: number, compute: Function, deps: string[]) => {
-  mcs.set(id, [compute, deps]);
+win.$MC = (scope: number, id: number, compute: Function, deps: string[]) => {
+  mcs.set(scope * 1e9 + id, [compute, deps]);
 };
 
 // update an object with patches
@@ -248,3 +183,6 @@ win.$patch = (obj: Record<string, unknown>, ...patches: unknown[][]) => {
   }
   return obj;
 };
+
+// get the signals
+win.$signals = (scope?: number) => scope !== undefined ? Signals(scope) : undefined;

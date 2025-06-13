@@ -1,11 +1,11 @@
 import type { FC, VNode } from "./types/jsx.d.ts";
-import { JSX, renderHtml } from "./render.ts";
+import { isSignal, JSX, renderHtml } from "./render.ts";
 import { escapeHTML, isString, NullProtoObj } from "./runtime/utils.ts";
-import { $fragment, $html, $vnode } from "./symbols.ts";
+import { $fragment, $html, $setup, $vnode } from "./symbols.ts";
 
-const Fragment = $fragment as unknown as FC;
+export const Fragment = $fragment as unknown as FC;
 
-const jsx = (tag: string | FC, props: Record<string, unknown> = new NullProtoObj(), key?: string | number): VNode => {
+export const jsx = (tag: string | FC, props: Record<string, unknown> = new NullProtoObj(), key?: string | number): VNode => {
   const vnode = new Array(3).fill(null);
   vnode[0] = tag;
   vnode[1] = props;
@@ -15,6 +15,10 @@ const jsx = (tag: string | FC, props: Record<string, unknown> = new NullProtoObj
   }
   // if the tag name is `html`, render it to a `Response` object
   if (tag === "html") {
+    if (props.request as unknown === $setup) {
+      // if the request is a 'setup' request, return the props as a VNode
+      return props as unknown as VNode;
+    }
     const renderOptions = new NullProtoObj();
     const optionsKeys = new Set(["app", "context", "components", "routes", "request", "status", "headers", "htmx"]);
     for (const [key, value] of Object.entries(props)) {
@@ -28,7 +32,7 @@ const jsx = (tag: string | FC, props: Record<string, unknown> = new NullProtoObj
   return vnode as unknown as VNode;
 };
 
-const jsxEscape = (value: unknown): string => {
+export const jsxEscape = (value: unknown): string => {
   if (value === null || value === undefined || typeof value === "boolean") {
     return "";
   }
@@ -38,9 +42,9 @@ const jsxEscape = (value: unknown): string => {
   return escapeHTML(String(value));
 };
 
-const html = (template: string | TemplateStringsArray, ...values: unknown[]): VNode => [
+export const html = (template: string | TemplateStringsArray, ...values: unknown[]): VNode => [
   $html,
-  { innerHTML: isString(template) ? template : String.raw(template, ...values.map(jsxEscape)) },
+  { innerHTML: isString(template) || isSignal(template) ? template : String.raw(template, ...values.map(jsxEscape)) },
   $vnode,
 ];
 
@@ -52,4 +56,4 @@ Object.assign(globalThis, {
   js: html,
 });
 
-export { Fragment, jsx, jsx as jsxDEV, jsx as jsxs };
+export { html as css, html as js, JSX, jsx as jsxDEV, jsx as jsxs };

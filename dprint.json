@@ -13,7 +13,6 @@
     "runtime/index.ts"
   ],
   "plugins": [
-    "https://plugins.dprint.dev/typescript-0.94.0.wasm",
-    "https://plugins.dprint.dev/markdown-0.18.0.wasm"
+    "https://plugins.dprint.dev/typescript-0.95.5.wasm"
   ]
 }
