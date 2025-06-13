@@ -44,11 +44,13 @@ export namespace HTML {
 
   /** Global HTML attributes from https://developer.mozilla.org/en-US/docs/Web/HTML/Global_attributes */
   interface GlobalAttributes<T extends EventTarget> extends EventAttributes<T>, Aria.Attributes, Mono.BaseAttributes, JSX.HtmlTag {
+    // @mono-jsx
+    ref?: HTMLElement | ((el: T) => unknown);
     /** Defines a unique identifier (ID) which must be unique in the whole document. Its purpose is to identify the element when linking (using a fragment identifier), scripting, or styling (with CSS). */
     id?: string;
-    /** A space-separated list of the classes of the element. Classes allow CSS and JavaScript to select and access specific elements via the [class selectors](https://developer.mozilla.org/en-US/docs/Web/CSS/Class_selectors) or functions like the method [`Document.getElementsByClassName()`](https://developer.mozilla.org/en-US/docs/Web/API/Document/getElementsByClassName). */
+    /** Contains a space-separated list of the classes of the element. Classes are used by CSS and JavaScript to select and access specific elements. */
     class?: HTMLClass | HTMLClass[];
-    /** Contains [CSS](https://developer.mozilla.org/en-US/docs/Web/CSS) styling declarations to be applied to the element. Note that it is recommended for styles to be defined in a separate file or files. This attribute and the [`<style>`](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/style) element have mainly the purpose of allowing for quick styling, for example for testing purposes. */
+    /** Contains [CSS](https://developer.mozilla.org/en-US/docs/Web/CSS) styling declarations to be applied to the element. */
     style?: string | Mono.CSSProperties;
     /** An enumerated attribute indicating that the element is not yet, or is no longer, relevant. For example, it can be used to hide elements of the page that can't be used until the login process has been completed. The browser won't render such elements. This attribute must not be used to hide content that could legitimately be shown. */
     hidden?: boolean | "hidden" | "until-found";
@@ -828,9 +830,6 @@ export namespace HTML {
   }
 
   interface EventAttributes<T extends EventTarget> {
-    // @mono-jsx
-    ref?: ((el: T) => unknown) | HTMLElement | null;
-
     // Input Events
     onBeforeInput?: EventHandler<Event, T>;
     onInput?: EventHandler<Event, T>;

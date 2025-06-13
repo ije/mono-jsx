@@ -903,11 +903,17 @@ Deno.test("[runtime] <form> action callback", sanitizeFalse, async () => {
 });
 
 Deno.test("[runtime] refs", sanitizeFalse, async () => {
-  function App(this: Refs<FC, { h1: HTMLElement }>) {
+  function App(this: Refs<FC, { h2: HTMLElement }, { h1: HTMLElement }>) {
     this.effect(() => {
-      this.refs.h1.textContent = "Welcome to mono-jsx!";
+      this.appRefs.h1.textContent = "Welcome to mono-jsx!";
+      this.refs.h2.textContent = "Building User Interfaces.";
     });
-    return <h1 ref={this.refs.h1} />;
+    return (
+      <hgroup>
+        <h1 ref={this.appRefs.h1} />;
+        <h2 ref={this.refs.h2} />;
+      </hgroup>
+    );
   }
   const testPageUrl = addTestPage(
     <App />,
@@ -919,6 +925,10 @@ Deno.test("[runtime] refs", sanitizeFalse, async () => {
   const h1 = await page.$("h1");
   assert(h1);
   assertEquals(await h1.evaluate((el: HTMLElement) => el.textContent), "Welcome to mono-jsx!");
+
+  const h2 = await page.$("h2");
+  assert(h2);
+  assertEquals(await h2.evaluate((el: HTMLElement) => el.textContent), "Building User Interfaces.");
 
   await page.close();
 });

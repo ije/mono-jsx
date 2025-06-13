@@ -1047,6 +1047,31 @@ Deno.test("[ssr] this.refs", async () => {
   );
 });
 
+Deno.test("[ssr] this.appRefs", async () => {
+  function App(this: Refs<FC, {}, { h1: HTMLElement }>) {
+    this.effect(() => console.log(this.appRefs.h1.textContent));
+    return <h1 ref={this.appRefs.h1}>Welcome to mono-jsx!</h1>;
+  }
+
+  assertEquals(
+    await renderToString(<App />),
+    [
+      `<!DOCTYPE html>`,
+      `<html lang="en"><body>`,
+      `<h1 data-ref="0:h1">Welcome to mono-jsx!</h1>`,
+      `<m-effect scope="1" n="1"></m-effect>`,
+      `</body></html>`,
+      `<script data-mono-jsx="${VERSION}">`,
+      `(()=>{`,
+      SIGNALS_JS,
+      `})();`,
+      `/* --- */`,
+      `function $ME_1_0(){return(()=>console.log(this.appRefs.h1.textContent)).call(this)};`,
+      `</script>`,
+    ].join(""),
+  );
+});
+
 Deno.test("[ssr] ref callback", async () => {
   function App(this: FC) {
     return <h1 ref={el => console.log(el.textContent)}>Welcome to mono-jsx!</h1>;

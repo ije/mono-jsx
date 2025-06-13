@@ -2,6 +2,7 @@ declare global {
   interface Signals {
     readonly $init: (key: string, value: unknown) => void;
     readonly $watch: (key: string, effect: () => void) => () => void;
+    readonly refs: Record<string, unknown>;
   }
 }
 
@@ -50,6 +51,8 @@ const createSignals = (scopeId: number): Signals => {
           return watch;
         case "app":
           return Signals(0);
+        case "appRefs":
+          return Signals(0).refs;
         case "refs":
           return refs;
         default:

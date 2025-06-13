@@ -141,7 +141,7 @@ declare global {
   /**
    *  The `FC` type defines Signals/Context/Refs API.
    */
-  type FC<Signals = {}, AppSignals = {}, Context = {}, Refs = {}> = {
+  type FC<Signals = {}, AppSignals = {}, Context = {}, Refs = {}, AppRefs = {}> = {
     /**
      * The global signals shared across the application.
      */
@@ -168,6 +168,11 @@ declare global {
      */
     readonly refs: Refs;
     /**
+     * The `appRefs` object is used to store variables in the application scope.
+     * It is similar to `refs`, but it is shared across all components in the application.
+     */
+    readonly appRefs: AppRefs;
+    /**
      * The `computed` method is used to create a computed signal.
      */
     readonly computed: <T = unknown>(fn: () => T) => T;
@@ -184,11 +189,11 @@ declare global {
   /**
    *  The `Refs` defines the `refs` types.
    */
-  type Refs<T, R = {}> = T extends FC<infer S, infer A, infer C> ? FC<S, A, C, R> : never;
+  type Refs<T, R = {}, RR = {}> = T extends FC<infer S, infer A, infer C> ? FC<S, A, C, R, RR> : never;
   /**
    * The `Context` defines the `context` types.
    */
-  type Context<T, C = {}> = T extends FC<infer S, infer A, infer _, infer R> ? FC<S, A, C, R> : never;
+  type Context<T, C = {}> = T extends FC<infer S, infer A, infer _, infer R, infer RR> ? FC<S, A, C, R, RR> : never;
   /**
    * The `ComponentElement` type defines the component element.
    */

@@ -989,6 +989,8 @@ function createSignals(
       switch (key) {
         case "app":
           return appSignals;
+        case "appRefs":
+          return appSignals?.refs;
         case "context":
           return context;
         case "request":
