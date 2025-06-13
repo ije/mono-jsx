@@ -1,6 +1,5 @@
 declare global {
-  var $runtimeFlag: number;
-  var $scopeSeq: number;
+  var $FLAGS: string;
 }
 
 const doc = document;
@@ -13,7 +12,7 @@ customElements.define(
     static observedAttributes = ["name", "props"];
 
     #name?: string;
-    #props?: string | null;
+    #props?: string;
     #placeholder?: ChildNode[];
     #ac?: AbortController;
     #timer?: number;
@@ -21,9 +20,8 @@ customElements.define(
     async #render() {
       const headers = {
         "x-component": this.#name!,
-        "x-props": this.#props ?? "{}",
-        "x-runtime-flag": "" + $runtimeFlag,
-        "x-scope-seq": "" + $scopeSeq,
+        "x-props": this.#props || "{}",
+        "x-flags": $FLAGS,
       };
       const ac = new AbortController();
       this.#ac?.abort();
@@ -32,12 +30,35 @@ customElements.define(
       const res = await fetch(location.href, { headers, signal: ac.signal });
       if (!res.ok) {
         replaceChildren(this);
-        throw new Error("Failed to fetch component '" + name + "'");
+        throw new Error("Failed to fetch component '" + this.#name + "'");
       }
       const [html, js] = await res.json();
       this.innerHTML = html;
       if (js) {
         doc.body.appendChild(doc.createElement("script")).textContent = js;
+      }
+    }
+
+    get name(): string {
+      return this.#name ?? "";
+    }
+
+    set name(name: string) {
+      if (name && name !== this.#name) {
+        this.#name = name;
+        this.refresh();
+      }
+    }
+
+    get props(): Record<string, unknown> | undefined {
+      return this.#props ? JSON.parse(this.#props) : undefined;
+    }
+
+    set props(props: Record<string, unknown> | string) {
+      const propsJson = typeof props === "string" ? props : JSON.stringify(props ?? {});
+      if (propsJson !== this.#props) {
+        this.#props = propsJson;
+        this.refresh();
       }
     }
 
@@ -51,7 +72,7 @@ customElements.define(
             throw new Error("Component name is required");
           }
           this.#name = nameAttr;
-          this.#props = propsAttr?.startsWith("base64,") ? atob(propsAttr.slice(7)) : null;
+          this.#props = propsAttr?.startsWith("base64,") ? atob(propsAttr.slice(7)) : undefined;
           this.#placeholder = [...this.childNodes];
         }
         this.#render();
@@ -66,14 +87,13 @@ customElements.define(
       this.#timer = undefined;
     }
 
-    attributeChangedCallback(attrName: string, oldValue: string | null, newValue: string | null) {
-      if (this.#name && newValue && oldValue !== newValue) {
+    attributeChangedCallback(attrName: string, _oldValue: string | null, newValue: string | null) {
+      if (this.#name && newValue) {
         if (attrName === "name") {
-          this.#name = newValue;
+          this.name = newValue;
         } else if (attrName === "props") {
-          this.#props = newValue;
+          this.props = newValue;
         }
-        this.refresh();
       }
     }
 

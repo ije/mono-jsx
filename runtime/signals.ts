@@ -115,13 +115,14 @@ const defineElement = (tag: string, callback: (el: Element & { disposes: (() => 
   );
 
 defineElement("m-signal", (el) => {
-  const signals = Signals(Number(getAttr(el, "scope")));
+  const scope = Number(getAttr(el, "scope"));
+  const signals = Signals(scope);
   const key = getAttr(el, "key");
   if (key) {
     el.disposes.push(signals.$watch(key, createDomEffect(el, getAttr(el, "mode"), () => (signals as any)[key])));
   } else {
     const id = Number(getAttr(el, "computed"));
-    defer(() => mcs.get(id)).then(([compute, deps]) => {
+    defer(() => mcs.get(scope * 1e9 + id)).then(([compute, deps]) => {
       const effect = createDomEffect(el, getAttr(el, "mode"), compute.bind(signals));
       deps.forEach((dep) => {
         const [scope, key] = resolveSignalID(dep)!;
@@ -165,8 +166,8 @@ win.$MS = (id: string, value: unknown) => {
 };
 
 // define a computed signal
-win.$MC = (id: number, compute: Function, deps: string[]) => {
-  mcs.set(id, [compute, deps]);
+win.$MC = (scope: number, id: number, compute: Function, deps: string[]) => {
+  mcs.set(scope * 1e9 + id, [compute, deps]);
 };
 
 // update an object with patches

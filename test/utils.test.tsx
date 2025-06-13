@@ -35,8 +35,7 @@ Deno.test("[utils] create routes for bun server", async () => {
       ROUTER_JS,
       `})();`,
       `/* --- */`,
-      `window.$runtimeFlag=${ROUTER};`,
-      `window.$scopeSeq=1;`,
+      `window.$FLAGS="1|0|0|${ROUTER}";`,
       `</script>`,
     ].join(""),
   );
@@ -54,8 +53,7 @@ Deno.test("[utils] create routes for bun server", async () => {
       ROUTER_JS,
       `})();`,
       `/* --- */`,
-      `window.$runtimeFlag=${ROUTER};`,
-      `window.$scopeSeq=1;`,
+      `window.$FLAGS="1|0|0|${ROUTER}";`,
       `</script>`,
     ].join(""),
   );
@@ -73,8 +71,7 @@ Deno.test("[utils] create routes for bun server", async () => {
       ROUTER_JS,
       `})();`,
       `/* --- */`,
-      `window.$runtimeFlag=${ROUTER};`,
-      `window.$scopeSeq=1;`,
+      `window.$FLAGS="1|0|0|${ROUTER}";`,
       `</script>`,
     ].join(""),
   );
@@ -92,8 +89,7 @@ Deno.test("[utils] create routes for bun server", async () => {
       ROUTER_JS,
       `})();`,
       `/* --- */`,
-      `window.$runtimeFlag=${ROUTER};`,
-      `window.$scopeSeq=1;`,
+      `window.$FLAGS="1|0|0|${ROUTER}";`,
       `</script>`,
     ].join(""),
   );

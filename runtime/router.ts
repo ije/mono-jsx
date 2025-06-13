@@ -1,5 +1,10 @@
+declare global {
+  var $FLAGS: string;
+}
+
 const doc = document;
 const stripHash = (href: string) => href.split("#", 1)[0];
+const isLocationHref = (href: string) => stripHash(href) === stripHash(location.href);
 
 customElements.define(
   "m-router",
@@ -9,12 +14,11 @@ customElements.define(
     #onPopstate?: (e: PopStateEvent) => void;
     #ac?: AbortController;
 
-    async #fetchPage(href: string | URL) {
+    async #fetchPage(href: string) {
       const ac = new AbortController();
       const headers = {
         "x-route": "true",
-        "x-runtime-flag": "" + $runtimeFlag,
-        "x-scope-seq": "" + $scopeSeq,
+        "x-flags": $FLAGS,
       };
       this.#ac?.abort();
       this.#ac = ac;
@@ -38,7 +42,7 @@ customElements.define(
       doc.querySelectorAll<HTMLAnchorElement>("nav a").forEach((link) => {
         const { href, classList } = link;
         const activeClass = link.closest("nav")?.getAttribute("data-active-class") ?? "active";
-        if (stripHash(href) === stripHash(location.href)) {
+        if (isLocationHref(href)) {
           classList.add(activeClass);
         } else {
           classList.remove(activeClass);
@@ -46,12 +50,18 @@ customElements.define(
       });
     }
 
-    async navigate(href: string | URL, options?: { replace?: boolean }) {
+    navigate(href: string, options?: { replace?: boolean }) {
       const url = new URL(href, location.href);
       if (url.origin !== location.origin) {
-        location.href = url.href;
+        location.href = href;
         return;
       }
+      if (!isLocationHref(url.href)) {
+        this.#navigate(href, options);
+      }
+    }
+
+    async #navigate(href: string, options?: { replace?: boolean }) {
       await this.#fetchPage(href);
       if (options?.replace) {
         history.replaceState({}, "", href);
@@ -96,9 +106,7 @@ customElements.define(
           download
           || rel === "external"
           || target === "_blank"
-          || !href
           || !href.startsWith(location.origin)
-          || stripHash(href) === stripHash(location.href)
         ) {
           return;
         }
@@ -107,11 +115,7 @@ customElements.define(
         this.navigate(href);
       };
 
-      this.#onPopstate = () => {
-        this.#fetchPage(location.href).then(() => {
-          this.#updateNavLinks();
-        });
-      };
+      this.#onPopstate = () => this.#navigate(location.href);
 
       addEventListener("popstate", this.#onPopstate);
       doc.addEventListener("click", this.#onClick);

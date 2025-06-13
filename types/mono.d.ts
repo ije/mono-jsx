@@ -190,15 +190,17 @@ declare global {
    */
   type Context<T, C = {}> = T extends FC<infer S, infer A, infer _, infer R> ? FC<S, A, C, R> : never;
   /**
-   * The `Component` type defines the component element.
+   * The `ComponentElement` type defines the component element.
    */
-  type ComponentElement = HTMLElement & {
+  type ComponentElement = {
+    name: string;
+    props: Record<string, unknown> | undefined;
     refresh: () => Promise<void>;
   };
   /**
-   * The `Router` type defines the router element.
+   * The `RouterElement` type defines the router element.
    */
-  type RouterElement = HTMLElement & {
+  type RouterElement = {
     navigate: (url: string | URL, options?: { replace?: boolean }) => Promise<void>;
   };
 }

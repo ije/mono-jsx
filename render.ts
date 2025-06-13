@@ -14,8 +14,8 @@ interface RenderContext {
   suspenses: Array<Promise<string>>;
   signals: SignalsContext;
   flags: Flags;
-  mcs: IdGen<Signal>;
-  mfs: IdGen<CallableFunction>;
+  mcs: IdGenManager<Signal>;
+  mfs: IdGenManager<CallableFunction>;
   eager?: boolean;
   context?: Record<string, unknown>;
   request?: Request;
@@ -27,7 +27,6 @@ interface FCContext {
   scopeId: number;
   signals: Record<symbol | string, unknown>;
   slots: Array<ChildType> | undefined;
-  forSignal: number;
 }
 
 interface Flags {
@@ -43,11 +42,11 @@ interface SignalsContext {
   effects: Array<string>;
 }
 
-interface IdGen<K> {
-  readonly size: number;
-  entries(): Iterable<[K, number]>;
+interface IdGenManager<K> {
+  size: number;
   clear(): void;
-  gen(key: K): number;
+  gen(key: K, scope: number | undefined): number;
+  toJS(callback: (scope: number, id: number, v: K) => string): string;
 }
 
 interface Signal {
@@ -73,7 +72,7 @@ const hashCode = (s: string) => [...s].reduce((hash, c) => (Math.imul(31, hash) 
 const escapeCSSText = (str: string): string => str.replace(/[<>]/g, (m) => m.charCodeAt(0) === 60 ? "&lt;" : "&gt;");
 const toAttrStringLit = (str: string) => '"' + escapeHTML(str) + '"';
 const toStr = <T = string | number>(v: T | undefined, str: (v: T) => string) => v !== undefined ? str(v) : "";
-const toStrLit = JSON.stringify;
+const stringify = JSON.stringify;
 
 // @internal
 class Ref {
@@ -84,10 +83,42 @@ class Ref {
 }
 
 // @internal
-class IdGenImpl<T> extends Map<T, number> implements IdGen<T> {
-  private _id = 0;
+class IdGen<T> extends Map<T, number> implements IdGen<T> {
+  #seq = 0;
   gen(v: T) {
-    return this.get(v) ?? this.set(v, this._id++).get(v)!;
+    return this.get(v) ?? this.set(v, this.#seq++).get(v)!;
+  }
+}
+
+// @internal
+class IdGenManagerImpl<T> implements IdGenManager<T> {
+  #scopes = new Map<number, IdGen<T>>();
+
+  size = 0;
+
+  gen(key: T, scope = 0): number {
+    let idGen = this.#scopes.get(scope);
+    if (!idGen) {
+      idGen = new IdGen<T>();
+      this.#scopes.set(scope, idGen);
+    }
+    this.size++;
+    return idGen.gen(key);
+  }
+
+  toJS(callback: (scope: number, id: number, v: T) => string): string {
+    let js = "";
+    for (const [scope, gens] of this.#scopes) {
+      for (const [v, id] of gens.entries()) {
+        js += callback(scope, id, v);
+      }
+    }
+    return js;
+  }
+
+  clear() {
+    this.#scopes.clear();
+    this.size = 0;
   }
 }
 
@@ -139,7 +170,7 @@ export function renderHtml(node: VNode, options: RenderOptions): Response {
         }
       }
     } else {
-      console.error("The `request` prop in the `<html>` element is required for routing.");
+      console.error("[mono-jsx] The `request` prop in the `<html>` element is required for routing.");
     }
     if (!routeFC) {
       status = 404;
@@ -147,7 +178,7 @@ export function renderHtml(node: VNode, options: RenderOptions): Response {
   }
 
   if (components && !request) {
-    console.warn("The `components` prop in the `<html>` element is ignored when `request` is not provided.");
+    console.warn("[mono-jsx] The `components` prop in the `<html>` element is ignored when `request` is not provided.");
   }
 
   if (options.headers) {
@@ -182,9 +213,9 @@ export function renderHtml(node: VNode, options: RenderOptions): Response {
               (chunk) => js += chunk,
               true,
             );
-            let json = "[" + toStrLit(html);
+            let json = "[" + stringify(html);
             if (js) {
-              json += "," + toStrLit(js);
+              json += "," + stringify(js);
             }
             controller.enqueue(encoder.encode(json + "]"));
           } finally {
@@ -250,8 +281,8 @@ async function render(
     routeFC,
     eager: componentMode,
     flags: { scope: 0, chunk: 0, refs: 0, runtime: 0 },
-    mcs: new IdGenImpl<Signal>(),
-    mfs: new IdGenImpl<CallableFunction>(),
+    mcs: new IdGenManagerImpl<Signal>(),
+    mfs: new IdGenManagerImpl<CallableFunction>(),
   };
   // finalize creates runtime JS for client
   // it may be called recursively when thare are unresolved suspenses
@@ -267,7 +298,7 @@ async function render(
     treeshake(CX, CX_JS);
     treeshake(STYLE, STYLE_JS);
     treeshake(EVENT, EVENT_JS, rc.mfs.size > 0);
-    if ((signals.store.size > 0 || rc.mcs.size > 0 || hasEffect)) {
+    if (signals.store.size > 0 || rc.mcs.size > 0 || rc.flags.refs > 0 || hasEffect) {
       treeshake(RENDER_ATTR, RENDER_ATTR_JS);
       treeshake(RENDER_TOGGLE, RENDER_TOGGLE_JS);
       treeshake(RENDER_SWITCH, RENDER_SWITCH_JS);
@@ -277,15 +308,14 @@ async function render(
     treeshake(LAZY, LAZY_JS);
     treeshake(ROUTER, ROUTER_JS);
     if (js.length > 0) {
-      js = "(()=>{" + js + "})();/* --- */window.$runtimeFlag=" + runtimeFlag + ";";
+      js = "(()=>{" + js + "})();/* --- */";
     }
     if ((runtimeFlag & LAZY) || (runtimeFlag & ROUTER)) {
-      js += "window.$scopeSeq=" + rc.flags.scope + ";";
+      const { scope, chunk, refs } = rc.flags;
+      js += 'window.$FLAGS="' + [scope, chunk, refs, runtimeFlag].join("|") + '";';
     }
     if (rc.mfs.size > 0) {
-      for (const [fn, i] of rc.mfs.entries()) {
-        js += "function $MF_" + i + "(){(" + fn.toString() + ").apply(this,arguments)};";
-      }
+      js += rc.mfs.toJS((scope, seq, fn) => "function $MF_" + scope + "_" + seq + "(){(" + fn.toString() + ").apply(this,arguments)};");
       rc.mfs.clear();
     }
     if (hasEffect) {
@@ -293,24 +323,22 @@ async function render(
     }
     if ((runtimeFlag & ROUTER) && request && (rc.mcs.size > 0 || hasEffect)) {
       const { params } = request as Request & { params?: Record<string, string> };
-      js += '$MS("0:url", Object.assign(new URL(' + toStrLit(request.url) + ")," + (params ? toStrLit(params) : "void 0")
-        + "));";
+      const url = "new URL(" + stringify(request.url) + ")";
+      js += '$MS("0:url",' + (params ? "Object.assign(" + url + "," + stringify(params) + ")" : url) + ");";
     }
     if (signals.store.size > 0) {
       for (const [key, value] of signals.store.entries()) {
-        if (key !== "0:url") {
-          js += "$MS(" + toStrLit(key) + (value !== undefined ? "," + toStrLit(value) : "") + ");";
-        }
+        js += "$MS(" + stringify(key) + (value !== undefined ? "," + stringify(value) : "") + ");";
       }
       signals.store.clear();
     }
     if (rc.mcs.size > 0) {
-      for (const [mc, i] of rc.mcs.entries()) {
-        const { compute, deps } = mc[$signal].key as Compute;
-        js += "$MC(" + i + ",function(){return(" + compute.toString() + ").call(this)},"
-          + toStrLit([...deps.values()])
+      js += rc.mcs.toJS((scope, seq, signal) => {
+        const { compute, deps } = signal[$signal].key as Compute;
+        return "$MC(" + scope + "," + seq + ",function(){return(" + compute.toString() + ").call(this)},"
+          + stringify([...deps.values()])
           + ");";
-      }
+      });
       rc.mcs.clear();
     }
     if (js.length > 0) {
@@ -323,8 +351,13 @@ async function render(
   };
   let runtimeFlag = 0;
   if (componentMode && request) {
-    rc.flags.scope = Number(request.headers.get("x-scope-seq")) || 0;
-    runtimeFlag = Number(request.headers.get("x-runtime-flag")) || 0;
+    const headers = request.headers;
+    const flagsHeader = headers.get("x-flags")?.split("|");
+    if (flagsHeader?.length === 4) {
+      const [scope, chunk, refs, runtime] = flagsHeader.map(Number);
+      Object.assign(rc.flags, { scope, chunk, refs });
+      runtimeFlag = runtime;
+    }
   }
   await renderNode(rc, node as ChildType);
   if (rc.flags.scope > 0 && !componentMode) {
@@ -401,7 +434,7 @@ async function renderNode(rc: RenderContext, node: ChildType, stripSlotProp?: bo
                   let { scope, key, value } = hidden[$signal];
                   if (typeof key === "string") {
                     key = {
-                      compute: "()=>!this[" + toStrLit(key) + "]",
+                      compute: "()=>!this[" + stringify(key) + "]",
                       deps: new Set([scope + ":" + key]),
                     };
                   } else {
@@ -421,7 +454,7 @@ async function renderNode(rc: RenderContext, node: ChildType, stripSlotProp?: bo
                 if (isString(key)) {
                   buf += "key=" + toAttrStringLit(key) + ">";
                 } else {
-                  buf += 'computed="' + rc.mcs.gen(show) + '">';
+                  buf += 'computed="' + rc.mcs.gen(show, rc.fcCtx?.scopeId) + '">';
                 }
                 if (!value) {
                   buf += "<template m-slot>";
@@ -450,7 +483,7 @@ async function renderNode(rc: RenderContext, node: ChildType, stripSlotProp?: bo
                 if (isString(key)) {
                   stateful += "key=" + toAttrStringLit(key) + ">";
                 } else {
-                  stateful += 'computed="' + rc.mcs.gen(valueProp) + '">';
+                  stateful += 'computed="' + rc.mcs.gen(valueProp, rc.fcCtx?.scopeId) + '">';
                 }
                 rc.flags.runtime |= RENDER_SWITCH;
                 toSlotName = String(value);
@@ -500,7 +533,7 @@ async function renderNode(rc: RenderContext, node: ChildType, stripSlotProp?: bo
             const { placeholder } = props;
             let attrs = "";
             let attrModifiers = "";
-            for (const p of ["name", "props"]) {
+            for (const p of ["name", "props", "ref"]) {
               let propValue = props[p];
               const [attr, , attrSignal] = renderAttr(rc, p, propValue);
               if (attrSignal) {
@@ -649,7 +682,7 @@ function renderAttr(
           const { scope, key } = value[$signal];
           if (isString(key)) {
             patches.push([
-              (scope !== fcCtx.scopeId ? "$signals(" + scope + ")" : "this") + "[" + toStrLit(key) + "]",
+              (scope !== fcCtx.scopeId ? "$signals(" + scope + ")" : "this") + "[" + stringify(key) + "]",
               ...path,
             ].join(","));
             deps.add(scope + ":" + key);
@@ -662,7 +695,7 @@ function renderAttr(
         });
         if (patches.length > 0) {
           const { scopeId } = fcCtx!;
-          const compute = "()=>$patch(" + toStrLit(staticProps) + ",[" + patches.join("],[") + "])";
+          const compute = "()=>$patch(" + stringify(staticProps) + ",[" + patches.join("],[") + "])";
           signal = Signal(scopeId, { compute, deps }, staticProps);
         }
       }
@@ -700,14 +733,14 @@ function renderAttr(
       break;
     case "props":
       if (isObject(attrValue) && !Array.isArray(attrValue)) {
-        attr = ' props="base64,' + btoa(toStrLit(attrValue)) + '"';
+        attr = ' props="base64,' + btoa(stringify(attrValue)) + '"';
       }
       break;
     case "ref":
       if (typeof attrValue === "function") {
         const signals = rc.fcCtx?.signals;
         if (!signals) {
-          console.error("Use `ref` outside of a component function");
+          console.error("[mono-jsx] Use `ref` outside of a component function");
         } else {
           const refId = rc.flags.refs++;
           const effects = signals[Symbol.for("effects")] as string[];
@@ -715,12 +748,17 @@ function renderAttr(
           attr = " data-ref=" + toAttrStringLit(rc.fcCtx!.scopeId + ":" + refId);
         }
       } else if (attrValue instanceof Ref) {
+        rc.flags.refs++;
         attr = " data-ref=" + toAttrStringLit(attrValue.scope + ":" + attrValue.name);
       }
       break;
     case "action":
       if (typeof attrValue === "function") {
-        attr = ' onsubmit="$onsubmit(event,$MF_' + rc.mfs.gen(attrValue) + toStr(rc.fcCtx?.scopeId, (i) => "," + i) + ')"';
+        const scopeId = rc.fcCtx?.scopeId;
+        attr = ' onsubmit="$onsubmit(event,$MF_'
+          + (scopeId ?? 0) + "_"
+          + rc.mfs.gen(attrValue, scopeId) + toStr(scopeId, (i) => "," + i)
+          + ')"';
       } else if (isString(attrValue)) {
         attr = " action=" + toAttrStringLit(attrValue);
       }
@@ -732,9 +770,11 @@ function renderAttr(
       break;
     default:
       if (attrName.startsWith("on") && typeof attrValue === "function") {
+        const scopeId = rc.fcCtx?.scopeId;
         attr = " " + escapeHTML(attrName.toLowerCase()) + '="$emit(event,$MF_'
-          + rc.mfs.gen(attrValue)
-          + toStr(rc.fcCtx?.scopeId, (i) => "," + i)
+          + (scopeId ?? 0) + "_"
+          + rc.mfs.gen(attrValue, scopeId)
+          + toStr(scopeId, (i) => "," + i)
           + ')"';
       } else if (attrValue === false || attrValue === null || attrValue === undefined) {
         // skip false, null or undefined attributes
@@ -757,7 +797,7 @@ async function renderFC(rc: RenderContext, fc: FC, props: JSX.IntrinsicAttribute
   const slots: ChildType[] | undefined = children !== undefined
     ? (Array.isArray(children) ? (isVNode(children) ? [children as ChildType] : children) : [children])
     : undefined;
-  const fcCtx: FCContext = { scopeId, signals, slots, forSignal: -1 };
+  const fcCtx: FCContext = { scopeId, signals, slots };
   try {
     const v = fc.call(signals, props);
     if (isObject(v) && !isVNode(v)) {
@@ -832,7 +872,7 @@ async function renderFC(rc: RenderContext, fc: FC, props: JSX.IntrinsicAttribute
         await renderNode(rc, props.catch(err)).catch(() => {});
       } else {
         console.error(err);
-        write('<pre style="color:red;font-size:1rem"><code>' + escapeHTML(err.message) + "</code></pre>");
+        write("<script>console.error(" + stringify(err.stack ?? err.message) + ")</script>");
       }
     }
   }
@@ -861,7 +901,7 @@ function renderSignal(
   if (isString(key)) {
     buffer += " key=" + toAttrStringLit(key);
   } else {
-    buffer += ' computed="' + rc.mcs.gen(signal) + '"';
+    buffer += ' computed="' + rc.mcs.gen(signal, rc.fcCtx?.scopeId) + '"';
   }
   rc.write(buffer + ">" + (html ? content : escapeHTML(String(content ?? ""))) + "</m-signal>");
 }
@@ -1009,7 +1049,7 @@ function traverseProps(
   const isArray = Array.isArray(obj);
   const copy: any = isArray ? new Array(obj.length) : new NullProtoObj();
   for (const [k, value] of Object.entries(obj)) {
-    const newPath = path.concat(isArray ? k : toStrLit(k));
+    const newPath = path.concat(isArray ? k : stringify(k));
     const key = isArray ? Number(k) : k;
     if (isObject(value)) {
       if (isSignal(value)) {

@@ -2,11 +2,12 @@ import { assert, assertEquals } from "jsr:@std/assert";
 import puppeteer from "npm:puppeteer-core@23.1.1";
 import chrome from "npm:puppeteer-chromium-resolver@23.0.0";
 
-let routeIndex = 0;
+let routeSeq = 0;
 let testRoutes: Map<string, JSX.Element> = new Map();
+let count = 0;
 
 function addTestPage(page: JSX.Element, query?: string) {
-  let pathname = `/test_${routeIndex++}`;
+  let pathname = `/test_${routeSeq++}`;
   testRoutes.set(pathname, page);
   return `http://localhost:8687${pathname}${query ? `?${query}` : ""}`;
 }
@@ -38,19 +39,23 @@ Deno.serve({ port: 8687, onListen: () => {} }, (request) => {
       }}
       components={{
         greeting: async (props: { message: string }) => {
-          await sleep(50);
+          await sleep(20);
           return <h1>{props.message}</h1>;
         },
+        count: async () => {
+          await sleep(20);
+          return <span>{count++}</span>;
+        },
         a: async (props: { name: string }) => {
-          await sleep(50);
+          await sleep(20);
           return <strong>{props.name.toUpperCase()}</strong>;
         },
         b: async (props: { name: string }) => {
-          await sleep(50);
+          await sleep(20);
           return <strong>{props.name.toUpperCase()}</strong>;
         },
         c: async (props: { name: string }) => {
-          await sleep(50);
+          await sleep(20);
           return <strong>{props.name.toUpperCase()}</strong>;
         },
       }}
@@ -707,6 +712,57 @@ Deno.test("[runtime] <component> with signal name/props", sanitizeFalse, async (
   strong = await page.$("div strong");
   assert(strong);
   assertEquals(await strong.evaluate((el: HTMLElement) => el.textContent), "A");
+
+  await page.close();
+});
+
+Deno.test("[runtime] <component> ref", sanitizeFalse, async () => {
+  function App(this: Refs<FC, { comp: ComponentElement }>) {
+    return (
+      <div>
+        <component name="count" props={{}} ref={this.refs.comp} placeholder={<p>loading...</p>} />
+        <button class="refresh" type="button" onClick={() => this.refs.comp.refresh()} />
+        <button
+          class="greet"
+          type="button"
+          onClick={() => {
+            this.refs.comp.name = "greeting";
+            this.refs.comp.props = { message: "Hello, world!" };
+          }}
+        />
+      </div>
+    );
+  }
+
+  const testPageUrl = addTestPage(<App />);
+  const page = await browser.newPage();
+  await page.goto(testPageUrl);
+
+  await page.waitForNetworkIdle();
+  const span = await page.$("div span");
+  assert(span);
+  assertEquals(await span.evaluate((el: HTMLElement) => el.textContent), "0");
+
+  const refreshButton = await page.$("div button.refresh");
+  assert(refreshButton);
+  await refreshButton.click();
+  await page.waitForNetworkIdle();
+
+  const refreshedSpan = await page.$("div span");
+  assert(refreshedSpan);
+  assertEquals(await refreshedSpan.evaluate((el: HTMLElement) => el.textContent), "1");
+
+  const greetButton = await page.$("div button.greet");
+  assert(greetButton);
+  await greetButton.click();
+  await page.waitForNetworkIdle();
+
+  const removedSpan = await page.$("div span");
+  assert(!removedSpan);
+
+  const h1 = await page.$("div h1");
+  assert(h1);
+  assertEquals(await h1.evaluate((el: HTMLElement) => el.textContent), "Hello, world!");
 
   await page.close();
 });
