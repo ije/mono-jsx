@@ -109,7 +109,7 @@ export interface Elements {
    * which can improve performance by reducing the initial load time of the application.
    */
   component: BaseAttributes & AsyncComponentAttributes & {
-    name: string;
+    name?: string;
     props?: Record<string, unknown>;
     ref?: ComponentElement | ((el: ComponentElement) => void);
   };
@@ -124,6 +124,8 @@ export interface Elements {
     ref?: RouterElement | ((el: RouterElement) => void);
   };
 }
+
+export type WithParams<T> = T & { params?: Record<string, string> };
 
 declare global {
   /**
@@ -149,12 +151,14 @@ declare global {
       /**
        * The `app.refs` object is used to store variables in the application scope.
        * It is similar to `refs`, but it is shared across all components in the application.
+       *
+       * **⚠ This is a client-side only API.**
        */
       readonly refs: AppRefs;
       /**
        * The `app.url` object contains the current URL information.
        */
-      readonly url: URL & { params?: Record<string, string> };
+      readonly url: WithParams<URL>;
     } & Omit<AppSignals, "refs" | "url">;
     /**
      * The rendering context.
@@ -167,9 +171,11 @@ declare global {
      *
      * **⚠ This is a server-side only API.**
      */
-    readonly request: Request & { URL: URL; params?: Record<string, string> };
+    readonly request: WithParams<Request & { URL: URL }>;
     /**
      * The `refs` object is used to store variables in clide side.
+     *
+     * **⚠ This is a client-side only API.**
      */
     readonly refs: Refs;
     /**

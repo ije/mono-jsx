@@ -535,12 +535,12 @@ async function renderNode(rc: RenderContext, node: ChildType, stripSlotProp?: bo
 
           // `<component>` element
           case "component": {
-            const { placeholder } = props;
+            let { placeholder } = props;
             let attrs = "";
             let attrModifiers = "";
             for (const p of ["name", "props", "ref"]) {
               let propValue = props[p];
-              const [attr, , attrSignal] = renderAttr(rc, p, propValue);
+              let [attr, , attrSignal] = renderAttr(rc, p, propValue);
               if (attrSignal) {
                 const write = (chunk: string) => {
                   attrModifiers += chunk;
@@ -956,6 +956,9 @@ function createSignals(
   const refs = new Proxy(Object.create(null), {
     get(_, key) {
       return new Ref(scopeId, key as string);
+    },
+    set() {
+      throw new Error("[mono-jsx] The `refs` object is read-only at SSR time.");
     },
   });
   const computed = (compute: () => unknown): unknown => {

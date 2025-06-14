@@ -58,7 +58,7 @@ deno run -A npm:mono-jsx setup
 bunx mono-jsx setup
 ```
 
-### Zero Configuration 
+### Zero Configuration
 
 Alternatively, you can use `@jsxImportSource` pragma directive without installation mono-jsx(no package.json/tsconfig/node_modules), the runtime(deno/bun) automatically installs mono-jsx to your computer:
 
@@ -90,7 +90,7 @@ For Deno/Bun users, you can run the `app.tsx` directly:
 
 ```bash
 deno serve app.tsx
-bun run app.tsx
+bun app.tsx
 ```
 
 If you're building a web app with [Cloudflare Workers](https://developers.cloudflare.com/workers/wrangler/commands/#dev), use `wrangler dev` to start your app in development mode:
@@ -202,7 +202,7 @@ function App() {
 
 ### Using `html` Tag Function
 
-mono-jsx provides an `html` tag function to render raw HTML in JSX instead of React's `dangerouslySetInnerHTML`:
+mono-jsx provides an `html` tag function to render raw HTML in JSX instead of React's `dangerouslySetInnerHTML` property.
 
 ```tsx
 function App() {
@@ -210,7 +210,7 @@ function App() {
 }
 ```
 
-The `html` tag function is globally available without importing. You can also use `css` and `js` tag functions for CSS and JavaScript:
+The `html` function is globally available without importing. You can also use `css` and `js` functions for CSS and JavaScript:
 
 ```tsx
 function App() {
@@ -240,8 +240,7 @@ function Button() {
 }
 ```
 
-> [!NOTE]
-> Event handlers are never called on the server-side. They're serialized to strings and sent to the client. **This means you should NOT use server-side variables or functions in event handlers.**
+Event handlers are never called on the server-side. They're serialized to strings and sent to the client. **This means you should NOT use server-side variables or functions in event handlers.**
 
 ```tsx
 import { doSomething } from "some-library";
@@ -426,6 +425,9 @@ function App(this: FC<{ input: string }>) {
 }
 ```
 
+> [!TIP]
+> You can use `this.$` as a shorthand for `this.computed` to create computed signals.
+
 ### Using Effects
 
 You can use `this.effect` to create side effects based on signals. The effect will run whenever the signal changes:
@@ -483,7 +485,7 @@ function App(this: FC<{ show: boolean }>) {
 
 ### Using `<toggle>` Element with Signals
 
-The `<toggle>` element conditionally renders content based on the `show` prop:
+The `<toggle>` element conditionally renders content based on the `show` prop. You can use signals to control the visibility of the content on the client side.
 
 ```tsx
 function App(this: FC<{ show: boolean }>) {
@@ -509,7 +511,7 @@ function App(this: FC<{ show: boolean }>) {
 
 ### Using `<switch>` Element with Signals
 
-The `<switch>` element renders different content based on the value of a signal. Elements with matching `slot` attributes are displayed when their value matches, otherwise default slots are shown:
+The `<switch>` element renders different content based on the `value` prop. Elements with matching `slot` attributes are displayed when their value matches, otherwise default slots are shown. Like `<toggle>`, you can use signals to control the value on the client side.
 
 ```tsx
 function App(this: FC<{ lang: "en" | "zh" | "🙂" }>) {
@@ -635,12 +637,13 @@ The `this` object has the following built-in properties:
 - `effect`: A method to create side effects.
 
 ```ts
-type FC<Signals = {}, AppSignals = {}, Context = {}, Refs = {}> = {
-  readonly app: AppSignals & { url: URL }
+type FC<Signals = {}, AppSignals = {}, Context = {}, Refs = {}, AppRefs = {}> = {
+  readonly app: AppSignals & { refs: AppRefs; url: WithParams<URL> }
   readonly context: Context;
-  readonly request: Request & { URL: URL, params?: Record<string, string> };
+  readonly request: WithParams<Request>;
   readonly refs: Refs;
   readonly computed: <T = unknown>(fn: () => T) => T;
+  readonly $: FC["computed"];
   readonly effect: (fn: () => void | (() => void)) => void;
 } & Omit<Signals, "app" | "context" | "request" | "computed" | "effect">;
 ```
@@ -651,7 +654,7 @@ See the [Using Signals](#using-signals) section for more details on how to use s
 
 ### Using Refs
 
-You can use `this.refs` to access refs in your components. Define refs in your component using the `ref` attribute:
+You can use `this.refs` to access refs in your components. Refs are defined using the `ref` attribute in JSX, and they allow you to access DOM elements directly. The `refs` object is a map of ref names to DOM elements.
 
 ```tsx
 function App(this: Refs<FC, { input: HTMLInputElement }>) {
@@ -669,6 +672,49 @@ function App(this: Refs<FC, { input: HTMLInputElement }>) {
   )
 }
 ```
+
+You can also use `this.app.refs` to access app-level refs:
+
+```tsx
+function Layout(this: Refs<FC, {}, { h1: HTMLH1Element }>) {
+  return (
+    <>
+    <header>
+      <h1 ref={this.refs.h1}>Welcome to mono-jsx!</h1>
+    </header>
+    <main>
+      <slot />
+    </main>
+    </>
+  )
+}
+```
+
+Element `<componet>` also support `ref` attribute, which allows you to control the component rendering manually. The `ref` will be a `ComponentElement` that has the `name`, `props`, and `refresh` properties:
+
+- `name`: The name of the component to render.
+- `props`: The props to pass to the component.
+- `refresh`: A method to re-render the component with the current name and props.
+
+```tsx
+function App(this: Refs<FC, { component: ComponentElement }>) {
+  this.effect(() => {
+    // updating the component name and props will trigger a re-render of the component
+    this.refs.component.name = "Foo";
+    this.refs.component.props = {};
+
+    const timer = setInterval(() => {
+       // re-render the component
+      this.refs.component.refresh();
+    }, 1000);
+    return () => clearInterval(timer); // cleanup
+  });
+  return (
+    <div>
+      <component ref={this.refs.component} />
+    </div>
+  )
+}
 
 ### Using Context
 
@@ -917,6 +963,20 @@ You can access the `params` object in your route components to get the values of
 function Post(this: FC) {
   this.request.url         // "http://localhost:3000/post/123"
   this.request.params?.id  // "123"
+}
+```
+
+### Using `this.app.url` Signal
+
+`this.app.url` is an app-level signal that contains the current route url and parameters. The `this.app.url` signal is automatically updated when the route changes, so you can use it to display the current URL in your components, or control view with `<toggle>` or `<switch>` elements:
+
+```tsx
+function App(this: FC) {
+  return (
+    <div>
+      <h1>Current Pathname: {this.$(() => this.app.url.pathname)}</h1>
+    </div>
+  )
 }
 ```
 

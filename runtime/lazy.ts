@@ -11,13 +11,17 @@ customElements.define(
   class extends HTMLElement {
     static observedAttributes = ["name", "props"];
 
-    #name?: string;
+    #name?: string | null;
     #props?: string;
     #placeholder?: ChildNode[];
     #ac?: AbortController;
     #timer?: number;
 
     async #render() {
+      if (!this.#name) {
+        replaceChildren(this);
+        return;
+      }
       const headers = {
         "x-component": this.#name!,
         "x-props": this.#props || "{}",
@@ -39,8 +43,8 @@ customElements.define(
       }
     }
 
-    get name(): string {
-      return this.#name ?? "";
+    get name(): string | null {
+      return this.#name ?? null;
     }
 
     set name(name: string) {
@@ -55,8 +59,8 @@ customElements.define(
     }
 
     set props(props: Record<string, unknown> | string) {
-      const propsJson = typeof props === "string" ? props : JSON.stringify(props ?? {});
-      if (propsJson !== this.#props) {
+      const propsJson = typeof props === "string" ? props : JSON.stringify(props);
+      if (propsJson && propsJson !== this.#props) {
         this.#props = propsJson;
         this.refresh();
       }
@@ -65,13 +69,9 @@ customElements.define(
     connectedCallback() {
       // set a timeout to wait for the element to be fully parsed
       setTimeout(() => {
-        if (!this.#name) {
-          const nameAttr = attr(this, "name");
+        if (!this.#placeholder) {
           const propsAttr = attr(this, "props");
-          if (!nameAttr) {
-            throw new Error("Component name is required");
-          }
-          this.#name = nameAttr;
+          this.#name = attr(this, "name");
           this.#props = propsAttr?.startsWith("base64,") ? atob(propsAttr.slice(7)) : undefined;
           this.#placeholder = [...this.childNodes];
         }
