@@ -155,7 +155,7 @@ declare global {
        * The `app.url` object contains the current URL information.
        */
       readonly url: URL & { params?: Record<string, string> };
-    } & Omit<AppSignals, "url">;
+    } & Omit<AppSignals, "refs" | "url">;
     /**
      * The rendering context.
      *
