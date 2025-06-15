@@ -27,12 +27,12 @@ interface FCContext {
   scopeId: number;
   signals: Record<symbol | string, unknown>;
   slots: Array<ChildType> | undefined;
+  refs: number;
 }
 
 interface Flags {
   scope: number;
   chunk: number;
-  refs: number;
   runtime: number;
 }
 
@@ -280,7 +280,7 @@ async function render(
     signals,
     routeFC,
     eager: componentMode,
-    flags: { scope: 0, chunk: 0, refs: 0, runtime: 0 },
+    flags: { scope: 0, chunk: 0, runtime: 0 },
     mcs: new IdGenManagerImpl<Signal>(),
     mfs: new IdGenManagerImpl<CallableFunction>(),
   };
@@ -298,7 +298,7 @@ async function render(
     treeshake(CX, CX_JS);
     treeshake(STYLE, STYLE_JS);
     treeshake(EVENT, EVENT_JS, rc.mfs.size > 0);
-    if (signals.store.size > 0 || rc.mcs.size > 0 || rc.flags.refs > 0 || hasEffect) {
+    if (signals.store.size > 0 || rc.mcs.size > 0 || hasEffect) {
       treeshake(RENDER_ATTR, RENDER_ATTR_JS);
       treeshake(RENDER_TOGGLE, RENDER_TOGGLE_JS);
       treeshake(RENDER_SWITCH, RENDER_SWITCH_JS);
@@ -311,8 +311,8 @@ async function render(
       js = "(()=>{" + js + "})();/* --- */";
     }
     if ((runtimeFlag & LAZY) || (runtimeFlag & ROUTER)) {
-      const { scope, chunk, refs } = rc.flags;
-      js += 'window.$FLAGS="' + [scope, chunk, refs, runtimeFlag].join("|") + '";';
+      const { scope, chunk } = rc.flags;
+      js += 'window.$FLAGS="' + scope + "|" + chunk + "|" + runtimeFlag + '";';
     }
     if (rc.mfs.size > 0) {
       js += rc.mfs.toJS((scope, seq, fn) => "function $MF_" + scope + "_" + seq + "(){(" + fn.toString() + ").apply(this,arguments)};");
@@ -358,9 +358,9 @@ async function render(
   if (componentMode && request) {
     const headers = request.headers;
     const flagsHeader = headers.get("x-flags")?.split("|");
-    if (flagsHeader?.length === 4) {
-      const [scope, chunk, refs, runtime] = flagsHeader.map(Number);
-      Object.assign(rc.flags, { scope, chunk, refs });
+    if (flagsHeader?.length === 3) {
+      const [scope, chunk, runtime] = flagsHeader.map(Number);
+      Object.assign(rc.flags, { scope, chunk });
       runtimeFlag = runtime;
     }
   }
@@ -747,13 +747,12 @@ function renderAttr(
         if (!signals) {
           console.error("[mono-jsx] Use `ref` outside of a component function");
         } else {
-          const refId = rc.flags.refs++;
+          const refId = rc.fcCtx!.refs++;
           const effects = signals[Symbol.for("effects")] as string[];
           effects.push("()=>(" + attrValue.toString() + ')(this.refs["' + refId + '"])');
           attr = " data-ref=" + toAttrStringLit(rc.fcCtx!.scopeId + ":" + refId);
         }
       } else if (attrValue instanceof Ref) {
-        rc.flags.refs++;
         attr = " data-ref=" + toAttrStringLit(attrValue.scope + ":" + attrValue.name);
       }
       break;
@@ -802,7 +801,7 @@ async function renderFC(rc: RenderContext, fc: FC, props: JSX.IntrinsicAttribute
   const slots: ChildType[] | undefined = children !== undefined
     ? (Array.isArray(children) ? (isVNode(children) ? [children as ChildType] : children) : [children])
     : undefined;
-  const fcCtx: FCContext = { scopeId, signals, slots };
+  const fcCtx: FCContext = { scopeId, signals, slots, refs: 0 };
   try {
     const v = fc.call(signals, props);
     if (isObject(v) && !isVNode(v)) {

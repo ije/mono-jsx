@@ -1014,10 +1014,11 @@ Deno.test("[ssr] this.refs", async () => {
     ].join(""),
   );
 
-  function Component(this: Refs<FC, { h1: HTMLElement; component: ComponentElement }>) {
+  function Component(this: Refs<FC, { component: ComponentElement }>) {
+    this.effect(() => void this.refs.component.refresh());
+
     return (
       <>
-        <h1 ref={this.refs.h1}>Welcome to mono-jsx!</h1>
         <component name="Foo" ref={this.refs.component} />
       </>
     );
@@ -1032,8 +1033,8 @@ Deno.test("[ssr] this.refs", async () => {
     [
       `<!DOCTYPE html>`,
       `<html lang="en"><body>`,
-      `<h1 data-ref="1:h1">Welcome to mono-jsx!</h1>`,
       `<m-component name="Foo" data-ref="1:component"></m-component>`,
+      `<m-effect scope="1" n="1"></m-effect>`,
       `</body></html>`,
       `<script data-mono-jsx="${VERSION}">`,
       `(()=>{`,
@@ -1041,7 +1042,8 @@ Deno.test("[ssr] this.refs", async () => {
       LAZY_JS,
       `})();`,
       `/* --- */`,
-      `window.$FLAGS="1|0|2|${SIGNALS | LAZY}";`,
+      `window.$FLAGS="1|0|${SIGNALS | LAZY}";`,
+      `function $ME_1_0(){return(()=>void this.refs.component.refresh()).call(this)};`,
       `</script>`,
     ].join(""),
   );
@@ -1493,7 +1495,7 @@ Deno.test("[ssr] <component>", async () => {
       LAZY_JS,
       `})();`,
       `/* --- */`,
-      `window.$FLAGS="0|0|0|${LAZY}";`,
+      `window.$FLAGS="0|0|${LAZY}";`,
       `</script>`,
     ].join(""),
   );
@@ -1513,7 +1515,7 @@ Deno.test("[ssr] <component>", async () => {
       LAZY_JS,
       `})();`,
       `/* --- */`,
-      `window.$FLAGS="1|0|0|${RENDER_ATTR | SIGNALS | LAZY}";`,
+      `window.$FLAGS="1|0|${RENDER_ATTR | SIGNALS | LAZY}";`,
       `$MS("1:name","App");`,
       `</script>`,
     ].join(""),
@@ -1534,7 +1536,7 @@ Deno.test("[ssr] <component>", async () => {
       LAZY_JS,
       `})();`,
       `/* --- */`,
-      `window.$FLAGS="1|0|0|${RENDER_ATTR | SIGNALS | LAZY}";`,
+      `window.$FLAGS="1|0|${RENDER_ATTR | SIGNALS | LAZY}";`,
       `$MS("1:props",{"foo":"bar"});`,
       `</script>`,
     ].join(""),
@@ -1555,7 +1557,7 @@ Deno.test("[ssr] <component>", async () => {
       LAZY_JS,
       `})();`,
       `/* --- */`,
-      `window.$FLAGS="1|0|0|${RENDER_ATTR | SIGNALS | LAZY}";`,
+      `window.$FLAGS="1|0|${RENDER_ATTR | SIGNALS | LAZY}";`,
       `$MS("1:foo","bar");`,
       `$MC(1,0,function(){return(${
         // @ts-ignore this
@@ -1579,7 +1581,7 @@ Deno.test("[ssr] <component>", async () => {
       LAZY_JS,
       `})();`,
       `/* --- */`,
-      `window.$FLAGS="1|0|0|${RENDER_ATTR | SIGNALS | LAZY}";`,
+      `window.$FLAGS="1|0|${RENDER_ATTR | SIGNALS | LAZY}";`,
       `$MS("1:foo","bar");`,
       `$MC(1,0,function(){return(()=>$patch({"foo":"bar","color":"blue"},[this["foo"],"foo"])).call(this)},["1:foo"]);`,
       `</script>`,
@@ -1594,7 +1596,7 @@ Deno.test("[ssr] <component>", async () => {
           headers: {
             "x-component": "App",
             "x-props": JSON.stringify({ foo: "bar" }),
-            "x-flags": "1|0|0|" + LAZY,
+            "x-flags": "1|0|" + LAZY,
           },
         }),
       }),
@@ -1606,7 +1608,7 @@ Deno.test("[ssr] <component>", async () => {
         SIGNALS_JS,
         `})();`,
         `/* --- */`,
-        `window.$FLAGS="2|0|0|${SIGNALS | LAZY}";`,
+        `window.$FLAGS="2|0|${SIGNALS | LAZY}";`,
         `$MS("2:message","Welcome to mono-jsx!");`,
       ].join(""),
     ],
@@ -1643,7 +1645,7 @@ Deno.test("[ssr] <router>", async () => {
       ROUTER_JS,
       `})();`,
       `/* --- */`,
-      `window.$FLAGS="2|0|0|${ROUTER}";`,
+      `window.$FLAGS="2|0|${ROUTER}";`,
       `</script>`,
     ].join(""),
   );
@@ -1669,7 +1671,7 @@ Deno.test("[ssr] <router>", async () => {
       ROUTER_JS,
       `})();`,
       `/* --- */`,
-      `window.$FLAGS="2|0|0|${ROUTER}";`,
+      `window.$FLAGS="2|0|${ROUTER}";`,
       `</script>`,
     ].join(""),
   );
@@ -1694,7 +1696,7 @@ Deno.test("[ssr] <router>", async () => {
       ROUTER_JS,
       `})();`,
       `/* --- */`,
-      `window.$FLAGS="1|0|0|${ROUTER}";`,
+      `window.$FLAGS="1|0|${ROUTER}";`,
       `</script>`,
     ].join(""),
   );
@@ -1709,14 +1711,14 @@ Deno.test("[ssr] <router>", async () => {
         request: new Request("https://example.com", {
           headers: {
             "x-route": "true",
-            "x-flags": "1|0|0|" + ROUTER.toString(),
+            "x-flags": "1|0|" + ROUTER,
           },
         }),
       }),
     ),
     [
       `<h1>Home</h1>`,
-      'window.$FLAGS="2|0|0|512";',
+      'window.$FLAGS="2|0|' + ROUTER + '";',
     ],
   );
 
@@ -1730,14 +1732,14 @@ Deno.test("[ssr] <router>", async () => {
         request: new Request("https://example.com/about", {
           headers: {
             "x-route": "true",
-            "x-flags": "1|0|0|" + ROUTER.toString(),
+            "x-flags": "1|0|" + ROUTER,
           },
         }),
       }),
     ),
     [
       `<h1>About</h1>`,
-      'window.$FLAGS="2|0|0|512";',
+      'window.$FLAGS="2|0|' + ROUTER + '";',
     ],
   );
 
@@ -1751,7 +1753,7 @@ Deno.test("[ssr] <router>", async () => {
         request: new Request("https://example.com/404", {
           headers: {
             "x-route": "true",
-            "x-flags": "1|0|0|" + ROUTER.toString(),
+            "x-flags": "1|0|" + ROUTER,
           },
         }),
       }),
@@ -1796,7 +1798,7 @@ Deno.test("[ssr] this.app.url", async () => {
       ROUTER_JS,
       `})();`,
       `/* --- */`,
-      `window.$FLAGS="2|0|0|${SIGNALS | ROUTER}";`,
+      `window.$FLAGS="2|0|${SIGNALS | ROUTER}";`,
       `function $ME_1_0(){return(()=>console.log(this.app.url)).call(this)};`,
       `$MS("0:url",new URL("https://example.com/"));`,
       `</script>`,
