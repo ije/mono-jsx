@@ -1,15 +1,15 @@
 import type { FC } from "./jsx.d.ts";
 
 /**
- * `buildRoute` creates a routing map for bun server.
+ * `buildRoutes` creates a routing map for bun server.
  */
-export function buildRoute(
+export function buildRoutes(
   handler: (req: Request) => Response,
 ): Record<string, (req: Request) => Response>;
 
 /**
  * `monoRoutes` creates a routing map for bun server.
- * @deprecated Use `buildRoute` instead.
+ * @deprecated Use `buildRoutes` instead.
  */
 export function monoRoutes(
   routes: Record<string, FC<any> | Promise<{ default: FC<any> }>>,
