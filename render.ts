@@ -16,7 +16,6 @@ interface RenderContext {
   flags: Flags;
   mcs: IdGenManager<Signal>;
   mfs: IdGenManager<CallableFunction>;
-  eager?: boolean;
   context?: Record<string, unknown>;
   request?: Request;
   routeFC?: MaybeModule<FC<any>>;
@@ -279,7 +278,6 @@ async function render(
     request,
     signals,
     routeFC,
-    eager: componentMode,
     flags: { scope: 0, chunk: 0, runtime: 0 },
     mcs: new IdGenManagerImpl<Signal>(),
     mfs: new IdGenManagerImpl<CallableFunction>(),
@@ -362,6 +360,14 @@ async function render(
       const [scope, chunk, runtime] = flagsHeader.map(Number);
       Object.assign(rc.flags, { scope, chunk });
       runtimeFlag = runtime;
+    }
+  }
+  if (componentMode) {
+    const [tag, props] = node as VNode;
+    if (typeof tag === "function") {
+      await renderFC(rc, tag, props, true);
+      await finalize();
+      return;
     }
   }
   await renderNode(rc, node as ChildType);
@@ -793,7 +799,7 @@ function renderAttr(
 }
 
 // @internal
-async function renderFC(rc: RenderContext, fc: FC, props: JSX.IntrinsicAttributes) {
+async function renderFC(rc: RenderContext, fc: FC, props: JSX.IntrinsicAttributes, eager?: boolean) {
   const { write } = rc;
   const { children } = props;
   const scopeId = ++rc.flags.scope;
@@ -806,7 +812,7 @@ async function renderFC(rc: RenderContext, fc: FC, props: JSX.IntrinsicAttribute
     const v = fc.call(signals, props);
     if (isObject(v) && !isVNode(v)) {
       if (v instanceof Promise) {
-        if (rc.eager || (props.rendering ?? fc.rendering) === "eager") {
+        if (eager || (props.rendering ?? fc.rendering) === "eager") {
           await renderNode({ ...rc, fcCtx }, (await v) as ChildType);
           markSignals(rc, signals);
         } else {
@@ -828,7 +834,7 @@ async function renderFC(rc: RenderContext, fc: FC, props: JSX.IntrinsicAttribute
           }));
         }
       } else if (Symbol.asyncIterator in v) {
-        if (rc.eager || (props.rendering ?? fc.rendering) === "eager") {
+        if (eager || (props.rendering ?? fc.rendering) === "eager") {
           for await (const c of v) {
             await renderNode({ ...rc, fcCtx }, c as ChildType);
           }
