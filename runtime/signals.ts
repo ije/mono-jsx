@@ -100,6 +100,12 @@ const defer = async <T>(getter: () => T | undefined) => {
   return defer(getter);
 };
 
+const callFn = (v: unknown) => {
+  if (typeof v === "function") {
+    v();
+  }
+};
+
 const defineElement = (tag: string, callback: (el: Element & { disposes: (() => void)[] }) => void) =>
   customElements.define(
     tag,
@@ -137,9 +143,9 @@ defineElement("m-effect", (el) => {
   const { disposes } = el;
   const scope = Number(getAttr(el, "scope"));
   const n = Number(getAttr(el, "n"));
-  const cleanups: ((() => void) | undefined)[] = new Array(n);
+  const cleanups = new Array<unknown>(n);
   disposes.push(() => {
-    cleanups.forEach((cleanup) => typeof cleanup === "function" && cleanup());
+    cleanups.forEach(callFn);
     cleanups.length = 0;
   });
   for (let i = 0; i < n; i++) {
@@ -148,6 +154,7 @@ defineElement("m-effect", (el) => {
       const deps: [number, string][] = [];
       const signals = Signals(scope);
       const effect = () => {
+        callFn(cleanups[i]);
         cleanups[i] = fn.call(signals);
       };
       collectDeps = (scope, key) => deps.push([scope, key]);

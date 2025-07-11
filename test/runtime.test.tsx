@@ -76,6 +76,9 @@ Deno.serve({ port: 8687, onListen: () => {} }, (request) => {
   );
 });
 
+// function App(this: FC) {
+//   return null;
+// }
 // console.log(addTestPage(<App />));
 // await new Promise(() => {});
 
@@ -444,6 +447,15 @@ Deno.test("[runtime] effect", sanitizeFalse, async () => {
       console.textContent += this.count + "," + this.app.themeColor + "\n";
     });
 
+    this.effect(() => {
+      const console = document.querySelector("#web-console")!;
+      const count = this.count;
+      console.textContent += "count: " + count + "\n";
+      return () => {
+        console.textContent += "old count: " + count + "\n";
+      };
+    });
+
     return (
       <div>
         <h1>{this.count}</h1>
@@ -475,7 +487,7 @@ Deno.test("[runtime] effect", sanitizeFalse, async () => {
   const page = await browser.newPage();
   await page.goto(testPageUrl);
 
-  const log = ["Welcome to mono-jsx!", "0,"];
+  const log = ["Welcome to mono-jsx!", "0,", "count: 0"];
   const console = await page.$("#web-console");
   assert(console);
   assertEquals(await console.evaluate((el: Element) => el.textContent), log.join("\n") + "\n");
@@ -484,6 +496,8 @@ Deno.test("[runtime] effect", sanitizeFalse, async () => {
   assert(add);
   await add.click();
   log.push("1,");
+  log.push("old count: 0");
+  log.push("count: 1");
   assertEquals(await console.evaluate((el: Element) => el.textContent), log.join("\n") + "\n");
 
   const input = await page.$("input");
@@ -496,15 +510,19 @@ Deno.test("[runtime] effect", sanitizeFalse, async () => {
   assertEquals(await console.evaluate((el: Element) => el.textContent), log.join("\n") + "\n");
   await add.click();
   log.push("2,blue");
+  log.push("old count: 1");
+  log.push("count: 2");
   assertEquals(await console.evaluate((el: Element) => el.textContent), log.join("\n") + "\n");
 
   const toggle = await page.$("button.toggle");
   assert(toggle);
   await toggle.click();
   log.push("Bye mono-jsx!");
+  log.push("old count: 2");
   assertEquals(await console.evaluate((el: Element) => el.textContent), log.join("\n") + "\n");
   await toggle.click();
   log.push("Welcome to mono-jsx!", "2,blue");
+  log.push("count: 2");
   assertEquals(await console.evaluate((el: Element) => el.textContent), log.join("\n") + "\n");
 
   await page.close();
