@@ -3,14 +3,36 @@ import type * as CSS from "./css.d.ts";
 type D9 = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9;
 type D100 = 0 | D9 | `${D9}${0 | D9}` | 100;
 
-export interface BaseCSSProperties extends CSS.Properties<string | number> {}
+export interface BaseCSSProperties extends CSS.Properties<string | number> {
+  /**
+   * The field-sizing CSS property enables you to control the sizing behavior of elements that are given a default preferred size, such as form control elements. This property enables you to override the default sizing behavior, allowing form controls to adjust in size to fit their contents.
+   * @see https://developer.mozilla.org/docs/Web/CSS/field-sizing
+   */
+  fieldSizing?: "fixed" | "content";
+  /**
+   * The view-transition-class CSS property provides the selected elements with an identifying class (a <custom-ident>), providing an additional method of styling the view transitions for those elements.
+   * @see https://developer.mozilla.org/docs/Web/CSS/view-transition-class
+   */
+  "view-transition-class"?: string;
+  /**
+   * The view-transition-name CSS property specifies the view transition snapshot that selected elements will participate in, which enables an element to be animated separately from the rest of the page during a view transition.
+   * @see https://developer.mozilla.org/docs/Web/CSS/view-transition-name
+   */
+  "view-transition-name"?: string;
+}
 
 export interface AtRuleCSSProperties {
   [key: `@container${" " | "("}${string}`]: BaseCSSProperties;
   [key: `@media${" " | "("}${string}`]: BaseCSSProperties;
-  [key: `@supports${" " | "("}${string}`]: BaseCSSProperties;
   [key: `@keyframes ${string}`]: {
     [key in "from" | "to" | `${D100}%`]?: BaseCSSProperties;
+  };
+  [key: `@supports${" " | "("}${string}`]: BaseCSSProperties;
+  "@view-transition"?: {
+    /**
+     * Specifies the effect this at-rule will have on the document's view transition behavior.
+     */
+    navigation?: "auto" | "none";
   };
 }
 
