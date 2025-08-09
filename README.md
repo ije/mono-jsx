@@ -268,9 +268,7 @@ function Button(this: FC<{ count: 0 }>, props: { role: string }) {
 }
 ```
 
-### Using `<form>` Element
-
-mono-jsx supports `<form>` elements with the `action` attribute. The `action` attribute can be a string URL or a function that accepts a `FormData` object. The function will be called on form submission, and the `FormData` object will contain the form data.
+mono-jsx allows you to use a function as the value of the `action` attribute of the `<form>` element. The function will be called on form submission, and the `FormData` object will contain the form data.
 
 ```tsx
 function App() {
@@ -415,11 +413,7 @@ function App(this: FC<{ input: string }>) {
   return (
     <div>
       <h1>{this.computed(() => this.input + "!")}</h1>
-
-      <form action={(fd) => this.input = fd.get("input") as string}>
-        <input type="text" name="input" value={"" + this.input} />
-        <button type="submit">Submit</button>
-      </form>
+      <input type="text" $value={this.input} />
     </div>
   )
 }
@@ -531,6 +525,21 @@ function App(this: FC<{ lang: "en" | "zh" | "🙂" }>) {
       </p>
     </div>
   )
+}
+```
+
+### Form Input Bindings with `$value` Attribute
+
+You can use the `$value` attribute to bind a signal to the value of a form input element. The `$value` attribute is a two-way data binding, which means that when the input value changes, the signal will be updated, and when the signal changes, the input value will be updated.
+
+```tsx
+function App(this: FC<{ value: string }>) {
+  this.value = "Welcome to mono-jsx";
+  this.effect(() => {
+    console.log("value changed:", this.value);
+  });
+  // return <input value={this.value} oninput={e => this.value = e.target.value} />;
+  return <input $value={this.value} />;
 }
 ```
 
