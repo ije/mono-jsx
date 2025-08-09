@@ -15,7 +15,7 @@ interface RenderContext {
   signals: SignalsContext;
   flags: Flags;
   mcs: IdGenManager<Signal>;
-  mfs: IdGenManager<CallableFunction>;
+  mfs: IdGenManager<CallableFunction & { str?: string }>;
   context?: Record<string, unknown>;
   request?: Request;
   routeFC?: MaybeModule<FC<any>>;
@@ -313,7 +313,9 @@ async function render(
       js += 'window.$FLAGS="' + scope + "|" + chunk + "|" + runtimeFlag + '";';
     }
     if (rc.mfs.size > 0) {
-      js += rc.mfs.toJS((scope, seq, fn) => "function $MF_" + scope + "_" + seq + "(){(" + fn.toString() + ").apply(this,arguments)};");
+      js += rc.mfs.toJS((scope, seq, fn) =>
+        "function $MF_" + scope + "_" + seq + "(){(" + (fn.str ?? String(fn)) + ").apply(this,arguments)};"
+      );
       rc.mfs.clear();
     }
     if (hasEffect) {
@@ -338,7 +340,7 @@ async function render(
     if (rc.mcs.size > 0) {
       js += rc.mcs.toJS((scope, seq, signal) => {
         const { compute, deps } = signal[$signal].key as Compute;
-        return "$MC(" + scope + "," + seq + ",function(){return(" + compute.toString() + ").call(this)},"
+        return "$MC(" + scope + "," + seq + ",function(){return(" + String(compute) + ").call(this)},"
           + stringify([...deps.values()])
           + ");";
       });
@@ -629,7 +631,7 @@ async function renderNode(rc: RenderContext, node: ChildType, stripSlotProp?: bo
                   const write = (chunk: string) => {
                     attrModifiers += chunk;
                   };
-                  renderSignal({ ...rc, write }, signalValue, [propName]);
+                  renderSignal({ ...rc, write }, signalValue, [propName === "$value" ? "value" : propName]);
                   rc.flags.runtime |= RENDER_ATTR;
                 }
                 buffer += attr;
@@ -680,32 +682,31 @@ function renderAttr(
   let attr = "";
   let addonHtml = "";
   let signalValue: Signal | undefined;
+  let scopeId = rc.fcCtx?.scopeId;
   if (isObject(attrValue)) {
     let signal: Signal | undefined;
     if (isSignal(attrValue)) {
       signal = attrValue;
     } else {
-      const { fcCtx } = rc;
-      if (fcCtx) {
+      if (scopeId) {
         const deps = new Set<string>();
         const patches = [] as string[];
         const staticProps = traverseProps(attrValue, (path, value) => {
           const { scope, key } = value[$signal];
           if (isString(key)) {
             patches.push([
-              (scope !== fcCtx.scopeId ? "$signals(" + scope + ")" : "this") + "[" + stringify(key) + "]",
+              (scope !== scopeId ? "$signals(" + scope + ")" : "this") + "[" + stringify(key) + "]",
               ...path,
             ].join(","));
             deps.add(scope + ":" + key);
           } else {
-            patches.push(["(" + key.compute.toString() + ")(),", ...path].join(","));
+            patches.push(["(" + String(key.compute) + ")(),", ...path].join(","));
             for (const dep of key.deps) {
               deps.add(dep);
             }
           }
         });
         if (patches.length > 0) {
-          const { scopeId } = fcCtx!;
           const compute = "()=>$patch(" + stringify(staticProps) + ",[" + patches.join("],[") + "])";
           signal = Signal(scopeId, { compute, deps }, staticProps);
         }
@@ -755,7 +756,7 @@ function renderAttr(
         } else {
           const refId = rc.fcCtx!.refs++;
           const effects = signals[Symbol.for("effects")] as string[];
-          effects.push("()=>(" + attrValue.toString() + ')(this.refs["' + refId + '"])');
+          effects.push("()=>(" + String(attrValue) + ')(this.refs["' + refId + '"])');
           attr = " data-ref=" + toAttrStringLit(rc.fcCtx!.scopeId + ":" + refId);
         }
       } else if (attrValue instanceof Ref) {
@@ -778,9 +779,23 @@ function renderAttr(
         attr = " slot=" + toAttrStringLit(attrValue);
       }
       break;
+    case "$value":
+      attr = " value=" + toAttrStringLit(String(attrValue));
+      if (signalValue) {
+        const { key } = signalValue[$signal];
+        if (isString(key)) {
+          const fn = () => {}; // todo: use cached fn by the key to reduce the code size
+          fn.str = "e=>this[" + toAttrStringLit(key) + "]=e.target.value";
+          attr += ' oninput="$emit(event,$MF_'
+            + (scopeId ?? 0) + "_"
+            + rc.mfs.gen(fn, scopeId)
+            + toStr(scopeId, (i) => "," + i)
+            + ')"';
+        }
+      }
+      break;
     default:
       if (attrName.startsWith("on") && typeof attrValue === "function") {
-        const scopeId = rc.fcCtx?.scopeId;
         attr = " " + escapeHTML(attrName.toLowerCase()) + '="$emit(event,$MF_'
           + (scopeId ?? 0) + "_"
           + rc.mfs.gen(attrValue, scopeId)
@@ -974,7 +989,7 @@ function createSignals(
     return Signal(scopeId, { compute, deps }, value);
   };
   const markEffect = (effect: CallableFunction) => {
-    effects.push(effect.toString());
+    effects.push(String(effect));
   };
   const mark = ({ signals, write }: RenderContext) => {
     if (effects.length > 0) {

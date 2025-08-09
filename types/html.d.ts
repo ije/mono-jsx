@@ -185,7 +185,7 @@ export namespace HTML {
     src?: string;
     step?: number | string;
     type?: InputType;
-    value?: string | ReadonlyArray<string> | number;
+    value?: string | number | ReadonlyArray<string | number>;
     width?: number | string;
     /**
      * Turns a <button> or <input> element into a popover control button; takes the ID of the popover element to control as its value.
@@ -197,8 +197,15 @@ export namespace HTML {
      * @see https://developer.mozilla.org/en-US/docs/Web/API/Popover_API
      */
     popovertargetaction?: "hide" | "show" | "toggle";
-    // for type="search"
+    /**
+     * For type="search"
+     */
     onSearch?: EventHandler<Event, T>;
+    /**
+     * @mono-jsx: Two-way binding prop that automatically creates value and oninput attributes for signal binding
+     * Similar to Vue's v-model
+     */
+    $value?: string | number | ReadonlyArray<string | number>;
   }
 
   interface OptionAttributes<T extends EventTarget> extends GlobalAttributes<T> {
@@ -216,7 +223,12 @@ export namespace HTML {
     name?: string;
     required?: boolean;
     size?: number;
-    value?: string | ReadonlyArray<string> | number;
+    value?: string | number | ReadonlyArray<string | number>;
+    /**
+     * @mono-jsx: Two-way binding prop that automatically creates value and oninput attributes for signal binding
+     * Similar to Vue's v-model
+     */
+    $value?: string | number | ReadonlyArray<string | number>;
   }
 
   interface TextareaAttributes<T extends EventTarget> extends GlobalAttributes<T> {
@@ -235,6 +247,11 @@ export namespace HTML {
     value?: string;
     wrap?: string;
     onChange?: EventHandler<Event, T>;
+    /**
+     * @mono-jsx: Two-way binding prop that automatically creates value and oninput attributes for signal binding
+     * Similar to Vue's v-model
+     */
+    $value?: string;
   }
 
   interface ButtonAttributes<T extends EventTarget> extends GlobalAttributes<T> {

@@ -528,6 +528,45 @@ Deno.test("[runtime] effect", sanitizeFalse, async () => {
   await page.close();
 });
 
+Deno.test("[runtime] $value", sanitizeFalse, async () => {
+  function App(this: FC<{ value: string }>) {
+    this.value = "";
+    return (
+      <>
+        <h1>{this.value}</h1>
+        <input $value={this.value} class="input1" />
+        <input $value={this.value} class="input2" />
+      </>
+    );
+  }
+
+  const testPageUrl = addTestPage(<App />);
+  const page = await browser.newPage();
+  await page.goto(testPageUrl);
+
+  const h1 = await page.$("h1");
+  assert(h1);
+  assertEquals(await h1.evaluate((el: HTMLElement) => el.textContent), "");
+
+  const input1 = await page.$("input.input1");
+  assert(input1);
+  assertEquals(await input1.evaluate((el: HTMLInputElement) => el.value), "");
+
+  const input2 = await page.$("input.input2");
+  assert(input2);
+  assertEquals(await input2.evaluate((el: HTMLInputElement) => el.value), "");
+
+  await input1.type("Welcome to mono-jsx!", {});
+  assertEquals(await h1.evaluate((el: HTMLElement) => el.textContent), "Welcome to mono-jsx!");
+  assertEquals(await input2.evaluate((el: HTMLInputElement) => el.value), "Welcome to mono-jsx!");
+
+  await input2.type(" ", {});
+  assertEquals(await h1.evaluate((el: HTMLElement) => el.textContent), "Welcome to mono-jsx! ");
+  assertEquals(await input1.evaluate((el: HTMLInputElement) => el.value), "Welcome to mono-jsx! ");
+
+  await page.close();
+});
+
 Deno.test("[runtime] <toggle>", sanitizeFalse, async () => {
   function Toggle(this: FC<{ show: boolean }>) {
     this.show = false;
