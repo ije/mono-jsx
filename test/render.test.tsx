@@ -1098,7 +1098,7 @@ Deno.test("[ssr] ref callback", async () => {
   );
 });
 
-Deno.test("[ssr] stateful async component", async () => {
+Deno.test("[ssr] async component with signals", async () => {
   async function Dash(this: FC<{ username: string | null }>) {
     this.username = await new Promise((resolve) => setTimeout(() => resolve("me"), 50));
     return (
@@ -1146,6 +1146,33 @@ Deno.test("[ssr] stateful async component", async () => {
       `function $MF_1_0(){(()=>this.username = null).apply(this,arguments)};`,
       `$MS("1:username","me");`,
       `$MC(1,0,function(){return(()=>this.username ? "Hello, " + this.username : "Please login").call(this)},["1:username"]);`,
+      `</script>`,
+    ].join(""),
+  );
+});
+
+Deno.test("[ssr] $value", async () => {
+  function App(this: FC<{ value: string }>) {
+    this.value = "Hello, world!";
+    return <input $value={this.value} />;
+  }
+  assertEquals(
+    await renderToString(<App />),
+    [
+      `<!DOCTYPE html>`,
+      `<html lang="en"><body>`,
+      `<input value="Hello, world!" oninput="$emit(event,$MF_1_0,1)">`,
+      `<m-group><m-signal mode="[value]" scope="1" key="value"></m-signal></m-group>`,
+      `</body></html>`,
+      `<script data-mono-jsx="${VERSION}">`,
+      `(()=>{`,
+      EVENT_JS,
+      RENDER_ATTR_JS,
+      SIGNALS_JS,
+      `})();`,
+      `/* --- */`,
+      `function $MF_1_0(){(e=>this["value"]=e.target.value).apply(this,arguments)};`,
+      `$MS("1:value","Hello, world!");`,
       `</script>`,
     ].join(""),
   );

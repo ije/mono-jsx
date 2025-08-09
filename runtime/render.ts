@@ -13,9 +13,7 @@ export const renderAttr = (el: Element, attrName: string, getter: () => unknown)
     const value = getter();
     if (value === false || value === null || value === undefined) {
       target.removeAttribute(attrName);
-    } else if (
-      typeof value === "object" && value !== null && (attrName === "class" || attrName === "style" || attrName === "props")
-    ) {
+    } else if (typeof value === "object" && value !== null) {
       if (attrName === "class") {
         target.setAttribute(attrName, $cx(value));
       } else if (attrName === "style") {
@@ -24,7 +22,11 @@ export const renderAttr = (el: Element, attrName: string, getter: () => unknown)
         target.setAttribute(attrName, JSON.stringify(value));
       }
     } else {
-      target.setAttribute(attrName, value === true ? "" : value as string);
+      if (attrName === "value") {
+        (target as HTMLInputElement).value = String(value);
+      } else {
+        target.setAttribute(attrName, value === true ? "" : value as string);
+      }
     }
   };
 };
