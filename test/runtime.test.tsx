@@ -567,6 +567,45 @@ Deno.test("[runtime] $value", sanitizeFalse, async () => {
   await page.close();
 });
 
+Deno.test("[runtime] $checked", sanitizeFalse, async () => {
+  function App(this: FC<{ checked: boolean }>) {
+    this.checked = false;
+    return (
+      <>
+        <h1>{this.$(() => this.checked ? "checked" : "unchecked")}</h1>
+        <input type="checkbox" $checked={this.checked} class="input1" />
+        <input type="checkbox" $checked={this.checked} class="input2" />
+      </>
+    );
+  }
+
+  const testPageUrl = addTestPage(<App />);
+  const page = await browser.newPage();
+  await page.goto(testPageUrl);
+
+  const h1 = await page.$("h1");
+  assert(h1);
+  assertEquals(await h1.evaluate((el: HTMLElement) => el.textContent), "unchecked");
+
+  const input1 = await page.$("input.input1");
+  assert(input1);
+  assertEquals(await input1.evaluate((el: HTMLInputElement) => el.checked), false);
+
+  const input2 = await page.$("input.input2");
+  assert(input2);
+  assertEquals(await input2.evaluate((el: HTMLInputElement) => el.checked), false);
+
+  await input1.click();
+  assertEquals(await h1.evaluate((el: HTMLElement) => el.textContent), "checked");
+  assertEquals(await input2.evaluate((el: HTMLInputElement) => el.checked), true);
+
+  await input2.click();
+  assertEquals(await h1.evaluate((el: HTMLElement) => el.textContent), "unchecked");
+  assertEquals(await input1.evaluate((el: HTMLInputElement) => el.checked), false);
+
+  await page.close();
+});
+
 Deno.test("[runtime] <toggle>", sanitizeFalse, async () => {
   function Toggle(this: FC<{ show: boolean }>) {
     this.show = false;

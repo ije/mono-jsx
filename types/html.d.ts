@@ -44,7 +44,9 @@ export namespace HTML {
 
   /** Global HTML attributes from https://developer.mozilla.org/en-US/docs/Web/HTML/Global_attributes */
   interface GlobalAttributes<T extends EventTarget> extends EventAttributes<T>, Aria.Attributes, Mono.BaseAttributes, JSX.HtmlTag {
-    // @mono-jsx
+    /** @mono-jsx
+     *  A reference to the element.
+     */
     ref?: HTMLElement | ((el: T) => unknown);
     /** Defines a unique identifier (ID) which must be unique in the whole document. Its purpose is to identify the element when linking (using a fragment identifier), scripting, or styling (with CSS). */
     id?: string;
@@ -122,7 +124,8 @@ export namespace HTML {
   }
 
   interface NavAttributes<T extends EventTarget> extends GlobalAttributes<T> {
-    /** @mono-jsx: This attribute is used to specify the class name for the active link. */
+    /** @mono-jsx
+     * This attribute is used to specify the class name for the active link. */
     "data-active-class"?: string;
   }
 
@@ -185,7 +188,7 @@ export namespace HTML {
     src?: string;
     step?: number | string;
     type?: InputType;
-    value?: string | number | ReadonlyArray<string | number>;
+    value?: string | number;
     width?: number | string;
     /**
      * Turns a <button> or <input> element into a popover control button; takes the ID of the popover element to control as its value.
@@ -202,10 +205,15 @@ export namespace HTML {
      */
     onSearch?: EventHandler<Event, T>;
     /**
-     * @mono-jsx: Two-way binding prop that automatically creates value and oninput attributes for signal binding
-     * Similar to Vue's v-model
+     * @mono-jsx
+     * Two-way binding prop that automatically creates checked and oninput attributes for signal binding
      */
-    $value?: string | number | ReadonlyArray<string | number>;
+    $checked?: boolean;
+    /**
+     * @mono-jsx
+     * Two-way binding prop that automatically creates value and oninput attributes for signal binding
+     */
+    $value?: string | number;
   }
 
   interface OptionAttributes<T extends EventTarget> extends GlobalAttributes<T> {
@@ -223,12 +231,12 @@ export namespace HTML {
     name?: string;
     required?: boolean;
     size?: number;
-    value?: string | number | ReadonlyArray<string | number>;
+    value?: string | number;
     /**
-     * @mono-jsx: Two-way binding prop that automatically creates value and oninput attributes for signal binding
-     * Similar to Vue's v-model
+     * @mono-jsx
+     * Two-way binding prop that automatically creates value and oninput attributes for signal binding
      */
-    $value?: string | number | ReadonlyArray<string | number>;
+    $value?: string | number;
   }
 
   interface TextareaAttributes<T extends EventTarget> extends GlobalAttributes<T> {
@@ -248,8 +256,8 @@ export namespace HTML {
     wrap?: string;
     onChange?: EventHandler<Event, T>;
     /**
-     * @mono-jsx: Two-way binding prop that automatically creates value and oninput attributes for signal binding
-     * Similar to Vue's v-model
+     * @mono-jsx
+     * Two-way binding prop that automatically creates value and oninput attributes for signal binding
      */
     $value?: string;
   }
@@ -319,7 +327,7 @@ export namespace HTML {
   }
 
   interface DataAttributes<T extends EventTarget> extends GlobalAttributes<T> {
-    value?: string | ReadonlyArray<string> | number;
+    value?: string | number;
   }
 
   interface DetailsAttributes<T extends EventTarget> extends GlobalAttributes<T> {
@@ -379,7 +387,7 @@ export namespace HTML {
   }
 
   interface LiAttributes<T extends EventTarget> extends GlobalAttributes<T> {
-    value?: string | ReadonlyArray<string> | number;
+    value?: string | number;
   }
 
   interface LinkAttributes<T extends EventTarget> extends GlobalAttributes<T>, LoaderElementAttributes<T> {
@@ -456,7 +464,7 @@ export namespace HTML {
     max?: number | string;
     min?: number | string;
     optimum?: number;
-    value?: string | ReadonlyArray<string> | number;
+    value?: string | number;
   }
 
   interface QuoteAttributes<T extends EventTarget> extends GlobalAttributes<T> {
@@ -494,7 +502,7 @@ export namespace HTML {
 
   interface ProgressAttributes<T extends EventTarget> extends GlobalAttributes<T> {
     max?: number | string;
-    value?: string | ReadonlyArray<string> | number;
+    value?: string | number;
   }
 
   interface SlotAttributes<T extends EventTarget> extends GlobalAttributes<T> {
