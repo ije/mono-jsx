@@ -327,7 +327,7 @@ export namespace HTML {
   }
 
   interface DataAttributes<T extends EventTarget> extends GlobalAttributes<T> {
-    value?: string | ReadonlyArray<string> | number;
+    value?: string | number;
   }
 
   interface DetailsAttributes<T extends EventTarget> extends GlobalAttributes<T> {
@@ -387,7 +387,7 @@ export namespace HTML {
   }
 
   interface LiAttributes<T extends EventTarget> extends GlobalAttributes<T> {
-    value?: string | ReadonlyArray<string> | number;
+    value?: string | number;
   }
 
   interface LinkAttributes<T extends EventTarget> extends GlobalAttributes<T>, LoaderElementAttributes<T> {
@@ -464,7 +464,7 @@ export namespace HTML {
     max?: number | string;
     min?: number | string;
     optimum?: number;
-    value?: string | ReadonlyArray<string> | number;
+    value?: string | number;
   }
 
   interface QuoteAttributes<T extends EventTarget> extends GlobalAttributes<T> {
@@ -502,7 +502,7 @@ export namespace HTML {
 
   interface ProgressAttributes<T extends EventTarget> extends GlobalAttributes<T> {
     max?: number | string;
-    value?: string | ReadonlyArray<string> | number;
+    value?: string | number;
   }
 
   interface SlotAttributes<T extends EventTarget> extends GlobalAttributes<T> {
