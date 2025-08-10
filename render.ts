@@ -623,7 +623,7 @@ async function renderNode(rc: RenderContext, node: ChildType, stripSlotProp?: bo
                 if (propName === "children") {
                   continue;
                 }
-                const [attr, addonHtml, signalValue] = renderAttr(rc, propName, propValue, stripSlotProp);
+                const [attr, addonHtml, signalValue, binding] = renderAttr(rc, propName, propValue, stripSlotProp);
                 if (addonHtml) {
                   write(addonHtml);
                 }
@@ -631,7 +631,7 @@ async function renderNode(rc: RenderContext, node: ChildType, stripSlotProp?: bo
                   const write = (chunk: string) => {
                     attrModifiers += chunk;
                   };
-                  renderSignal({ ...rc, write }, signalValue, [propName === "$value" ? "value" : propName]);
+                  renderSignal({ ...rc, write }, signalValue, [binding ? propName.slice(1) : propName]);
                   rc.flags.runtime |= RENDER_ATTR;
                 }
                 buffer += attr;
@@ -678,10 +678,11 @@ function renderAttr(
   attrName: string,
   attrValue: unknown,
   stripSlotProp?: boolean,
-): [attr: string, addonHtml: string, signalValue: Signal | undefined] {
+): [attr: string, addonHtml: string, signalValue: Signal | undefined, binding: boolean] {
   let attr = "";
   let addonHtml = "";
   let signalValue: Signal | undefined;
+  let binding = false;
   let scopeId = rc.fcCtx?.scopeId;
   if (isObject(attrValue)) {
     let signal: Signal | undefined;
@@ -779,19 +780,26 @@ function renderAttr(
         attr = " slot=" + toAttrStringLit(attrValue);
       }
       break;
+    case "$checked":
     case "$value":
-      attr = " value=" + toAttrStringLit(String(attrValue));
+      if (!(attrValue === false || attrValue === null || attrValue === undefined)) {
+        attr = " " + attrName.slice(1);
+        if (attrValue !== true) {
+          attr += "=" + toAttrStringLit(String(attrValue));
+        }
+      }
       if (signalValue) {
         const { key } = signalValue[$signal];
         if (isString(key)) {
           const fn = () => {}; // todo: use cached fn by the key to reduce the code size
-          fn.str = "e=>this[" + toAttrStringLit(key) + "]=e.target.value";
+          fn.str = "e=>this[" + toAttrStringLit(key) + "]=e.target." + attrName.slice(1);
           attr += ' oninput="$emit(event,$MF_'
             + (scopeId ?? 0) + "_"
             + rc.mfs.gen(fn, scopeId)
             + toStr(scopeId, (i) => "," + i)
             + ')"';
         }
+        binding = true;
       }
       break;
     default:
@@ -810,7 +818,7 @@ function renderAttr(
         }
       }
   }
-  return [attr, addonHtml, signalValue];
+  return [attr, addonHtml, signalValue, binding];
 }
 
 // @internal

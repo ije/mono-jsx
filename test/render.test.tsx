@@ -1178,6 +1178,33 @@ Deno.test("[ssr] $value", async () => {
   );
 });
 
+Deno.test("[ssr] $checked", async () => {
+  function App(this: FC<{ checked: boolean }>) {
+    this.checked = false;
+    return <input $checked={this.checked} />;
+  }
+  assertEquals(
+    await renderToString(<App />),
+    [
+      `<!DOCTYPE html>`,
+      `<html lang="en"><body>`,
+      `<input oninput="$emit(event,$MF_1_0,1)">`,
+      `<m-group><m-signal mode="[checked]" scope="1" key="checked"></m-signal></m-group>`,
+      `</body></html>`,
+      `<script data-mono-jsx="${VERSION}">`,
+      `(()=>{`,
+      EVENT_JS,
+      RENDER_ATTR_JS,
+      SIGNALS_JS,
+      `})();`,
+      `/* --- */`,
+      `function $MF_1_0(){(e=>this["checked"]=e.target.checked).apply(this,arguments)};`,
+      `$MS("1:checked",false);`,
+      `</script>`,
+    ].join(""),
+  );
+});
+
 Deno.test("[ssr] this.request", async () => {
   function App(this: FC) {
     const { request } = this;
