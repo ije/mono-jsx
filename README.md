@@ -543,6 +543,15 @@ function App(this: FC<{ value: string }>) {
 }
 ```
 
+You can also use the `$checked` attribute to bind a signal to the checked state of a checkbox or radio input element.
+
+```tsx
+function App(this: FC<{ checked: boolean }>) {
+  this.checked = false;
+  return <input type="checkbox" $checked={this.checked} />;
+}
+```
+
 ### Limitation of Signals
 
 1\. Arrow function are non-stateful components.
