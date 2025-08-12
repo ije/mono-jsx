@@ -183,23 +183,23 @@ Deno.test("[ssr] style to css(as style element)", async () => {
 });
 
 Deno.test("[ssr] view transition", async () => {
-  const cssId = "-xd4d7k";
+  const cssId = "-lod2f4";
   function App(this: FC<{ show: boolean }>, props: { viewTransition?: boolean | string }) {
     return (
-      <main
+      <div
         style={{
           "@keyframes toggle-in": { from: { opacity: 0 }, to: { opacity: 1 } },
           "@keyframes toggle-out": { from: { opacity: 1 }, to: { opacity: 0 } },
           "::view-transition-group(toggle)": { animationDuration: "0.5s" },
-          "::view-transition-old(toggle)": { animation: "0.4s ease-in both toggle-out" },
-          "::view-transition-new(toggle)": { animation: "0.4s ease-in both toggle-in" },
+          "::view-transition-old(toggle)": { animation: "0.5s ease-in both toggle-out" },
+          "::view-transition-new(toggle)": { animation: "0.5s ease-in both toggle-in" },
         }}
       >
         <toggle show={this.show} viewTransition={props.viewTransition}>
           <h1>Hello world!</h1>
         </toggle>
         <button type="button" onClick={() => this.show = !this.show}>Toggle</button>
-      </main>
+      </div>
     );
   }
   assertEquals(
@@ -207,13 +207,13 @@ Deno.test("[ssr] view transition", async () => {
     [
       `<!DOCTYPE html>`,
       `<html lang="en"><body>`,
-      `<style data-mono-jsx-css="${cssId}">@keyframes toggle-in{from{opacity:0}to{opacity:1}}@keyframes toggle-out{from{opacity:1}to{opacity:0}}::view-transition-group(toggle){animation-duration:0.5s}::view-transition-old(toggle){animation:0.4s ease-in both toggle-out}::view-transition-new(toggle){animation:0.4s ease-in both toggle-in}</style>`,
-      `<main data-css-${cssId}>`,
+      `<style data-mono-jsx-css="${cssId}">@keyframes toggle-in{from{opacity:0}to{opacity:1}}@keyframes toggle-out{from{opacity:1}to{opacity:0}}::view-transition-group(toggle){animation-duration:0.5s}::view-transition-old(toggle){animation:0.5s ease-in both toggle-out}::view-transition-new(toggle){animation:0.5s ease-in both toggle-in}</style>`,
+      `<div data-css-${cssId}>`,
       `<m-signal mode="toggle" scope="1" key="show" vt>`,
       `<template m-slot><h1>Hello world!</h1></template>`,
       `</m-signal>`,
       `<button type="button" onclick="$emit(event,$MF_1_0,1)">Toggle</button>`,
-      `</main>`,
+      `</div>`,
       `</body></html>`,
       `<script data-mono-jsx="${VERSION}">`,
       `(()=>{`,
@@ -232,13 +232,13 @@ Deno.test("[ssr] view transition", async () => {
     [
       `<!DOCTYPE html>`,
       `<html lang="en"><body>`,
-      `<style data-mono-jsx-css="${cssId}">@keyframes toggle-in{from{opacity:0}to{opacity:1}}@keyframes toggle-out{from{opacity:1}to{opacity:0}}::view-transition-group(toggle){animation-duration:0.5s}::view-transition-old(toggle){animation:0.4s ease-in both toggle-out}::view-transition-new(toggle){animation:0.4s ease-in both toggle-in}</style>`,
-      `<main data-css-${cssId}>`,
+      `<style data-mono-jsx-css="${cssId}">@keyframes toggle-in{from{opacity:0}to{opacity:1}}@keyframes toggle-out{from{opacity:1}to{opacity:0}}::view-transition-group(toggle){animation-duration:0.5s}::view-transition-old(toggle){animation:0.5s ease-in both toggle-out}::view-transition-new(toggle){animation:0.5s ease-in both toggle-in}</style>`,
+      `<div data-css-${cssId}>`,
       `<m-signal mode="toggle" scope="1" key="show" style="view-transition-name:toggle" vt>`,
       `<template m-slot><h1>Hello world!</h1></template>`,
       `</m-signal>`,
       `<button type="button" onclick="$emit(event,$MF_1_0,1)">Toggle</button>`,
-      `</main>`,
+      `</div>`,
       `</body></html>`,
       `<script data-mono-jsx="${VERSION}">`,
       `(()=>{`,
