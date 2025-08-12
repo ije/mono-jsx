@@ -19,7 +19,14 @@ customElements.define(
 
     async #render() {
       if (!this.#name) {
-        replaceChildren(this);
+        const vtName = this.getAttribute("view-transition");
+        const apply = () => replaceChildren(this);
+        if (vtName && (document as any).startViewTransition) {
+          this.style.viewTransitionName = vtName;
+          (document as any).startViewTransition(apply);
+        } else {
+          apply();
+        }
         return;
       }
       const headers = {
@@ -30,14 +37,39 @@ customElements.define(
       const ac = new AbortController();
       this.#ac?.abort();
       this.#ac = ac;
-      replaceChildren(this, this.#placeholder!);
+      {
+        const vtName = this.getAttribute("view-transition");
+        const apply = () => replaceChildren(this, this.#placeholder!);
+        if (vtName && (document as any).startViewTransition) {
+          this.style.viewTransitionName = vtName;
+          (document as any).startViewTransition(apply);
+        } else {
+          apply();
+        }
+      }
       const res = await fetch(location.href, { headers, signal: ac.signal });
       if (!res.ok) {
-        replaceChildren(this);
+        const vtName = this.getAttribute("view-transition");
+        const apply = () => replaceChildren(this);
+        if (vtName && (document as any).startViewTransition) {
+          this.style.viewTransitionName = vtName;
+          (document as any).startViewTransition(apply);
+        } else {
+          apply();
+        }
         throw new Error("Failed to fetch component '" + this.#name + "'");
       }
       const [html, js] = await res.json();
-      this.innerHTML = html;
+      {
+        const vtName = this.getAttribute("view-transition");
+        const apply = () => { this.innerHTML = html; };
+        if (vtName && (document as any).startViewTransition) {
+          this.style.viewTransitionName = vtName;
+          (document as any).startViewTransition(apply);
+        } else {
+          apply();
+        }
+      }
       if (js) {
         doc.body.appendChild(doc.createElement("script")).textContent = js;
       }

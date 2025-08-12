@@ -44,7 +44,14 @@ export const renderToggle = (el: Element, getter: () => unknown) => {
         slots = [...el.childNodes];
       }
     }
-    el.replaceChildren(...(getter() ? slots : []));
+    const vtName = el.getAttribute("view-transition");
+    const apply = () => el.replaceChildren(...(getter() ? slots! : []));
+    if (vtName && (document as any).startViewTransition) {
+      (el as HTMLElement).style.viewTransitionName = vtName;
+      (document as any).startViewTransition(apply);
+    } else {
+      apply();
+    }
   };
 };
 
@@ -78,6 +85,13 @@ export const renderSwitch = (el: Element, getter: () => unknown) => {
       }
     }
     value = "" + getter();
-    el.replaceChildren(...(slotsMap.has(value) ? slotsMap.get(value)! : unnamedSlots!));
+    const vtName = el.getAttribute("view-transition");
+    const apply = () => el.replaceChildren(...(slotsMap!.has(value) ? slotsMap!.get(value)! : unnamedSlots!));
+    if (vtName && (document as any).startViewTransition) {
+      (el as HTMLElement).style.viewTransitionName = vtName;
+      (document as any).startViewTransition(apply);
+    } else {
+      apply();
+    }
   };
 };

@@ -441,6 +441,7 @@ async function renderNode(rc: RenderContext, node: ChildType, stripSlotProp?: bo
           // `<toggle>` element
           case "toggle": {
             let { show, hidden, children } = props;
+            const viewTransition = props["view-transition"];
             if (children !== undefined) {
               if (show === undefined && hidden !== undefined) {
                 if (isSignal(hidden)) {
@@ -464,6 +465,9 @@ async function renderNode(rc: RenderContext, node: ChildType, stripSlotProp?: bo
               if (isSignal(show)) {
                 const { scope, key, value } = show[$signal];
                 let buf = '<m-signal mode="toggle" scope="' + scope + '" ';
+                if (viewTransition) {
+                  buf += 'view-transition=' + toAttrStringLit(String(viewTransition)) + ' ';
+                }
                 if (isString(key)) {
                   buf += "key=" + toAttrStringLit(key) + ">";
                 } else {
@@ -486,6 +490,7 @@ async function renderNode(rc: RenderContext, node: ChildType, stripSlotProp?: bo
           // `<switch>` element
           case "switch": {
             const { value: valueProp, children } = props;
+            const viewTransition = props["view-transition"];
             if (children !== undefined) {
               let slots = Array.isArray(children) ? (isVNode(children) ? [children] : children) : [children];
               let stateful: string | undefined;
@@ -493,6 +498,9 @@ async function renderNode(rc: RenderContext, node: ChildType, stripSlotProp?: bo
               if (isSignal(valueProp)) {
                 const { scope, key, value } = valueProp[$signal];
                 stateful = '<m-signal mode="switch" scope="' + scope + '" ';
+                if (viewTransition) {
+                  stateful += 'view-transition=' + toAttrStringLit(String(viewTransition)) + ' ';
+                }
                 if (isString(key)) {
                   stateful += "key=" + toAttrStringLit(key) + ">";
                 } else {
@@ -519,14 +527,17 @@ async function renderNode(rc: RenderContext, node: ChildType, stripSlotProp?: bo
                 }
               }
               if (stateful) {
-                write(matchedSlot ? stateful.slice(0, -1) + " match=" + toAttrStringLit(matchedSlot[0]) + ">" : stateful);
-              }
-              if (matchedSlot) {
-                await renderNode(rc, matchedSlot[1], true);
-              } else if (unnamedSlots.length > 0) {
-                await renderChildren(rc, unnamedSlots);
-              }
-              if (stateful) {
+                if (matchedSlot) {
+                  // insert match attribute into opening tag
+                  write(stateful.slice(0, -1) + " match=" + toAttrStringLit(matchedSlot[0]) + ">");
+                } else {
+                  write(stateful);
+                }
+                if (matchedSlot) {
+                  await renderNode(rc, matchedSlot[1], true);
+                } else if (unnamedSlots.length > 0) {
+                  await renderChildren(rc, unnamedSlots);
+                }
                 if (namedSlots.length > 0 || (matchedSlot && unnamedSlots.length > 0)) {
                   write("<template m-slot>");
                   await renderChildren(rc, namedSlots);
@@ -536,6 +547,12 @@ async function renderNode(rc: RenderContext, node: ChildType, stripSlotProp?: bo
                   write("</template>");
                 }
                 write("</m-signal>");
+              } else {
+                if (matchedSlot) {
+                  await renderNode(rc, matchedSlot[1], true);
+                } else {
+                  await renderChildren(rc, unnamedSlots);
+                }
               }
             }
             break;
@@ -546,7 +563,7 @@ async function renderNode(rc: RenderContext, node: ChildType, stripSlotProp?: bo
             let { placeholder } = props;
             let attrs = "";
             let attrModifiers = "";
-            for (const p of ["name", "props", "ref"]) {
+            for (const p of ["name", "props", "ref", "view-transition"]) {
               let propValue = props[p];
               let [attr, , attrSignal] = renderAttr(rc, p, propValue);
               if (attrSignal) {
@@ -579,8 +596,9 @@ async function renderNode(rc: RenderContext, node: ChildType, stripSlotProp?: bo
           case "router": {
             const { routeFC } = rc;
             const { children } = props;
+            const viewTransition = props["view-transition"];
             const status = routeFC ? 200 : 404;
-            write('<m-router status="' + status + '">');
+            write('<m-router status="' + status + '"' + (viewTransition ? ' view-transition=' + toAttrStringLit(String(viewTransition)) : '') + '>');
             if (routeFC) {
               await renderFC(rc, routeFC instanceof Promise ? (await routeFC).default : routeFC, {});
             }

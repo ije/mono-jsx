@@ -26,15 +26,38 @@ customElements.define(
       this.#ac = ac;
       const res = await fetch(href, { headers, signal: ac.signal });
       if (res.status === 404) {
-        this.replaceChildren(...(this.#fallback!));
+        const vtName = this.getAttribute("view-transition");
+        const apply = () => this.replaceChildren(...(this.#fallback!));
+        if (vtName && (document as any).startViewTransition) {
+          this.style.viewTransitionName = vtName;
+          (document as any).startViewTransition(apply);
+        } else {
+          apply();
+        }
         return true;
       }
       if (!res.ok) {
-        this.replaceChildren();
+        const vtName = this.getAttribute("view-transition");
+        const apply = () => this.replaceChildren();
+        if (vtName && (document as any).startViewTransition) {
+          this.style.viewTransitionName = vtName;
+          (document as any).startViewTransition(apply);
+        } else {
+          apply();
+        }
         throw new Error("Failed to fetch route: " + res.status + " " + res.statusText);
       }
       const [html, js] = await res.json();
-      this.innerHTML = html;
+      {
+        const vtName = this.getAttribute("view-transition");
+        const apply = () => { this.innerHTML = html; };
+        if (vtName && (document as any).startViewTransition) {
+          this.style.viewTransitionName = vtName;
+          (document as any).startViewTransition(apply);
+        } else {
+          apply();
+        }
+      }
       if (js) {
         doc.body.appendChild(doc.createElement("script")).textContent = js;
       }

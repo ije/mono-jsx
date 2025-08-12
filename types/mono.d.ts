@@ -118,6 +118,7 @@ export interface Elements {
   toggle: BaseAttributes & {
     show?: any;
     hidden?: any;
+    "view-transition"?: string;
   };
   /**
    * The `switch` element is a built-in element that chooses one of its children based on the `slot` attribute to display.
@@ -125,6 +126,7 @@ export interface Elements {
    */
   switch: BaseAttributes & {
     value?: string | number | boolean | null;
+    "view-transition"?: string;
   };
   /**
    * The `component` element is a built-in element that is used to load components lazily,
@@ -134,6 +136,7 @@ export interface Elements {
     name?: string;
     props?: Record<string, unknown>;
     ref?: ComponentElement | ((el: ComponentElement) => void);
+    "view-transition"?: string;
   };
   /**
    * The `router` element is a built-in element that implements client-side routing.
@@ -144,6 +147,7 @@ export interface Elements {
      */
     base?: string;
     ref?: RouterElement | ((el: RouterElement) => void);
+    "view-transition"?: string;
   };
 }
 
