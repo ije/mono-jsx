@@ -4,7 +4,6 @@ declare global {
 
 const doc = document;
 const attr = (el: Element, name: string): string | null => el.getAttribute(name);
-const replaceChildren = (el: Element, children: Node[] = []) => el.replaceChildren(...children);
 
 customElements.define(
   "m-component",
@@ -16,31 +15,52 @@ customElements.define(
     #placeholder?: ChildNode[];
     #ac?: AbortController;
     #timer?: number;
+    #cache = new Map<string, string>();
+    #isBlank = true;
 
-    async #render() {
+    async #fetchCompnent() {
       if (!this.#name) {
-        replaceChildren(this);
+        this.#setContent("");
         return;
       }
+      const props = this.#props || "{}";
+      const cacheKey = this.#name + props;
       const headers = {
-        "x-component": this.#name!,
-        "x-props": this.#props || "{}",
+        "x-component": this.#name,
+        "x-props": props,
         "x-flags": $FLAGS,
       };
       const ac = new AbortController();
       this.#ac?.abort();
       this.#ac = ac;
-      replaceChildren(this, this.#placeholder!);
+      if (this.#cache.has(cacheKey)) {
+        this.#setContent(this.#cache.get(cacheKey)!);
+        return;
+      }
+      if (this.#placeholder?.length) {
+        this.#setContent(this.#placeholder);
+      }
       const res = await fetch(location.href, { headers, signal: ac.signal });
       if (!res.ok) {
-        replaceChildren(this);
+        this.#setContent("");
         throw new Error("Failed to fetch component '" + this.#name + "'");
       }
       const [html, js] = await res.json();
-      this.innerHTML = html;
+      this.#cache.set(cacheKey, html);
+      this.#setContent(html);
       if (js) {
         doc.body.appendChild(doc.createElement("script")).textContent = js;
       }
+    }
+
+    #setContent(body: string | Node[]) {
+      const update = () => typeof body === "string" ? this.innerHTML = body : this.replaceChildren(...body);
+      if (this.hasAttribute("vt") && doc.startViewTransition && !this.#isBlank) {
+        doc.startViewTransition(update);
+      } else {
+        update();
+      }
+      this.#isBlank = false;
     }
 
     get name(): string | null {
@@ -50,7 +70,7 @@ customElements.define(
     set name(name: string) {
       if (name && name !== this.#name) {
         this.#name = name;
-        this.refresh();
+        this.#refresh();
       }
     }
 
@@ -62,29 +82,8 @@ customElements.define(
       const propsJson = typeof props === "string" ? props : JSON.stringify(props);
       if (propsJson && propsJson !== this.#props) {
         this.#props = propsJson;
-        this.refresh();
+        this.#refresh();
       }
-    }
-
-    connectedCallback() {
-      // set a timeout to wait for the element to be fully parsed
-      setTimeout(() => {
-        if (!this.#placeholder) {
-          const propsAttr = attr(this, "props");
-          this.#name = attr(this, "name");
-          this.#props = propsAttr?.startsWith("base64,") ? atob(propsAttr.slice(7)) : undefined;
-          this.#placeholder = [...this.childNodes];
-        }
-        this.#render();
-      });
-    }
-
-    disconnectedCallback() {
-      replaceChildren(this, this.#placeholder!);
-      this.#ac?.abort();
-      this.#ac = undefined;
-      this.#timer && clearTimeout(this.#timer);
-      this.#timer = undefined;
     }
 
     attributeChangedCallback(attrName: string, _oldValue: string | null, newValue: string | null) {
@@ -97,12 +96,40 @@ customElements.define(
       }
     }
 
-    refresh() {
+    connectedCallback() {
+      // set a timeout to wait for the element to be fully parsed
+      setTimeout(() => {
+        if (!this.#placeholder) {
+          const propsAttr = attr(this, "props");
+          this.#name = attr(this, "name");
+          this.#props = propsAttr?.startsWith("base64,") ? atob(propsAttr.slice(7)) : undefined;
+          this.#placeholder = [...this.childNodes];
+        }
+        this.#fetchCompnent();
+      });
+    }
+
+    disconnectedCallback() {
+      this.#cache.clear();
+      this.#ac?.abort();
+      this.#ac = undefined;
+      this.#timer && clearTimeout(this.#timer);
+      this.#timer = undefined;
+    }
+
+    #refresh() {
       this.#timer && clearTimeout(this.#timer);
       this.#timer = setTimeout(() => {
         this.#timer = undefined;
-        this.#render();
+        this.#fetchCompnent();
       }, 50);
+    }
+
+    refresh() {
+      if (this.#name) {
+        this.#cache.delete(this.#name + (this.#props || "{}"));
+      }
+      this.#refresh();
     }
   },
 );

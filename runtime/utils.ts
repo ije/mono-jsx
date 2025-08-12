@@ -32,10 +32,16 @@ export const styleToCSS = (style: Record<string, unknown>): { inline?: string; c
   for (const [k, v] of Object.entries(style)) {
     switch (k.charCodeAt(0)) {
       case /* ':' */ 58:
-        css.push(null, k + "{" + renderStyle(v) + "}");
+        css.push(k.startsWith("::view-") ? "" : null, k + "{" + renderStyle(v) + "}");
         break;
       case /* '@' */ 64:
-        css.push(k + "{", null, "{" + renderStyle(v) + "}}");
+        if (k.startsWith("@keyframes ") || k.startsWith("@view-")) {
+          if (isObject(v)) {
+            css.push(k + "{" + Object.entries(v).map(([k, v]) => k + "{" + renderStyle(v) + "}").join("") + "}");
+          }
+        } else {
+          css.push(k + "{", null, "{" + renderStyle(v) + "}}");
+        }
         break;
       case /* '&' */ 38:
         css.push(null, k.slice(1) + "{" + renderStyle(v) + "}");

@@ -15,8 +15,14 @@ customElements.define(
     #onClick?: (e: MouseEvent) => void;
     #onPopstate?: (e: PopStateEvent) => void;
     #ac?: AbortController;
+    #cache = new Map<string, string>();
+    #isBlank = true;
 
     async #fetchPage(href: string) {
+      // use cached page and refetch the page in the background
+      if (this.#cache.has(href)) {
+        this.#setContent(this.#cache.get(href)!);
+      }
       const ac = new AbortController();
       const headers = {
         "x-route": "true",
@@ -26,18 +32,29 @@ customElements.define(
       this.#ac = ac;
       const res = await fetch(href, { headers, signal: ac.signal });
       if (res.status === 404) {
-        this.replaceChildren(...(this.#fallback!));
-        return true;
+        this.#setContent(this.#fallback ?? []);
+        return 404;
       }
       if (!res.ok) {
         this.replaceChildren();
         throw new Error("Failed to fetch route: " + res.status + " " + res.statusText);
       }
       const [html, js] = await res.json();
-      this.innerHTML = html;
+      this.#cache.set(href, html);
+      this.#setContent(html);
       if (js) {
         doc.body.appendChild(doc.createElement("script")).textContent = js;
       }
+    }
+
+    #setContent(body: string | Node[]) {
+      const update = () => typeof body === "string" ? this.innerHTML = body : this.replaceChildren(...body);
+      if (this.hasAttribute("vt") && doc.startViewTransition && !this.#isBlank) {
+        doc.startViewTransition(update);
+      } else {
+        update();
+      }
+      this.#isBlank = false;
     }
 
     #updateNavLinks() {
@@ -52,19 +69,8 @@ customElements.define(
       });
     }
 
-    navigate(href: string, options?: { replace?: boolean }) {
-      const url = new URL(href, loc.href);
-      if (url.origin !== loc.origin) {
-        loc.href = href;
-        return;
-      }
-      if (!isLocationHref(url.href)) {
-        this.#navigate(href, options);
-      }
-    }
-
     async #navigate(href: string, options?: { replace?: boolean }) {
-      const e404 = await this.#fetchPage(href);
+      const e404 = await this.#fetchPage(href) === 404;
       if (options?.replace) {
         history.replaceState({}, "", href);
       } else {
@@ -76,6 +82,17 @@ customElements.define(
       this.#updateNavLinks();
       // scroll to the top of the page after navigation
       window.scrollTo(0, 0);
+    }
+
+    navigate(href: string, options?: { replace?: boolean }) {
+      const url = new URL(href, loc.href);
+      if (url.origin !== loc.origin) {
+        loc.href = href;
+        return;
+      }
+      if (!isLocationHref(url.href)) {
+        this.#navigate(href, options);
+      }
     }
 
     connectedCallback() {
@@ -132,6 +149,7 @@ customElements.define(
       doc.removeEventListener("click", this.#onClick!);
       this.#ac?.abort();
       this.#ac = undefined;
+      this.#cache.clear();
       this.#onClick = undefined;
       this.#onPopstate = undefined;
     }

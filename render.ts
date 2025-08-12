@@ -394,7 +394,7 @@ async function renderNode(rc: RenderContext, node: ChildType, stripSlotProp?: bo
       if (node === null) {
         // skip null
       } else if (isSignal(node)) {
-        renderSignal(rc, node, undefined, node[$signal].value);
+        rc.write(renderSignal(rc, node));
       } else if (isVNode(node)) {
         const [tag, props] = node;
         switch (tag) {
@@ -411,7 +411,7 @@ async function renderNode(rc: RenderContext, node: ChildType, stripSlotProp?: bo
             const { innerHTML } = props;
             if (innerHTML) {
               if (isSignal(innerHTML)) {
-                renderSignal(rc, innerHTML, "html", String(innerHTML[$signal].value), true);
+                rc.write(renderSignal(rc, innerHTML, "html"));
               } else {
                 write(innerHTML);
               }
@@ -440,7 +440,7 @@ async function renderNode(rc: RenderContext, node: ChildType, stripSlotProp?: bo
 
           // `<toggle>` element
           case "toggle": {
-            let { show, hidden, children } = props;
+            let { show, hidden, viewTransition, children } = props;
             if (children !== undefined) {
               if (show === undefined && hidden !== undefined) {
                 if (isSignal(hidden)) {
@@ -462,13 +462,8 @@ async function renderNode(rc: RenderContext, node: ChildType, stripSlotProp?: bo
                 }
               }
               if (isSignal(show)) {
-                const { scope, key, value } = show[$signal];
-                let buf = '<m-signal mode="toggle" scope="' + scope + '" ';
-                if (isString(key)) {
-                  buf += "key=" + toAttrStringLit(key) + ">";
-                } else {
-                  buf += 'computed="' + rc.mcs.gen(show, rc.fcCtx?.scopeId) + '">';
-                }
+                const { value } = show[$signal];
+                let buf = renderSignal(rc, show, "toggle", false).slice(0, -1) + renderViewTransitionAttr(viewTransition) + ">";
                 if (!value) {
                   buf += "<template m-slot>";
                 }
@@ -485,19 +480,14 @@ async function renderNode(rc: RenderContext, node: ChildType, stripSlotProp?: bo
 
           // `<switch>` element
           case "switch": {
-            const { value: valueProp, children } = props;
+            const { value: valueProp, viewTransition, children } = props;
             if (children !== undefined) {
               let slots = Array.isArray(children) ? (isVNode(children) ? [children] : children) : [children];
-              let stateful: string | undefined;
+              let signalHtml: string | undefined;
               let toSlotName: string;
               if (isSignal(valueProp)) {
-                const { scope, key, value } = valueProp[$signal];
-                stateful = '<m-signal mode="switch" scope="' + scope + '" ';
-                if (isString(key)) {
-                  stateful += "key=" + toAttrStringLit(key) + ">";
-                } else {
-                  stateful += 'computed="' + rc.mcs.gen(valueProp, rc.fcCtx?.scopeId) + '">';
-                }
+                const { value } = valueProp[$signal];
+                signalHtml = renderSignal(rc, valueProp, "switch", false).slice(0, -1) + renderViewTransitionAttr(viewTransition) + ">";
                 rc.flags.runtime |= RENDER_SWITCH;
                 toSlotName = String(value);
               } else {
@@ -518,15 +508,15 @@ async function renderNode(rc: RenderContext, node: ChildType, stripSlotProp?: bo
                   namedSlots.push(slot as ChildType);
                 }
               }
-              if (stateful) {
-                write(matchedSlot ? stateful.slice(0, -1) + " match=" + toAttrStringLit(matchedSlot[0]) + ">" : stateful);
+              if (signalHtml) {
+                write(matchedSlot ? signalHtml.slice(0, -1) + " match=" + toAttrStringLit(matchedSlot[0]) + ">" : signalHtml);
               }
               if (matchedSlot) {
                 await renderNode(rc, matchedSlot[1], true);
               } else if (unnamedSlots.length > 0) {
                 await renderChildren(rc, unnamedSlots);
               }
-              if (stateful) {
+              if (signalHtml) {
                 if (namedSlots.length > 0 || (matchedSlot && unnamedSlots.length > 0)) {
                   write("<template m-slot>");
                   await renderChildren(rc, namedSlots);
@@ -543,22 +533,20 @@ async function renderNode(rc: RenderContext, node: ChildType, stripSlotProp?: bo
 
           // `<component>` element
           case "component": {
-            let { placeholder } = props;
+            let { placeholder, viewTransition } = props;
             let attrs = "";
             let attrModifiers = "";
             for (const p of ["name", "props", "ref"]) {
               let propValue = props[p];
               let [attr, , attrSignal] = renderAttr(rc, p, propValue);
               if (attrSignal) {
-                const write = (chunk: string) => {
-                  attrModifiers += chunk;
-                };
-                renderSignal({ ...rc, write }, attrSignal, [p]);
+                attrModifiers += renderSignal(rc, attrSignal, [p]);
                 rc.flags.runtime |= RENDER_ATTR;
                 propValue = attrSignal[$signal].value;
               }
               attrs += attr;
             }
+            attrs += renderViewTransitionAttr(viewTransition);
             let buf = "<m-component" + attrs + ">";
             if (placeholder) {
               const write = (chunk: string) => {
@@ -577,10 +565,9 @@ async function renderNode(rc: RenderContext, node: ChildType, stripSlotProp?: bo
 
           // `<router>` element
           case "router": {
+            const { children, viewTransition } = props;
             const { routeFC } = rc;
-            const { children } = props;
-            const status = routeFC ? 200 : 404;
-            write('<m-router status="' + status + '">');
+            write('<m-router status="' + (routeFC ? 200 : 404) + '"' + renderViewTransitionAttr(viewTransition) + ">");
             if (routeFC) {
               await renderFC(rc, routeFC instanceof Promise ? (await routeFC).default : routeFC, {});
             }
@@ -628,10 +615,7 @@ async function renderNode(rc: RenderContext, node: ChildType, stripSlotProp?: bo
                   write(addonHtml);
                 }
                 if (signalValue) {
-                  const write = (chunk: string) => {
-                    attrModifiers += chunk;
-                  };
-                  renderSignal({ ...rc, write }, signalValue, [binding ? propName.slice(1) : propName]);
+                  attrModifiers += renderSignal(rc, signalValue, [binding ? propName.slice(1) : propName]);
                   rc.flags.runtime |= RENDER_ATTR;
                 }
                 buffer += attr;
@@ -673,6 +657,7 @@ async function renderChildren(rc: RenderContext, children: ChildType | ChildType
   }
 }
 
+// @internal
 function renderAttr(
   rc: RenderContext,
   attrName: string,
@@ -822,6 +807,16 @@ function renderAttr(
 }
 
 // @internal
+function renderViewTransitionAttr(viewTransition?: string | boolean): string {
+  if (viewTransition === true || viewTransition === "") {
+    return " vt";
+  } else if (isString(viewTransition)) {
+    return " style=" + toAttrStringLit("view-transition-name:" + viewTransition) + " vt";
+  }
+  return "";
+}
+
+// @internal
 async function renderFC(rc: RenderContext, fc: FC, props: JSX.IntrinsicAttributes, eager?: boolean) {
   const { write } = rc;
   const { children } = props;
@@ -916,19 +911,15 @@ function renderSignal(
   rc: RenderContext,
   signal: Signal,
   mode?: "toggle" | "switch" | "list" | "html" | [string],
-  content?: unknown,
-  html?: boolean,
+  close?: boolean,
 ) {
-  const { scope, key } = signal[$signal];
+  const { scope, key, value } = signal[$signal];
   let buffer = "<m-signal";
   if (mode) {
-    buffer += ' mode="';
-    if (isString(mode)) {
-      buffer += mode;
-    } else {
-      buffer += "[" + mode[0] + "]";
+    if (Array.isArray(mode)) {
+      mode = "[" + mode[0] + "]";
     }
-    buffer += '"';
+    buffer += ' mode="' + mode + '"';
   }
   buffer += ' scope="' + scope + '"';
   if (isString(key)) {
@@ -936,7 +927,24 @@ function renderSignal(
   } else {
     buffer += ' computed="' + rc.mcs.gen(signal, rc.fcCtx?.scopeId) + '"';
   }
-  rc.write(buffer + ">" + (html ? content : escapeHTML(String(content ?? ""))) + "</m-signal>");
+  buffer += ">";
+  if (!mode || mode === "html") {
+    let text: string | undefined;
+    switch (typeof value) {
+      case "string":
+        text = value;
+        break;
+      case "number":
+      case "bigint": {
+        text = String(value);
+        break;
+      }
+    }
+    if (text) {
+      buffer += !mode ? escapeHTML(text) : text;
+    }
+  }
+  return buffer + (close !== false ? "</m-signal>" : "");
 }
 
 let collectDeps: ((scopeId: number, key: string) => void) | undefined;
