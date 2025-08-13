@@ -182,6 +182,78 @@ Deno.test("[ssr] style to css(as style element)", async () => {
   }
 });
 
+Deno.test("[ssr] view transition", async () => {
+  const cssId = "-lod2f4";
+  function App(this: FC<{ show: boolean }>, props: { viewTransition?: boolean | string }) {
+    return (
+      <div
+        style={{
+          "@keyframes toggle-in": { from: { opacity: 0 }, to: { opacity: 1 } },
+          "@keyframes toggle-out": { from: { opacity: 1 }, to: { opacity: 0 } },
+          "::view-transition-group(toggle)": { animationDuration: "0.5s" },
+          "::view-transition-old(toggle)": { animation: "0.5s ease-in both toggle-out" },
+          "::view-transition-new(toggle)": { animation: "0.5s ease-in both toggle-in" },
+        }}
+      >
+        <toggle show={this.show} viewTransition={props.viewTransition}>
+          <h1>Hello world!</h1>
+        </toggle>
+        <button type="button" onClick={() => this.show = !this.show}>Toggle</button>
+      </div>
+    );
+  }
+  assertEquals(
+    await renderToString(<App viewTransition />),
+    [
+      `<!DOCTYPE html>`,
+      `<html lang="en"><body>`,
+      `<style data-mono-jsx-css="${cssId}">@keyframes toggle-in{from{opacity:0}to{opacity:1}}@keyframes toggle-out{from{opacity:1}to{opacity:0}}::view-transition-group(toggle){animation-duration:0.5s}::view-transition-old(toggle){animation:0.5s ease-in both toggle-out}::view-transition-new(toggle){animation:0.5s ease-in both toggle-in}</style>`,
+      `<div data-css-${cssId}>`,
+      `<m-signal mode="toggle" scope="1" key="show" vt>`,
+      `<template m-slot><h1>Hello world!</h1></template>`,
+      `</m-signal>`,
+      `<button type="button" onclick="$emit(event,$MF_1_0,1)">Toggle</button>`,
+      `</div>`,
+      `</body></html>`,
+      `<script data-mono-jsx="${VERSION}">`,
+      `(()=>{`,
+      EVENT_JS,
+      RENDER_TOGGLE_JS,
+      SIGNALS_JS,
+      `})();`,
+      `/* --- */`,
+      `function $MF_1_0(){(()=>this.show = !this.show).apply(this,arguments)};`,
+      `$MS("1:show");`,
+      `</script>`,
+    ].join(""),
+  );
+  assertEquals(
+    await renderToString(<App viewTransition="toggle" />),
+    [
+      `<!DOCTYPE html>`,
+      `<html lang="en"><body>`,
+      `<style data-mono-jsx-css="${cssId}">@keyframes toggle-in{from{opacity:0}to{opacity:1}}@keyframes toggle-out{from{opacity:1}to{opacity:0}}::view-transition-group(toggle){animation-duration:0.5s}::view-transition-old(toggle){animation:0.5s ease-in both toggle-out}::view-transition-new(toggle){animation:0.5s ease-in both toggle-in}</style>`,
+      `<div data-css-${cssId}>`,
+      `<m-signal mode="toggle" scope="1" key="show" style="view-transition-name:toggle" vt>`,
+      `<template m-slot><h1>Hello world!</h1></template>`,
+      `</m-signal>`,
+      `<button type="button" onclick="$emit(event,$MF_1_0,1)">Toggle</button>`,
+      `</div>`,
+      `</body></html>`,
+      `<script data-mono-jsx="${VERSION}">`,
+      `(()=>{`,
+      EVENT_JS,
+      RENDER_TOGGLE_JS,
+      SIGNALS_JS,
+      `})();`,
+      `/* --- */`,
+      `function $MF_1_0(){(()=>this.show = !this.show).apply(this,arguments)};`,
+      `$MS("1:show");`,
+      `</script>`,
+    ].join(""),
+  );
+});
+
 Deno.test("[ssr] serialize event handler", async () => {
   assertEquals(
     await renderToString(<button type="button" onClick={() => console.log("🔥" as string)}>Click me</button>),

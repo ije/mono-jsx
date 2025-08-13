@@ -35,6 +35,7 @@ export const renderAttr = (el: Element, attrName: string, getter: () => unknown)
 
 export const renderToggle = (el: Element, getter: () => unknown) => {
   let slots: Array<ChildNode> | undefined;
+  let update = () => el.replaceChildren(...(getter() ? slots! : []));
   return () => {
     if (!slots) {
       const firstChild = el.firstElementChild;
@@ -44,7 +45,11 @@ export const renderToggle = (el: Element, getter: () => unknown) => {
         slots = [...el.childNodes];
       }
     }
-    el.replaceChildren(...(getter() ? slots : []));
+    if (el.hasAttribute("vt") && document.startViewTransition) {
+      document.startViewTransition(update);
+    } else {
+      update();
+    }
   };
 };
 
@@ -54,6 +59,7 @@ export const renderSwitch = (el: Element, getter: () => unknown) => {
   let slotsMap: Map<string, Array<ChildNode>> | undefined;
   let unnamedSlots: Array<ChildNode> | undefined;
   let getNamedSlots = (slotName: string) => slotsMap!.get(slotName) ?? slotsMap!.set(slotName, []).get(slotName)!;
+  let update = () => el.replaceChildren(...(slotsMap!.has(value) ? slotsMap!.get(value)! : unnamedSlots!));
   return () => {
     if (!slotsMap) {
       slotsMap = new Map();
@@ -78,6 +84,10 @@ export const renderSwitch = (el: Element, getter: () => unknown) => {
       }
     }
     value = "" + getter();
-    el.replaceChildren(...(slotsMap.has(value) ? slotsMap.get(value)! : unnamedSlots!));
+    if (el.hasAttribute("vt") && document.startViewTransition) {
+      document.startViewTransition(update);
+    } else {
+      update();
+    }
   };
 };

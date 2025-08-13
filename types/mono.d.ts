@@ -24,10 +24,10 @@ export interface BaseCSSProperties extends CSS.Properties<string | number> {
 export interface AtRuleCSSProperties {
   [key: `@container${" " | "("}${string}`]: BaseCSSProperties;
   [key: `@media${" " | "("}${string}`]: BaseCSSProperties;
+  [key: `@supports${" " | "("}${string}`]: BaseCSSProperties;
   [key: `@keyframes ${string}`]: {
     [key in "from" | "to" | `${D100}%`]?: BaseCSSProperties;
   };
-  [key: `@supports${" " | "("}${string}`]: BaseCSSProperties;
   "@view-transition"?: {
     /**
      * Specifies the effect this at-rule will have on the document's view transition behavior.
@@ -118,6 +118,7 @@ export interface Elements {
   toggle: BaseAttributes & {
     show?: any;
     hidden?: any;
+    viewTransition?: string | boolean;
   };
   /**
    * The `switch` element is a built-in element that chooses one of its children based on the `slot` attribute to display.
@@ -125,6 +126,7 @@ export interface Elements {
    */
   switch: BaseAttributes & {
     value?: string | number | boolean | null;
+    viewTransition?: string | boolean;
   };
   /**
    * The `component` element is a built-in element that is used to load components lazily,
@@ -134,6 +136,7 @@ export interface Elements {
     name?: string;
     props?: Record<string, unknown>;
     ref?: ComponentElement | ((el: ComponentElement) => void);
+    viewTransition?: string | boolean;
   };
   /**
    * The `router` element is a built-in element that implements client-side routing.
@@ -144,6 +147,7 @@ export interface Elements {
      */
     base?: string;
     ref?: RouterElement | ((el: RouterElement) => void);
+    viewTransition?: string | boolean;
   };
 }
 
