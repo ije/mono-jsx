@@ -1072,6 +1072,31 @@ export default {
 }
 ```
 
+## Using View Transition
+
+mono-jsx supports [View Transition](https://developer.mozilla.org/en-US/docs/Web/API/View_Transitions_API) to create smooth transitions between components. To use view transition, you need to add the `viewTransition` attribute to the `<toggle>` ,`<switch>`, `<component>` and `<router>` elements.
+
+```tsx
+function App(this: FC<{ show: boolean }>) {
+  return (
+    <div
+      style={{
+        "@keyframes toggle-in": { from: { opacity: 0 }, to: { opacity: 1 } },
+        "@keyframes toggle-out": { from: { opacity: 1 }, to: { opacity: 0 } },
+        "::view-transition-group(toggle)": { animationDuration: "0.5s" },
+        "::view-transition-old(toggle)": { animation: "0.5s ease-in both toggle-out" },
+        "::view-transition-new(toggle)": { animation: "0.5s ease-in both toggle-in" },
+      }}
+    >
+      <toggle show={this.show} viewTransition="toggle">
+        <h1>Hello world!</h1>
+      </toggle>
+      <button onClick={() => this.show = !this.show}>Toggle</button>
+    </div>
+  )
+}
+```
+
 ## Customizing html Response
 
 You can add `status` or `headers` attributes to the root `<html>` element to customize the http response:
