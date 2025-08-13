@@ -1074,28 +1074,28 @@ export default {
 
 ## Using View Transition
 
-mono-jsx supports [View Transition](https://developer.mozilla.org/en-US/docs/Web/API/View_Transitions_API) to create smooth transitions between views. To use view transition, add viewTransition attribute to below components:
+mono-jsx supports [View Transition](https://developer.mozilla.org/en-US/docs/Web/API/View_Transitions_API) to create smooth transitions between views. To use view transition, add `viewTransition` attribute to below components:
 
- - `<toggle>`
- - `<switch>`
- - `<component>`
- - `<router>`
+ - `<toggle viewTransition="transition-name">`
+ - `<switch viewTransition="transition-name">`
+ - `<component viewTransition="transition-name">`
+ - `<router viewTransition="transition-name">`
 
-For example,
+You can set custom transition animation by adding [`::view-transition-group`](https://developer.mozilla.org/en-US/docs/Web/CSS/::view-transition-group) and [`::view-transition-old`](https://developer.mozilla.org/en-US/docs/Web/CSS/::view-transition-old) and [`::view-transition-new`](https://developer.mozilla.org/en-US/docs/Web/CSS/::view-transition-new) pseudo-elements with your own CSS animation. For example,
 
 ```tsx
 function App(this: FC<{ show: boolean }>) {
   return (
     <div
       style={{
-        "@keyframes toggle-in": { from: { opacity: 0 }, to: { opacity: 1 } },
-        "@keyframes toggle-out": { from: { opacity: 1 }, to: { opacity: 0 } },
-        "::view-transition-group(toggle)": { animationDuration: "0.5s" },
-        "::view-transition-old(toggle)": { animation: "0.5s ease-in both toggle-out" },
-        "::view-transition-new(toggle)": { animation: "0.5s ease-in both toggle-in" },
+        "@keyframes fade-in": { from: { opacity: 0 }, to: { opacity: 1 } },
+        "@keyframes fade-out": { from: { opacity: 1 }, to: { opacity: 0 } },
+        "::view-transition-group(fade)": { animationDuration: "0.5s" },
+        "::view-transition-old(fade)": { animation: "0.5s ease-in both fade-out" },
+        "::view-transition-new(fade)": { animation: "0.5s ease-in both fade-in" },
       }}
     >
-      <toggle show={this.show} viewTransition="toggle">
+      <toggle show={this.show} viewTransition="fade">
         <h1>Hello world!</h1>
       </toggle>
       <button onClick={() => this.show = !this.show}>Toggle</button>
