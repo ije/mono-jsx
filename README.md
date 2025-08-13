@@ -1074,7 +1074,14 @@ export default {
 
 ## Using View Transition
 
-mono-jsx supports [View Transition](https://developer.mozilla.org/en-US/docs/Web/API/View_Transitions_API) to create smooth transitions between components. To use view transition, you need to add the `viewTransition` attribute to the `<toggle>` ,`<switch>`, `<component>` and `<router>` elements.
+mono-jsx supports [View Transition](https://developer.mozilla.org/en-US/docs/Web/API/View_Transitions_API) to create smooth transitions between views. To use view transition, add viewTransition attribute to below components:
+
+ - `<toggle>`
+ - `<switch>`
+ - `<component>`
+ - `<router>`
+
+For example,
 
 ```tsx
 function App(this: FC<{ show: boolean }>) {
