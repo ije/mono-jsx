@@ -947,7 +947,7 @@ function renderSignal(
   return buffer + (close !== false ? "</m-signal>" : "");
 }
 
-let collectDeps: ((scopeId: number, key: string) => void) | undefined;
+let collectDep: ((scopeId: number, key: string) => void) | undefined;
 
 // @internal
 function Signal(
@@ -999,9 +999,9 @@ function createSignals(
   });
   const computed = (compute: () => unknown): unknown => {
     const deps = new Set<string>();
-    collectDeps = (scopeId, key) => deps.add(scopeId + ":" + key);
+    collectDep = (scopeId, key) => deps.add(scopeId + ":" + key);
     const value = compute.call(thisProxy);
-    collectDeps = undefined;
+    collectDep = undefined;
     return Signal(scopeId, { compute, deps }, value);
   };
   const markEffect = (effect: CallableFunction) => {
@@ -1045,7 +1045,7 @@ function createSignals(
           return mark;
         case "url":
           if (scopeId === 0) {
-            collectDeps?.(0, key);
+            collectDep?.(0, key);
             return request ? request.URL ?? (request.URL = new URL(request.url)) : undefined;
           }
           // fallthrough
@@ -1057,8 +1057,8 @@ function createSignals(
           if (value === undefined && !Reflect.has(target, key)) {
             Reflect.set(target, key, undefined, receiver);
           }
-          if (collectDeps) {
-            collectDeps(scopeId, key);
+          if (collectDep) {
+            collectDep(scopeId, key);
             return value;
           }
           let signal = signals.get(key);

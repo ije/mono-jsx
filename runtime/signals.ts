@@ -6,7 +6,7 @@ declare global {
   }
 }
 
-let collectDeps: ((scopeId: number, key: string) => void) | undefined;
+let collectDep: ((scopeId: number, key: string) => void) | undefined;
 
 const win = window as any;
 const mcs = new Map<number, [Function, string[]]>();
@@ -54,7 +54,7 @@ const createSignals = (scopeId: number): Signals => {
         case "refs":
           return refs;
         default:
-          collectDeps?.(scopeId, prop);
+          collectDep?.(scopeId, prop);
           return Reflect.get(target, prop, receiver);
       }
     },
@@ -157,9 +157,9 @@ defineElement("m-effect", (el) => {
         callFn(cleanups[i]);
         cleanups[i] = fn.call(signals);
       };
-      collectDeps = (scope, key) => deps.push([scope, key]);
+      collectDep = (scope, key) => deps.push([scope, key]);
       effect();
-      collectDeps = undefined;
+      collectDep = undefined;
       for (const [scope, key] of deps) {
         disposes.push(Signals(scope).$watch(key, effect));
       }
