@@ -452,6 +452,7 @@ export namespace HTML {
   interface MetaAttributes<T extends EventTarget> extends GlobalAttributes<T> {
     charSet?: string;
     httpEquiv?: string;
+    property?: string;
     name?: string;
     content?: string;
     media?: string;
