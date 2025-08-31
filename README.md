@@ -2,7 +2,7 @@
 
 ![`<html>` as a `Response`](./.github/og-image.png)
 
-mono-jsx is a JSX runtime that renders `<html>` element to `Response` object in JavaScript runtimes like Node.js, Deno, Bun, Cloudflare Workers, etc.
+mono-jsx is a JSX runtime that renders the `<html>` element to a `Response` object in JavaScript runtimes like Node.js, Deno, Bun, Cloudflare Workers, etc.
 
 - 🚀 No build step needed
 - 🦋 Lightweight (10KB gzipped), zero dependencies
@@ -60,7 +60,7 @@ bunx mono-jsx setup
 
 ### Zero Configuration
 
-Alternatively, you can use `@jsxImportSource` pragma directive without installation mono-jsx(no package.json/tsconfig/node_modules), the runtime(deno/bun) automatically installs mono-jsx to your computer:
+Alternatively, you can use the `@jsxImportSource` pragma directive without installing mono-jsx (no package.json/tsconfig/node_modules). The runtime (Deno/Bun) automatically installs mono-jsx to your computer:
 
 ```js
 // Deno, Valtown
@@ -99,9 +99,10 @@ If you're building a web app with [Cloudflare Workers](https://developers.cloudf
 npx wrangler dev app.tsx
 ```
 
-**Node.js doesn't support JSX syntax or declarative fetch servers**, we recommend using mono-jsx with [srvx](https://srvx.h3.dev) and [tsx](https://www.npmjs.com/package/tsx) to start your app:
+**Node.js doesn't support JSX syntax or declarative fetch servers**, we recommend using mono-jsx with [srvx](https://srvx.h3.dev) and [tsx](https://tsx.is) (as JSX loader) to start your app:
 
 ```bash
+# npm i srvx tsx
 npx srvx --import tsx app.tsx
 ```
 
@@ -185,11 +186,19 @@ function App() {
 
 ### Using `html` Tag Function
 
-mono-jsx provides an `html` tag function to render raw HTML in JSX instead of React's `dangerouslySetInnerHTML` property.
+mono-jsx provides an `html` tag function to render raw HTML, it's similar to the `dangerouslySetInnerHTML` property in React.
 
 ```tsx
 function App() {
   return <div>{html`<h1>Hello world!</h1>`}</div>;
+}
+```
+
+Variables in the `html` template literal are escaped, to render raw HTML without escaping, you can call the `html` function with a string literal.
+
+```tsx
+function App() {
+  return <div>{html(`${<h1>Hello world!</h1>}`)}</div>;
 }
 ```
 
@@ -316,22 +325,22 @@ mono-jsx uses signals for updating the view when a signal changes. Signals are s
 
 ### Using Component Signals
 
-You can use the `this` keyword in your components to manage signals. The signals is bound to the component instance and can be updated directly, and will automatically re-render the view when a signal changes:
+You can use the `this` keyword in your components to manage signals. The signals are bound to the component instance and can be updated directly, and will automatically re-render the view when a signal changes:
 
 ```tsx
 function Counter(
   this: FC<{ count: number }>,
   props: { initialCount?: number },
 ) {
-  // Initialize a singal
+  // Initialize a signal
   this.count = props.initialCount ?? 0;
 
   return (
     <div>
-      {/* render singal */}
+      {/* render signal */}
       <span>{this.count}</span>
 
-      {/* Update singal to trigger re-render */}
+      {/* Update signal to trigger re-render */}
       <button onClick={() => this.count--}>-</button>
       <button onClick={() => this.count++}>+</button>
     </div>
@@ -341,7 +350,7 @@ function Counter(
 
 ### Using App Signals
 
-You can define app signals by adding `app` prop to the root `<html>` element. The app signals is available in all components via `this.app.<SignalName>`. Changes to the app signals will trigger re-renders in all components that use it:
+You can define app signals by adding the `app` prop to the root `<html>` element. The app signals are available in all components via `this.app.<SignalName>`. Changes to the app signals will trigger re-renders in all components that use them:
 
 ```tsx
 interface AppSignals {
@@ -426,7 +435,7 @@ function App(this: FC<{ count: number }>) {
 }
 ```
 
-The callback function of `this.effect` can return a cleanup function that gets run once the component element has been removed via `<toggle>` or `<switch>` condition rendering:
+The callback function of `this.effect` can return a cleanup function that gets run once the component element has been removed via `<toggle>` or `<switch>` conditional rendering:
 
 ```tsx
 function Counter(this: FC<{ count: number }>) {
@@ -537,7 +546,7 @@ function App(this: FC<{ checked: boolean }>) {
 
 ### Limitation of Signals
 
-1\. Arrow function are non-stateful components.
+1\. Arrow functions are non-stateful components.
 
 ```tsx
 // ❌ Won't work - use `this` in a non-stateful component
@@ -630,7 +639,7 @@ mono-jsx binds a scoped signals object to `this` of your component functions. Th
 
 The `this` object has the following built-in properties:
 
-- `app`: The app global signals..
+- `app`: The app global signals.
 - `context`: The context defined on the root `<html>` element.
 - `request`: The request object from the `fetch` handler.
 - `refs`: A map of refs defined in the component.
@@ -691,7 +700,7 @@ function Layout(this: Refs<FC, {}, { h1: HTMLH1Element }>) {
 }
 ```
 
-Element `<componet>` also support `ref` attribute, which allows you to control the component rendering manually. The `ref` will be a `ComponentElement` that has the `name`, `props`, and `refresh` properties:
+The `<component>` element also supports the `ref` attribute, which allows you to control the component rendering manually. The `ref` will be a `ComponentElement` that has the `name`, `props`, and `refresh` properties:
 
 - `name`: The name of the component to render.
 - `props`: The props to pass to the component.
@@ -826,7 +835,7 @@ export default {
 
 ## Lazy Rendering
 
-Since mono-jsx renders html on server side, and no hydration JS sent to client side. To render a component dynamically on client side, you can use the `<component>` element to ask the server to render a component and send the html back to client:
+Since mono-jsx renders HTML on the server side and no hydration JavaScript is sent to the client side, to render a component dynamically on the client side, you can use the `<component>` element to ask the server to render a component and send the HTML back to the client:
 
 ```tsx
 export default {
@@ -862,7 +871,7 @@ export default {
 }
 ```
 
-You also can use signal `name` or `props`, change the signal value will trigger the component to re-render with new name or props:
+You can also use signals for `name` or `props`. Changing the signal value will trigger the component to re-render with the new name or props:
 
 ```tsx
 import { Profile, Projects, Settings } from "./pages.tsx"
@@ -895,7 +904,7 @@ export default {
 
 ## Using Router(SPA Mode)
 
-mono-jsx provides a built-in `<router>` element that allows your app to render components based on the current URL. On client side, it listens all `click` events on `<a>` elements and asynchronously fetches the route component without reloading the entire page.
+mono-jsx provides a built-in `<router>` element that allows your app to render components based on the current URL. On the client side, it listens to all `click` events on `<a>` elements and asynchronously fetches the route component without reloading the entire page.
 
 To use the router, you need to define your routes as a mapping of URL patterns to components and pass it to the `<html>` element as `routes` prop. The `request` prop is also required to match the current URL against the defined routes.
 
@@ -921,7 +930,7 @@ export default {
 }
 ```
 
-mono-jsx router requires [URLPattern](https://developer.mozilla.org/en-US/docs/Web/API/URLPattern) to match a route:
+The mono-jsx router requires [URLPattern](https://developer.mozilla.org/en-US/docs/Web/API/URLPattern) to match routes:
 
 - ✅ Deno
 - ✅ Cloudflare Workers
@@ -956,6 +965,7 @@ Bun.serve({
 ### Using Route `params`
 
 When you define a route with a parameter (e.g., `/post/:id`), mono-jsx will automatically extract the parameter from the URL and make it available in the route component. The `params` object is available in the `request` property of the component's `this` context.
+
 You can access the `params` object in your route components to get the values of the parameters defined in the route pattern:
 
 
@@ -969,7 +979,7 @@ function Post(this: FC) {
 
 ### Using `this.app.url` Signal
 
-`this.app.url` is an app-level signal that contains the current route url and parameters. The `this.app.url` signal is automatically updated when the route changes, so you can use it to display the current URL in your components, or control view with `<toggle>` or `<switch>` elements:
+`this.app.url` is an app-level signal that contains the current route URL and parameters. The `this.app.url` signal is automatically updated when the route changes, so you can use it to display the current URL in your components or control the view with `<toggle>` or `<switch>` elements:
 
 ```tsx
 function App(this: FC) {
@@ -986,8 +996,7 @@ function App(this: FC) {
 To navigate between pages, you can use `<a>` elements with `href` attributes that match the defined routes. The router will intercept the click events of these links and fetch the corresponding route component without reloading the page:
 
 ```tsx
-function App() {
-  export default {
+export default {
   fetch: (req) => (
     <html request={req} routes={routes}>
       <nav>
@@ -1003,7 +1012,7 @@ function App() {
 
 ### Nav Links
 
-Links under the `<nav>` element will be treated as navigation links by the router. When the `href` of a nav link matches a route, a active class will be added to the link element. By default, the active class is `active`, but you can customize it by setting the `data-active-class` attribute on the `<nav>` element. You can add style for the active link using nested CSS selectors in the `style` attribute of the `<nav>` element.
+Links under the `<nav>` element will be treated as navigation links by the router. When the `href` of a nav link matches a route, an active class will be added to the link element. By default, the active class is `active`, but you can customize it by setting the `data-active-class` attribute on the `<nav>` element. You can add styles for the active link using nested CSS selectors in the `style` attribute of the `<nav>` element.
 
 ```tsx
 export default {
@@ -1022,7 +1031,7 @@ export default {
 
 ### Using DB/Storage in Route Components
 
-Route components are always rendered on server-side, you can use any database or storage API to fetch data in your route components.
+Route components are always rendered on the server-side. You can use any database or storage API to fetch data in your route components.
 
 ```tsx
 async function Post(this: FC) {
@@ -1087,9 +1096,9 @@ function App(this: FC<{ show: boolean }>) {
 }
 ```
 
-## Customizing html Response
+## Customizing HTML Response
 
-You can add `status` or `headers` attributes to the root `<html>` element to customize the http response:
+You can add `status` or `headers` attributes to the root `<html>` element to customize the HTTP response:
 
 ```tsx
 export default {
@@ -1168,9 +1177,9 @@ export default {
 }
 ```
 
-#### Setup htmx Manually
+#### Setting Up htmx Manually
 
-By default, mono-jsx imports htmx from [esm.sh](https://esm.sh/) CDN when you set the `htmx` attribute. You can also setup htmx manually with your own CDN or local copy:
+By default, mono-jsx imports htmx from the [esm.sh](https://esm.sh/) CDN when you set the `htmx` attribute. You can also set up htmx manually with your own CDN or local copy:
 
 ```tsx
 export default {
