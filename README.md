@@ -2,7 +2,7 @@
 
 ![`<html>` as a `Response`](./.github/og-image.png)
 
-mono-jsx is a JSX runtime that renders the `<html>` element to a `Response` object in JavaScript runtimes like Node.js, Deno, Bun, Cloudflare Workers, etc.
+mono-jsx is a JSX runtime that renders the `<html>` element to a `Response` object.
 
 - 🚀 No build step needed
 - 🦋 Lightweight (10KB gzipped), zero dependencies
