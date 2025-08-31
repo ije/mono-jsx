@@ -99,27 +99,10 @@ If you're building a web app with [Cloudflare Workers](https://developers.cloudf
 npx wrangler dev app.tsx
 ```
 
-**Node.js doesn't support JSX syntax or declarative fetch servers**, we recommend using mono-jsx with [srvx](https://srvx.h3.dev/):
-
-```tsx
-// app.tsx
-
-import { serve } from "srvx";
-
-serve({
-  port: 3000,
-  fetch: (req) => (
-    <html>
-      <h1>Welcome to mono-jsx!</h1>
-    </html>
-  ),
-});
-```
-
-And you'll need [tsx](https://www.npmjs.com/package/tsx) to start the app without a build step:
+**Node.js doesn't support JSX syntax or declarative fetch servers**, we recommend using mono-jsx with [srvx](https://srvx.h3.dev) and [tsx](https://www.npmjs.com/package/tsx) to start your app:
 
 ```bash
-npx tsx app.tsx
+npx srvx --import tsx app.tsx
 ```
 
 > [!NOTE]
