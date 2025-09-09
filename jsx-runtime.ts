@@ -28,6 +28,9 @@ export const jsx = (tag: string | FC, props: Record<string, unknown> = new NullP
       }
     }
     return renderHtml(vnode as unknown as VNode, renderOptions) as unknown as VNode;
+  } else if (tag === "static") {
+    // track the stack of the static element to identify the caller
+    props.$stack = new Error().stack?.split("at ", 3)[2]?.trim();
   }
   return vnode as unknown as VNode;
 };

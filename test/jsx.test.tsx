@@ -89,6 +89,16 @@ Deno.test("[jsx] jsx transform", () => {
     ],
   );
 
+  // static element
+  assertEquals(
+    typeof ((
+      <static>
+        <span>Hello</span>
+      </static>
+    ) as VNode)[1].$stack,
+    "string",
+  );
+
   // custom html element
   assertEquals(
     <foo-bar id="0" /> as VNode,

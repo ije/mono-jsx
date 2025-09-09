@@ -194,7 +194,7 @@ export interface Elements {
     /**
      * The `ttl` attribute is used to control the TTL of the cache.
      */
-    ttl: number;
+    ttl?: number;
   };
   /**
    * The `static` element is a built-in element of mono-jsx that treats the child nodes as static content,

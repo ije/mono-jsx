@@ -3,6 +3,7 @@ import { assert, assertEquals } from "jsr:@std/assert";
 import { LAZY, RENDER_ATTR, ROUTER, SIGNALS } from "../runtime/index.ts";
 import { CX_JS, EVENT_JS, LAZY_JS, ROUTER_JS, SIGNALS_JS, STYLE_JS, SUSPENSE_JS } from "../runtime/index.ts";
 import { RENDER_ATTR_JS, RENDER_SWITCH_JS, RENDER_TOGGLE_JS } from "../runtime/index.ts";
+import { cache } from "../render.ts";
 import { VERSION } from "../version.ts";
 
 const renderToString = (node: JSX.Element, renderOptions?: RenderOptions) => {
@@ -1086,7 +1087,7 @@ Deno.test("[ssr] this.refs", async () => {
     ].join(""),
   );
 
-  function Component(this: Refs<FC, { component: ComponentElement }>) {
+  function Lazy(this: Refs<FC, { component: ComponentElement }>) {
     this.effect(() => void this.refs.component.refresh());
 
     return (
@@ -1097,11 +1098,7 @@ Deno.test("[ssr] this.refs", async () => {
   }
 
   assertEquals(
-    await renderToString(<Component />, {
-      components: {
-        Foo: () => <div>Foo Component</div>,
-      },
-    }),
+    await renderToString(<Lazy />),
     [
       `<!DOCTYPE html>`,
       `<html lang="en"><body>`,
@@ -1320,6 +1317,72 @@ Deno.test("[ssr] this.context", async () => {
       `</body></html>`,
     ].join(""),
   );
+});
+
+Deno.test("[ssr] <cache>", async () => {
+  assertEquals(
+    await renderToString(
+      <cache key="foo" ttl={1000}>
+        <h1>👋</h1>
+      </cache>,
+    ),
+    [
+      `<!DOCTYPE html>`,
+      `<html lang="en"><body>`,
+      `<h1>👋</h1>`,
+      `</body></html>`,
+    ].join(""),
+  );
+  assertEquals(
+    await renderToString(
+      <cache key="foo" ttl={1000}>
+        <h1>👋</h1>
+      </cache>,
+    ),
+    [
+      `<!DOCTYPE html>`,
+      `<html lang="en"><body>`,
+      `<h1>👋</h1>`,
+      `</body></html>`,
+    ].join(""),
+  );
+  assertEquals(cache.size, 1);
+  assertEquals(cache.get("foo")?.html, "<h1>👋</h1>");
+});
+
+Deno.test("[ssr] <static>", async () => {
+  function Icon() {
+    return (
+      <static>
+        <svg>
+          <circle cx="10" cy="10" r="10" />
+        </svg>
+      </static>
+    );
+  }
+  assertEquals(
+    await renderToString(<Icon />),
+    [
+      `<!DOCTYPE html>`,
+      `<html lang="en"><body>`,
+      `<svg>`,
+      `<circle cx="10" cy="10" r="10" />`,
+      `</svg>`,
+      `</body></html>`,
+    ].join(""),
+  );
+  assertEquals(
+    await renderToString(<Icon />),
+    [
+      `<!DOCTYPE html>`,
+      `<html lang="en"><body>`,
+      `<svg>`,
+      `<circle cx="10" cy="10" r="10" />`,
+      `</svg>`,
+      `</body></html>`,
+    ].join(""),
+  );
+  assertEquals(cache.size, 2);
 });
 
 Deno.test("[ssr] <toggle>", async () => {
