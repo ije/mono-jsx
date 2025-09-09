@@ -19,10 +19,6 @@ customElements.define(
     #isBlank = true;
 
     async #fetchPage(href: string) {
-      // use cached page and refetch the page in the background
-      if (this.#cache.has(href)) {
-        this.#setContent(this.#cache.get(href)!);
-      }
       const ac = new AbortController();
       const headers = {
         "x-route": "true",
@@ -70,18 +66,20 @@ customElements.define(
     }
 
     async #navigate(href: string, options?: { replace?: boolean }) {
-      const e404 = await this.#fetchPage(href) === 404;
-      if (options?.replace) {
-        history.replaceState({}, "", href);
+      const p = this.#fetchPage(href);
+      // use cached page and refetch the page in the background
+      if (this.#cache.has(href)) {
+        this.#setContent(this.#cache.get(href)!);
       } else {
-        history.pushState({}, "", href);
+        await p;
       }
-      if (e404 && typeof $signals !== "undefined") {
-        $signals(0).url = new URL(href);
-      }
+      history[options?.replace ? "replaceState" : "pushState"]({}, "", href);
       this.#updateNavLinks();
       // scroll to the top of the page after navigation
       window.scrollTo(0, 0);
+      if (typeof $signals !== "undefined" && (await p) === 404) {
+        $signals(0).url = new URL(href);
+      }
     }
 
     navigate(href: string, options?: { replace?: boolean }) {
