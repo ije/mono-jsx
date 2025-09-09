@@ -113,42 +113,94 @@ export interface AsyncComponentAttributes {
 
 export interface Elements {
   /**
-   * The `toggle` element is a built-in element that toggles the visibility of its children.
+   * The `toggle` element is a built-in element of mono-jsx that toggles the visibility of its children.
    */
   toggle: BaseAttributes & {
+    /**
+     * The `show` attribute is used to control the visibility of the children.
+     */
     show?: any;
+    /**
+     * The `hidden` attribute is used to control the visibility of the children.
+     */
     hidden?: any;
+    /**
+     * The `viewTransition` attribute is used to control the view transition of the children.
+     */
     viewTransition?: string | boolean;
   };
   /**
-   * The `switch` element is a built-in element that chooses one of its children based on the `slot` attribute to display.
+   * The `switch` element is a built-in element of mono-jsx that chooses one of its children based on the `slot` attribute to display.
    * It is similar to a switch statement in programming languages.
    */
   switch: BaseAttributes & {
+    /**
+     * The `value` attribute is used to control the value of the children.
+     */
     value?: string | number | boolean | null;
+    /**
+     * The `viewTransition` attribute is used to control the view transition of the children.
+     */
     viewTransition?: string | boolean;
   };
   /**
-   * The `component` element is a built-in element that is used to load components lazily,
+   * The `component` element is a built-in element of mono-jsx that is used to load components lazily,
    * which can improve performance by reducing the initial load time of the application.
    */
   component: BaseAttributes & AsyncComponentAttributes & {
+    /**
+     * The `name` attribute is used to control the name of the component.
+     */
     name?: string;
+    /**
+     * The `props` attribute is used to control the props of the component.
+     */
     props?: Record<string, unknown>;
+    /**
+     * The `ref` attribute is used to control the ref of the component.
+     */
     ref?: ComponentElement | ((el: ComponentElement) => void);
+    /**
+     * The `viewTransition` attribute is used to control the view transition of the children.
+     */
     viewTransition?: string | boolean;
   };
   /**
-   * The `router` element is a built-in element that implements client-side routing.
+   * The `router` element is a built-in element of mono-jsx that provides SPA routing.
    */
   router: BaseAttributes & AsyncComponentAttributes & {
     /**
      * The `base` attribute is used to set the base URL for the router.
      */
     base?: string;
+    /**
+     * The `ref` attribute is used to control the ref of the router.
+     */
     ref?: RouterElement | ((el: RouterElement) => void);
+    /**
+     * The `viewTransition` attribute is used to control the view transition of the children.
+     */
     viewTransition?: string | boolean;
   };
+  /**
+   * The `cache` element is a built-in element of mono-jsx that caches the rendered content of the child nodes
+   * with the given key and TTL.
+   */
+  cache: BaseAttributes & {
+    /**
+     * The `key` attribute is used to control the key of the cache.
+     */
+    key: string;
+    /**
+     * The `ttl` attribute is used to control the TTL of the cache.
+     */
+    ttl: number;
+  };
+  /**
+   * The `static` element is a built-in element of mono-jsx that treats the child nodes as static content,
+   * When the child nodes are rendered once, they will be cached in memory and reused on subsequent renders.
+   */
+  static: BaseAttributes;
 }
 
 export type WithParams<T> = T & { params?: Record<string, string> };
