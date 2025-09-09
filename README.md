@@ -1096,6 +1096,31 @@ function App(this: FC<{ show: boolean }>) {
 }
 ```
 
+## Caching Rendered HTML
+
+mono-jsx renders html dynamically pre request, large apps may drain your CPU resources. To improve rendering performance, mono-jsx introduces two builtin elements that can cache the rendered html of the children:
+
+- `<cache>` with specified `key` and `ttl`
+- `<static>` for elements that rarely change, such as `<svg>`
+
+```tsx
+function BlogPage() {
+  return (
+    <cache key="blog" ttl={86400}>
+      <Blog />
+    </cache>
+  )
+}
+
+function Icon() {
+  return (
+    <static>
+      <svg>...</svg>
+    </static>
+  )
+}
+```
+
 ## Customizing HTML Response
 
 You can add `status` or `headers` attributes to the root `<html>` element to customize the HTTP response:

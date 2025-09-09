@@ -20,6 +20,7 @@ interface RenderContext {
   request?: Request;
   routeFC?: MaybeModule<FC<any>>;
   fcCtx?: FCContext;
+  svg?: boolean;
 }
 
 interface FCContext {
@@ -64,7 +65,8 @@ interface Compute {
 const cdn = "https://raw.esm.sh"; // the cdn for loading htmx and its extensions
 const encoder = new TextEncoder();
 const customElements = new Map<string, FC>();
-const selfClosingTags = new Set("area,base,br,col,embed,hr,img,input,keygen,link,meta,param,source,track,wbr".split(","));
+const voidTags = new Set("area,base,br,col,embed,hr,img,input,keygen,link,meta,param,source,track,wbr".split(","));
+const cache = new Map<string, { html: string; expires?: number }>();
 const isVNode = (v: unknown): v is VNode => Array.isArray(v) && v.length === 3 && v[2] === $vnode;
 const isSignal = (v: unknown): v is Signal => isObject(v) && !!(v as any)[$signal];
 const hashCode = (s: string) => [...s].reduce((hash, c) => (Math.imul(31, hash) + c.charCodeAt(0)) | 0, 0);
@@ -282,6 +284,7 @@ async function render(
     mcs: new IdGenManagerImpl<Signal>(),
     mfs: new IdGenManagerImpl<CallableFunction>(),
   };
+
   // finalize creates runtime JS for client
   // it may be called recursively when thare are unresolved suspenses
   const finalize = async () => {
@@ -590,6 +593,37 @@ async function renderNode(rc: RenderContext, node: ChildType, stripSlotProp?: bo
             break;
           }
 
+          case "cache":
+          case "static": {
+            const { $stack, key = $stack, ttl, children } = props;
+            if (children) {
+              if (key) {
+                const now = Date.now();
+                const value = cache.get(key);
+                if (value && (!value.expires || value.expires > now)) {
+                  write(value.html);
+                } else {
+                  let buf = "";
+                  await renderChildren(
+                    {
+                      ...rc,
+                      write: (chunk: string) => {
+                        buf += chunk;
+                      },
+                    },
+                    children,
+                    true,
+                  );
+                  cache.set(key, { html: buf, expires: ttl ? now + ttl : undefined });
+                  rc.write(buf);
+                }
+              } else {
+                await renderChildren(rc, children, true);
+              }
+            }
+            break;
+          }
+
           default: {
             // function component
             if (typeof tag === "function") {
@@ -606,6 +640,8 @@ async function renderNode(rc: RenderContext, node: ChildType, stripSlotProp?: bo
               }
               let buffer = "<" + tag;
               let attrModifiers = "";
+              let noChildren = props.children === undefined;
+              let isSvgSelfClosingElement = rc.svg && noChildren;
               for (let [propName, propValue] of Object.entries(props)) {
                 if (propName === "children") {
                   continue;
@@ -620,17 +656,19 @@ async function renderNode(rc: RenderContext, node: ChildType, stripSlotProp?: bo
                 }
                 buffer += attr;
               }
-              write(buffer + ">");
-              if (!selfClosingTags.has(tag)) {
+              write(buffer + (isSvgSelfClosingElement ? " />" : ">"));
+              if (!voidTags.has(tag)) {
                 if (attrModifiers) {
                   write(attrModifiers);
                 }
                 if (props.innerHTML) {
                   write(props.innerHTML);
-                } else if (props.children !== undefined) {
-                  await renderChildren(rc, props.children);
+                } else if (!noChildren) {
+                  await renderChildren(tag === "svg" ? { ...rc, svg: true } : rc, props.children);
                 }
-                write("</" + tag + ">");
+                if (!isSvgSelfClosingElement) {
+                  write("</" + tag + ">");
+                }
               } else if (attrModifiers) {
                 write("<m-group>" + attrModifiers + "</m-group>");
               }
@@ -1110,4 +1148,4 @@ function traverseProps(
   return copy;
 }
 
-export { isSignal };
+export { cache, isSignal };
