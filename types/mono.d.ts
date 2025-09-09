@@ -13,12 +13,12 @@ export interface BaseCSSProperties extends CSS.Properties<string | number> {
    * The view-transition-class CSS property provides the selected elements with an identifying class (a <custom-ident>), providing an additional method of styling the view transitions for those elements.
    * @see https://developer.mozilla.org/docs/Web/CSS/view-transition-class
    */
-  "view-transition-class"?: string;
+  viewTransitionClass?: string;
   /**
    * The view-transition-name CSS property specifies the view transition snapshot that selected elements will participate in, which enables an element to be animated separately from the rest of the page during a view transition.
    * @see https://developer.mozilla.org/docs/Web/CSS/view-transition-name
    */
-  "view-transition-name"?: string;
+  viewTransitionName?: string;
 }
 
 export interface AtRuleCSSProperties {
