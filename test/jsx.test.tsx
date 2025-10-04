@@ -1,4 +1,4 @@
-import { assert, assertEquals } from "jsr:@std/assert";
+import { assert, assertEquals } from "jsr:@std/assert@1.0.14";
 import { $fragment, $html, $vnode } from "../symbols.ts";
 import type { VNode } from "../types/jsx.d.ts";
 

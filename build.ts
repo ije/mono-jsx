@@ -1,4 +1,4 @@
-import { build, stop } from "https://deno.land/x/esbuild@v0.25.4/mod.js";
+import { build, stop } from "https://deno.land/x/esbuild@v0.25.10/mod.js";
 import pkgJson from "./package.json" with { type: "json" };
 
 async function buildRuntime(name: string): Promise<string> {

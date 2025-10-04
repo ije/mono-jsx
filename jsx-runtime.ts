@@ -20,7 +20,7 @@ export const jsx = (tag: string | FC, props: Record<string, unknown> = new NullP
       return props as unknown as VNode;
     }
     const renderOptions = new NullProtoObj();
-    const optionsKeys = new Set(["app", "context", "components", "routes", "request", "status", "headers", "htmx"]);
+    const optionsKeys = new Set(["app", "context", "components", "routes", "request", "session", "status", "headers", "htmx"]);
     for (const [key, value] of Object.entries(props)) {
       if (optionsKeys.has(key) || key.startsWith("htmx-ext-")) {
         renderOptions[key] = value;

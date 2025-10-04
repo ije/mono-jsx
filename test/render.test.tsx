@@ -1,5 +1,5 @@
 import type { RenderOptions } from "../types/render.d.ts";
-import { assert, assertEquals } from "jsr:@std/assert";
+import { assert, assertEquals } from "jsr:@std/assert@1.0.14";
 import { LAZY, RENDER_ATTR, ROUTER, SIGNALS } from "../runtime/index.ts";
 import { CX_JS, EVENT_JS, LAZY_JS, ROUTER_JS, SIGNALS_JS, STYLE_JS, SUSPENSE_JS } from "../runtime/index.ts";
 import { RENDER_ATTR_JS, RENDER_SWITCH_JS, RENDER_TOGGLE_JS } from "../runtime/index.ts";
@@ -1319,6 +1319,97 @@ Deno.test("[ssr] this.context", async () => {
   );
 });
 
+Deno.test("[ssr] this.session", async () => {
+  const secret = "secret";
+  const data = JSON.stringify([["user", "@ije"]]);
+  const encoder = new TextEncoder();
+  const signature = await crypto.subtle.sign(
+    "HMAC",
+    await crypto.subtle.importKey("raw", encoder.encode(secret), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]),
+    encoder.encode(data),
+  );
+  const sessionCookie = "session=" + btoa(data) + "." + btoa(String.fromCharCode(...new Uint8Array(signature)));
+  function App(this: FC, props: { user?: string; logout?: boolean }) {
+    if (props.user) {
+      this.session.set("user", props.user);
+    }
+    if (props.logout) {
+      this.session.destroy();
+    }
+    return <div>{this.session.get("user")}</div>;
+  }
+  assertEquals(
+    await renderToString(<App />, {
+      session: { cookie: { secret } },
+      request: new Request("https://example.com"),
+    }),
+    [
+      `<!DOCTYPE html>`,
+      `<html lang="en"><body>`,
+      `<div></div>`,
+      `</body></html>`,
+    ].join(""),
+  );
+  assertEquals(
+    await renderToString(<App user="@ije" />, {
+      session: { cookie: { secret } },
+      request: new Request("https://example.com"),
+    }),
+    [
+      `<!DOCTYPE html>`,
+      `<html lang="en"><body>`,
+      `<div>@ije</div>`,
+      `</body></html>`,
+      `<script data-mono-jsx="${VERSION}">`,
+      `document.cookie="${sessionCookie}";`,
+      `</script>`,
+    ].join(""),
+  );
+  // customzied session cookie
+  assertEquals(
+    await renderToString(<App user="@ije" />, {
+      session: { cookie: { secret, path: "/admin", domain: ".example.com", secure: true, sameSite: "strict" } },
+      request: new Request("https://example.com"),
+    }),
+    [
+      `<!DOCTYPE html>`,
+      `<html lang="en"><body>`,
+      `<div>@ije</div>`,
+      `</body></html>`,
+      `<script data-mono-jsx="${VERSION}">`,
+      `document.cookie="${sessionCookie}; Domain=.example.com; Path=/admin; Secure; SameSite=strict";`,
+      `</script>`,
+    ].join(""),
+  );
+  assertEquals(
+    await renderToString(<App />, {
+      session: { cookie: { secret } },
+      request: new Request("https://example.com", { headers: { "cookie": sessionCookie } }),
+    }),
+    [
+      `<!DOCTYPE html>`,
+      `<html lang="en"><body>`,
+      `<div>@ije</div>`,
+      `</body></html>`,
+    ].join(""),
+  );
+  assertEquals(
+    await renderToString(<App logout />, {
+      session: { cookie: { secret } },
+      request: new Request("https://example.com", { headers: { "cookie": sessionCookie } }),
+    }),
+    [
+      `<!DOCTYPE html>`,
+      `<html lang="en"><body>`,
+      `<div></div>`,
+      `</body></html>`,
+      `<script data-mono-jsx="${VERSION}">`,
+      `document.cookie="session=; Expires=Thu, 01 Jan 1970 00:00:00 GMT";`,
+      `</script>`,
+    ].join(""),
+  );
+});
+
 Deno.test("[ssr] <cache>", async () => {
   assertEquals(
     await renderToString(
@@ -1951,6 +2042,50 @@ Deno.test("[ssr] <router>", async () => {
       error: { message: "Route not found" },
       status: 404,
     },
+  );
+});
+
+Deno.test("[ssr] <redirect>", async () => {
+  assertEquals(
+    await renderToString(<redirect />),
+    [
+      `<!DOCTYPE html>`,
+      `<html lang="en"><body>`,
+      `</body></html>`,
+    ].join(""),
+  );
+  assertEquals(
+    await renderToString(<redirect to="/dash" />),
+    [
+      `<!DOCTYPE html>`,
+      `<html lang="en"><body>`,
+      `</body></html>`,
+      `<script data-mono-jsx="${VERSION}">`,
+      `if(window.$router){$router.navigate("/dash")}else{location.href="/dash"}`,
+      `</script>`,
+    ].join(""),
+  );
+  assertEquals(
+    await renderToString(<redirect to="/dash" replace />),
+    [
+      `<!DOCTYPE html>`,
+      `<html lang="en"><body>`,
+      `</body></html>`,
+      `<script data-mono-jsx="${VERSION}">`,
+      `if(window.$router){$router.navigate("/dash",!1)}else{location.href="/dash"}`,
+      `</script>`,
+    ].join(""),
+  );
+  assertEquals(
+    await renderToString(<redirect to={new URL("/dash", "https://example.com")} />),
+    [
+      `<!DOCTYPE html>`,
+      `<html lang="en"><body>`,
+      `</body></html>`,
+      `<script data-mono-jsx="${VERSION}">`,
+      `if(window.$router){$router.navigate("https://example.com/dash")}else{location.href="https://example.com/dash"}`,
+      `</script>`,
+    ].join(""),
   );
 });
 

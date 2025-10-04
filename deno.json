@@ -22,6 +22,7 @@
         "ban-types",
         "jsx-curly-braces",
         "jsx-key",
+        "no-import-prefix",
         "no-empty-interface",
         "no-explicit-any",
         "no-slow-types",
