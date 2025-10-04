@@ -1,6 +1,6 @@
-import type { ChildType } from "./types/mono.d.ts";
+import type { ChildType, Session } from "./types/mono.d.ts";
 import type { FC, VNode } from "./types/jsx.d.ts";
-import type { MaybeModule, RenderOptions } from "./types/render.d.ts";
+import type { MaybeModule, RenderOptions, SessionOptions } from "./types/render.d.ts";
 import { CX, EVENT, LAZY, ROUTER, SIGNALS, STYLE, SUSPENSE } from "./runtime/index.ts";
 import { CX_JS, EVENT_JS, LAZY_JS, ROUTER_JS, SIGNALS_JS, STYLE_JS, SUSPENSE_JS } from "./runtime/index.ts";
 import { RENDER_ATTR, RENDER_SWITCH, RENDER_TOGGLE } from "./runtime/index.ts";
@@ -16,8 +16,10 @@ interface RenderContext {
   flags: Flags;
   mcs: IdGenManager<Signal>;
   mfs: IdGenManager<CallableFunction & { str?: string }>;
+  extraJS: string[];
   context?: Record<string, unknown>;
   request?: Request;
+  session?: Session;
   routeFC?: MaybeModule<FC<any>>;
   fcCtx?: FCContext;
   svg?: boolean;
@@ -63,6 +65,7 @@ interface Compute {
 }
 
 const cdn = "https://raw.esm.sh"; // the cdn for loading htmx and its extensions
+const subtle = crypto.subtle;
 const encoder = new TextEncoder();
 const customElements = new Map<string, FC>();
 const voidTags = new Set("area,base,br,col,embed,hr,img,input,keygen,link,meta,param,source,track,wbr".split(","));
@@ -235,14 +238,13 @@ export function renderHtml(node: VNode, options: RenderOptions): Response {
   return new Response(
     new ReadableStream<Uint8Array>({
       async start(controller) {
-        const { htmx } = options;
         const write = (chunk: string) => controller.enqueue(encoder.encode(chunk));
         Reflect.set(options, "routeFC", routeFC);
         try {
           write("<!DOCTYPE html>");
           await render(node, options, write, (js) => write('<script data-mono-jsx="' + VERSION + '">' + js + "</script>"));
-          if (htmx) {
-            write(`<script src="${cdn}/htmx.org${htmx === true ? "" : escapeHTML("@" + htmx)}/dist/htmx.min.js"></script>`);
+          if (options.htmx) {
+            write(`<script src="${cdn}/htmx.org${options.htmx === true ? "" : escapeHTML("@" + options.htmx)}/dist/htmx.min.js"></script>`);
             for (const [name, version] of Object.entries(options)) {
               if (name.startsWith("htmx-ext-") && version) {
                 write(`<script src="${cdn}/${name}${version === true ? "" : escapeHTML("@" + version)}"></script>`);
@@ -269,7 +271,7 @@ async function render(
   const { app, context, request, routeFC } = options;
   const suspenses: Promise<string>[] = [];
   const signals: SignalsContext = {
-    app: Object.assign(createSignals(0, null, context, request), app),
+    app: {},
     store: new Map(),
     effects: [],
   };
@@ -283,7 +285,9 @@ async function render(
     flags: { scope: 0, chunk: 0, runtime: 0 },
     mcs: new IdGenManagerImpl<Signal>(),
     mfs: new IdGenManagerImpl<CallableFunction>(),
+    extraJS: [],
   };
+  signals.app = Object.assign(createThisScope(rc, 0), app);
 
   // finalize creates runtime JS for client
   // it may be called recursively when thare are unresolved suspenses
@@ -349,6 +353,46 @@ async function render(
       });
       rc.mcs.clear();
     }
+    if (rc.session && rc.session.isDirty) {
+      const sessionEntries = rc.session.entries();
+      const { name = "session", domain, path, expires, maxAge, secure, sameSite, secret } = options.session?.cookie ?? {};
+      if (secret) {
+        let cookie = name + "=";
+        if (sessionEntries.length > 0) {
+          const data = JSON.stringify(sessionEntries);
+          const signature = await subtle.sign(
+            "HMAC",
+            await subtle.importKey("raw", encoder.encode(secret), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]),
+            encoder.encode(data),
+          );
+          cookie += btoa(data) + "." + btoa(String.fromCharCode(...new Uint8Array(signature)));
+          if (expires) {
+            cookie += "; Expires=" + expires.toUTCString();
+          } else if (maxAge) {
+            cookie += "; Max-Age=" + maxAge;
+          }
+        } else {
+          cookie += "; Expires=Thu, 01 Jan 1970 00:00:00 GMT";
+        }
+        if (domain) {
+          cookie += "; Domain=" + domain;
+        }
+        if (path) {
+          cookie += "; Path=" + path;
+        }
+        if (secure) {
+          cookie += "; Secure";
+        }
+        if (sameSite) {
+          cookie += "; SameSite=" + sameSite;
+        }
+        // set cookie via client side runtime
+        js += "document.cookie=" + toAttrStringLit(cookie) + ";";
+      }
+    }
+    if (rc.extraJS.length > 0) {
+      js += rc.extraJS.join("");
+    }
     if (js.length > 0) {
       writeJS(js);
     }
@@ -357,6 +401,7 @@ async function render(
       await finalize();
     }
   };
+
   let runtimeFlag = 0;
   if (componentMode && request) {
     const headers = request.headers;
@@ -366,6 +411,9 @@ async function render(
       Object.assign(rc.flags, { scope, chunk });
       runtimeFlag = runtime;
     }
+  }
+  if (options.session && request) {
+    rc.session = await createSession(request, options.session);
   }
   if (componentMode) {
     const [tag, props] = node as VNode;
@@ -624,6 +672,18 @@ async function renderNode(rc: RenderContext, node: ChildType, stripSlotProp?: bo
             break;
           }
 
+          case "redirect": {
+            const { to, replace } = props;
+            if (to) {
+              const hrefLit = toAttrStringLit(to instanceof URL ? to.href : to);
+              rc.extraJS.push(
+                "if(window.$router){$router.navigate(" + hrefLit + (replace ? ",!1" : "") + ")}else{location.href="
+                  + hrefLit + "}",
+              );
+            }
+            break;
+          }
+
           default: {
             // function component
             if (typeof tag === "function") {
@@ -859,7 +919,7 @@ async function renderFC(rc: RenderContext, fc: FC, props: JSX.IntrinsicAttribute
   const { write } = rc;
   const { children } = props;
   const scopeId = ++rc.flags.scope;
-  const signals = createSignals(scopeId, rc.signals.app, rc.context, rc.request);
+  const signals = createThisScope(rc, scopeId);
   const slots: ChildType[] | undefined = children !== undefined
     ? (Array.isArray(children) ? (isVNode(children) ? [children as ChildType] : children) : [children])
     : undefined;
@@ -1018,12 +1078,11 @@ function Signal(
 }
 
 // @internal
-function createSignals(
+function createThisScope(
+  rc: RenderContext,
   scopeId: number,
-  appSignals: Record<string, unknown> | null,
-  context: Record<string, unknown> = new NullProtoObj(),
-  request?: Request & { URL?: URL },
 ): Record<string, unknown> {
+  const { context, request, session } = rc;
   const store = new NullProtoObj() as Record<string | symbol, unknown>;
   const signals = new Map<string, Signal>();
   const effects = [] as string[];
@@ -1065,11 +1124,19 @@ function createSignals(
     get(target, key, receiver) {
       switch (key) {
         case "app":
-          return appSignals;
+          if (scopeId === 0) {
+            return null;
+          }
+          return rc.signals.app;
         case "context":
           return context;
         case "request":
           return request;
+        case "session":
+          if (!session) {
+            throw new Error("[mono-jsx] The `session` and `request` props in the `<html>` element are required for the session.");
+          }
+          return session;
         case "refs":
           return refs;
         case "computed":
@@ -1084,7 +1151,11 @@ function createSignals(
         case "url":
           if (scopeId === 0) {
             collectDep?.(0, key);
-            return request ? request.URL ?? (request.URL = new URL(request.url)) : undefined;
+            if (request) {
+              const req: Request & { URL?: URL } = request;
+              return req.URL ?? (req.URL = new URL(req.url));
+            }
+            return undefined;
           }
           // fallthrough
         default: {
@@ -1116,6 +1187,64 @@ function createSignals(
     },
   });
   return thisProxy;
+}
+
+async function createSession(request: Request, options: SessionOptions): Promise<Session> {
+  let sessionId: string | undefined;
+  let sessionStore = new Map<string, any>();
+  let isDirty = false;
+  let session: Session = {
+    get sessionId() {
+      return sessionId ?? "";
+    },
+    get isDirty() {
+      return isDirty;
+    },
+    get: (key) => sessionStore.get(key),
+    entries: () => [...sessionStore.entries()],
+    set: (key, value) => {
+      sessionStore.set(key, value);
+      isDirty = true;
+    },
+    delete: (key) => {
+      sessionStore.delete(key);
+      isDirty = true;
+    },
+    destroy: () => {
+      sessionStore.clear();
+      isDirty = true;
+    },
+  };
+
+  const { name = "session", secret } = options.cookie ?? {};
+  if (!secret) {
+    console.error("[mono-jsx] The `cookie.secret` option is required for the session.");
+    return session;
+  }
+
+  const sid = request.headers.get("cookie")?.split("; ").find((cookie) => cookie.startsWith(name + "="))?.slice(name.length + 1);
+  if (sid) {
+    let [data, signature] = sid.split(".", 2);
+    if (signature) {
+      try {
+        data = atob(data);
+        signature = atob(signature);
+        const verified = await subtle.verify(
+          "HMAC",
+          await subtle.importKey("raw", encoder.encode(secret), { name: "HMAC", hash: "SHA-256" }, false, ["verify"]),
+          Uint8Array.from(signature, char => char.charCodeAt(0)),
+          encoder.encode(data),
+        );
+        if (verified) {
+          sessionId = sid;
+          sessionStore = new Map(JSON.parse(data));
+        }
+      } catch (_) {
+        // ignore invalid session data
+      }
+    }
+  }
+  return session;
 }
 
 // @internal

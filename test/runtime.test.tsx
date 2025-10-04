@@ -1,4 +1,4 @@
-import { assert, assertEquals } from "jsr:@std/assert";
+import { assert, assertEquals } from "jsr:@std/assert@1.0.14";
 import puppeteer from "npm:puppeteer-core@23.1.1";
 import chrome from "npm:puppeteer-chromium-resolver@23.0.0";
 
@@ -22,6 +22,7 @@ Deno.serve({ port: 8687, onListen: () => {} }, (request) => {
     return new Response(null, { status: 404 });
   }
 
+  // for htmx integration testing
   if (url.pathname === "/clicked") {
     return (
       <html>
@@ -64,6 +65,35 @@ Deno.serve({ port: 8687, onListen: () => {} }, (request) => {
         "/about": () => <h1>About</h1>,
         "/post/:slug": function(this: FC) {
           return <h1>Post: {this.request.params!.slug}</h1>;
+        },
+        "/dash": function(this: FC) {
+          const user = this.session.get<string>("user");
+          if (!user) {
+            return (
+              <div>
+                <a href="/login">Login</a>
+              </div>
+            );
+          }
+          return (
+            <div>
+              <h1>Welcome, {user}!</h1>
+              <a href="/logout">Logout</a>
+            </div>
+          );
+        },
+        "/login": function(this: FC) {
+          this.session.set("user", "@ije");
+          return <redirect to="/dash" />;
+        },
+        "/logout": function(this: FC) {
+          this.session.destroy();
+          return <redirect to="/" />;
+        },
+      }}
+      session={{
+        cookie: {
+          secret: "secret",
         },
       }}
       htmx={url.searchParams.get("htmx") ?? false}
@@ -1011,9 +1041,7 @@ Deno.test("[runtime] refs", sanitizeFalse, async () => {
       </hgroup>
     );
   }
-  const testPageUrl = addTestPage(
-    <App />,
-  );
+  const testPageUrl = addTestPage(<App />);
 
   const page = await browser.newPage();
   await page.goto(testPageUrl);
@@ -1047,6 +1075,122 @@ Deno.test("[runtime] ref callback", sanitizeFalse, async () => {
   const div = await page.$("div");
   assert(div);
   assertEquals(await div.evaluate((el: HTMLElement) => el.innerHTML), "<h1>Welcome to mono-jsx!</h1>");
+
+  await page.close();
+});
+
+Deno.test("[runtime] set session cookie", sanitizeFalse, async () => {
+  function Login(this: FC) {
+    this.session.set("user", "@ije");
+    return <p>Logged in</p>;
+  }
+
+  function Logout(this: FC) {
+    this.session.destroy();
+    return <p>Logged out</p>;
+  }
+
+  const loginPageUrl = addTestPage(<Login />);
+  const logoutPageUrl = addTestPage(<Logout />);
+
+  function App(this: FC) {
+    const user = this.session.get<string>("user");
+    if (user) {
+      return (
+        <div>
+          <h1>Welcome, {user}!</h1>
+          <a href={logoutPageUrl}>Logout</a>
+        </div>
+      );
+    }
+    return (
+      <div>
+        <a href={loginPageUrl}>Login</a>
+      </div>
+    );
+  }
+  const testPageUrl = addTestPage(<App />);
+  const page = await browser.newPage();
+  await page.goto(testPageUrl);
+
+  let a = await page.$("div > a");
+  assert(a);
+  assertEquals(await a.evaluate((el: HTMLElement) => el.textContent), "Login");
+  assertEquals(await a.evaluate((el: HTMLElement) => el.getAttribute("href")), loginPageUrl);
+  await a.click();
+  await page.waitForNetworkIdle();
+
+  let p = await page.$("p");
+  assert(p);
+  assertEquals(await p.evaluate((el: HTMLElement) => el.textContent), "Logged in");
+
+  await page.goto(testPageUrl);
+
+  let h1 = await page.$("div > h1");
+  assert(h1);
+  assertEquals(await h1.evaluate((el: HTMLElement) => el.textContent), "Welcome, @ije!");
+
+  a = await page.$("div > a");
+  assert(a);
+  assertEquals(await a.evaluate((el: HTMLElement) => el.textContent), "Logout");
+  assertEquals(await a.evaluate((el: HTMLElement) => el.getAttribute("href")), logoutPageUrl);
+  await a.click();
+  await page.waitForNetworkIdle();
+
+  p = await page.$("p");
+  assert(p);
+  assertEquals(await p.evaluate((el: HTMLElement) => el.textContent), "Logged out");
+
+  await page.goto(testPageUrl);
+
+  a = await page.$("div > a");
+  assert(a);
+  assertEquals(await a.evaluate((el: HTMLElement) => el.textContent), "Login");
+  assertEquals(await a.evaluate((el: HTMLElement) => el.getAttribute("href")), loginPageUrl);
+
+  await page.close();
+});
+
+Deno.test("[runtime] set session cookie (SPA)", sanitizeFalse, async () => {
+  function App(this: FC) {
+    return (
+      <router>
+        <a href="/dash">Dashboard</a>
+      </router>
+    );
+  }
+  const testPageUrl = addTestPage(<App />);
+  const page = await browser.newPage();
+  await page.goto(testPageUrl);
+
+  let a = await page.$("a");
+  assert(a);
+  assertEquals(await a.evaluate((el: HTMLElement) => el.textContent), "Dashboard");
+  assertEquals(await a.evaluate((el: HTMLElement) => el.getAttribute("href")), "/dash");
+  await a.click();
+  await page.waitForNetworkIdle();
+
+  a = await page.$("a");
+  assert(a);
+  assertEquals(await a.evaluate((el: HTMLElement) => el.textContent), "Login");
+  assertEquals(await a.evaluate((el: HTMLElement) => el.getAttribute("href")), "/login");
+  await a.click();
+  await page.waitForNetworkIdle();
+
+  let h1 = await page.$("h1");
+  assert(h1);
+  assertEquals(await h1.evaluate((el: HTMLElement) => el.textContent), "Welcome, @ije!");
+
+  a = await page.$("a");
+  assert(a);
+  assertEquals(await a.evaluate((el: HTMLElement) => el.textContent), "Logout");
+  assertEquals(await a.evaluate((el: HTMLElement) => el.getAttribute("href")), "/logout");
+  await a.click();
+  await page.waitForNetworkIdle();
+
+  h1 = await page.$("h1");
+  assert(h1);
+  assertEquals(await h1.evaluate((el: HTMLElement) => el.textContent), "Home");
 
   await page.close();
 });
