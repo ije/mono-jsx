@@ -35,8 +35,7 @@ customElements.define(
         this.replaceChildren();
         throw new Error("Failed to fetch route: " + res.status + " " + res.statusText);
       }
-      const [html, js] = await res.json();
-      return [html, js];
+      return res.json();
     }
 
     #setContent(body: string | Node[]) {
