@@ -1,4 +1,4 @@
-import { assertEquals } from "jsr:@std/assert";
+import { assertEquals } from "jsr:@std/assert@1.0.14";
 import { buildRoutes } from "../index.ts";
 import { ROUTER, ROUTER_JS } from "../runtime/index.ts";
 import { VERSION } from "../version.ts";

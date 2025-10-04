@@ -1,6 +1,7 @@
 declare global {
   var $FLAGS: string;
   var $signals: ((n: number) => { url: URL }) | undefined;
+  var $router: { navigate: (url: string, options?: { replace?: boolean }) => void } | undefined;
 }
 
 const doc = document;
@@ -18,7 +19,7 @@ customElements.define(
     #cache = new Map<string, string>();
     #isBlank = true;
 
-    async #fetchPage(href: string) {
+    async #fetchPage(href: string): Promise<[html: string, js: string | undefined] | null> {
       const ac = new AbortController();
       const headers = {
         "x-route": "true",
@@ -28,19 +29,14 @@ customElements.define(
       this.#ac = ac;
       const res = await fetch(href, { headers, signal: ac.signal });
       if (res.status === 404) {
-        this.#setContent(this.#fallback ?? []);
-        return 404;
+        return null;
       }
       if (!res.ok) {
         this.replaceChildren();
         throw new Error("Failed to fetch route: " + res.status + " " + res.statusText);
       }
       const [html, js] = await res.json();
-      this.#cache.set(href, html);
-      this.#setContent(html);
-      if (js) {
-        doc.body.appendChild(doc.createElement("script")).textContent = js;
-      }
+      return [html, js];
     }
 
     #setContent(body: string | Node[]) {
@@ -66,7 +62,21 @@ customElements.define(
     }
 
     async #navigate(href: string, options?: { replace?: boolean }) {
-      const p = this.#fetchPage(href);
+      const p = this.#fetchPage(href).then(ret => {
+        if (ret) {
+          const [html, js] = ret;
+          this.#cache.set(href, html);
+          this.#setContent(html);
+          return js;
+        } else {
+          this.#cache.delete(href);
+          this.#setContent(this.#fallback ?? []);
+          if (typeof $signals !== "undefined") {
+            // update app.url signal when page not found
+            $signals(0).url = new URL(href);
+          }
+        }
+      });
       // use cached page and refetch the page in the background
       if (this.#cache.has(href)) {
         this.#setContent(this.#cache.get(href)!);
@@ -77,9 +87,11 @@ customElements.define(
       this.#updateNavLinks();
       // scroll to the top of the page after navigation
       window.scrollTo(0, 0);
-      if (typeof $signals !== "undefined" && (await p) === 404) {
-        $signals(0).url = new URL(href);
-      }
+      p.then(js => {
+        if (js) {
+          doc.body.appendChild(doc.createElement("script")).textContent = js;
+        }
+      });
     }
 
     navigate(href: string, options?: { replace?: boolean }) {
@@ -140,11 +152,13 @@ customElements.define(
       addEventListener("popstate", this.#onPopstate);
       doc.addEventListener("click", this.#onClick);
       setTimeout(() => this.#updateNavLinks());
+      globalThis.$router = this;
     }
 
     disconnectedCallback() {
       removeEventListener("popstate", this.#onPopstate!);
       doc.removeEventListener("click", this.#onClick!);
+      delete globalThis.$router;
       this.#ac?.abort();
       this.#ac = undefined;
       this.#cache.clear();

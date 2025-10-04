@@ -1,5 +1,7 @@
 import type { FC } from "./jsx.d.ts";
 
+export type MaybeModule<T> = T | Promise<{ default: T }>;
+
 /**
  * Htmx extensions.
  * @see https://htmx.org/docs/#extensions
@@ -11,7 +13,54 @@ type HtmxExts = {
     | boolean;
 };
 
-export type MaybeModule<T> = T | Promise<{ default: T }>;
+/**
+ * Cookie options for mono-jsx.
+ */
+export type CookieOptions = {
+  /**
+   * The name of the cookie.
+   */
+  name?: string;
+  /**
+   * The domain of the cookie.
+   */
+  domain?: string;
+  /**
+   * The path of the cookie.
+   */
+  path?: string;
+  /**
+   * The expires date of the cookie.
+   */
+  expires?: Date;
+  /**
+   * The max age of the cookie in seconds. If `expires` is provided, this option is ignored.
+   */
+  maxAge?: number;
+  /**
+   * The secure policy of the cookie.
+   */
+  secure?: boolean;
+  /**
+   * The same site policy of the cookie.
+   */
+  sameSite?: "lax" | "strict" | "none";
+  /**
+   * The secret is used to sign the cookie.
+   */
+  secret?: string;
+};
+
+/**
+ * Session options for the `session` middleware.
+ */
+export type SessionOptions = {
+  /**
+   * The cookie options to be used by the session.
+   */
+  cookie?: CookieOptions;
+  // TODO: add session store options
+};
 
 /**
  * Render options for the `render` function.
@@ -42,6 +91,10 @@ export interface RenderOptions extends Partial<HtmxExts> {
    * @defaultValue `200`
    */
   status?: number;
+  /**
+   * The session options to be used by the session.
+   */
+  session?: SessionOptions;
   /**
    * The HTTP headers to be sent with the response.
    */

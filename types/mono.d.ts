@@ -89,6 +89,7 @@ export interface CSSProperties extends BaseCSSProperties, AtRuleCSSProperties, P
 
 export type MaybeArray<T> = T | T[];
 export type ChildType = MaybeArray<JSX.Element | string | number | bigint | boolean | null | undefined>;
+export type WithParams<T> = T & { params?: Record<string, string> };
 
 export interface BaseAttributes {
   children?: MaybeArray<ChildType>;
@@ -201,9 +202,55 @@ export interface Elements {
    * When the child nodes are rendered once, they will be cached in memory and reused on subsequent renders.
    */
   static: BaseAttributes;
+  /**
+   * The `redirect` element is a built-in element of mono-jsx that redirects to the given URL in the client side.
+   */
+  redirect: {
+    /**
+     * The `to` attribute is used to control the redirect URL.
+     */
+    to?: string | URL;
+    /**
+     * The `replace` attribute is used to control the replace behavior of the redirect.
+     * Only works when the `router` element is used.
+     */
+    replace?: boolean;
+  };
 }
 
-export type WithParams<T> = T & { params?: Record<string, string> };
+/**
+ * The `Session` type defines the session API.
+ */
+export interface Session {
+  /**
+   * The `sessionId` is used to identify the session.
+   */
+  readonly sessionId: string;
+  /**
+   * The `isDirty` is true, update the session cookie to the client.
+   */
+  readonly isDirty: boolean;
+  /**
+   * The `get` method is used to get a value from the session.
+   */
+  get<T = unknown>(key: string): T | undefined;
+  /**
+   * The `entries` method is used to get all the entries from the session.
+   */
+  entries(): [string, unknown][];
+  /**
+   * The `set` method is used to set a value in the session.
+   */
+  set(key: string, value: string | number | boolean | any[] | Record<string, unknown>): void;
+  /**
+   * The `delete` method is used to delete a value from the session.
+   */
+  delete(key: string): void;
+  /**
+   * The `destroy` method is used to destroy the session.
+   */
+  destroy(): void;
+}
 
 declare global {
   /**
@@ -250,6 +297,12 @@ declare global {
      * **⚠ This is a server-side only API.**
      */
     readonly request: WithParams<Request & { URL: URL }>;
+    /**
+     * The `session` object contains the current session information.
+     *
+     * **⚠ This is a server-side only API.**
+     */
+    readonly session: Session;
     /**
      * The `refs` object is used to store variables in clide side.
      *
