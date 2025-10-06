@@ -145,8 +145,8 @@ export namespace HTML {
   }
 
   interface FormAttributes<T extends EventTarget> extends GlobalAttributes<T> {
-    "accept-charset"?: string;
-    action: string | (/* @mono-jsx */ (data: FormData, event: SubmitEvent) => unknown | Promise<unknown>);
+    acceptCharset?: string;
+    action?: string | (/* @mono-jsx */ (data: FormData, event: SubmitEvent) => unknown | Promise<unknown>);
     autoComplete?: "on" | "off";
     encType?: "application/x-www-form-urlencoded" | "multipart/form-data" | "text/plain";
     method?: "GET" | "POST" | "dialog";
@@ -156,6 +156,8 @@ export namespace HTML {
     onSubmit?: EventHandler<Event, T>;
     onReset?: EventHandler<Event, T>;
     onFormData?: EventHandler<Event, T>;
+    /* @mono-jsx */
+    route?: boolean;
   }
 
   interface InputAttributes<T extends EventTarget> extends GlobalAttributes<T>, InputElementAttributes<T> {
