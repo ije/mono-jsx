@@ -16,13 +16,15 @@ customElements.define(
         const inputEl = formEl.elements.namedItem(forAttr) as HTMLInputElement | null;
         if (inputEl) {
           const delCustomValidity = () => {
-            setCustomValidity(inputEl, "");
             inputEl.removeEventListener("input", delCustomValidity);
+            setCustomValidity(inputEl, "");
           };
           inputEl.addEventListener("input", delCustomValidity);
           setCustomValidity(inputEl, message);
+          inputEl.focus();
         }
       }
+      this.remove();
     }
   },
 );
@@ -30,6 +32,9 @@ customElements.define(
 window.$onrfs = async (evt) => {
   evt.preventDefault();
   const formEl = evt.target as HTMLFormElement;
+  if (!formEl.checkValidity()) {
+    return;
+  }
   const data = new FormData(formEl);
   const inputEls = [...formEl.elements] as (HTMLInputElement & { _disabled?: boolean })[];
   for (const inputEl of inputEls) {
@@ -43,6 +48,10 @@ window.$onrfs = async (evt) => {
   });
   const [html, js] = await res.json();
   const formslot = formEl.querySelector("formslot");
+  for (const inputEl of inputEls) {
+    inputEl.disabled = inputEl._disabled!;
+    delete inputEl._disabled;
+  }
   if (formslot) {
     switch (formslot.getAttribute("mode")) {
       case "insertbefore":
@@ -55,12 +64,10 @@ window.$onrfs = async (evt) => {
         formslot.innerHTML = html;
     }
   }
-  for (const inputEl of inputEls) {
-    inputEl.disabled = inputEl._disabled!;
-    delete inputEl._disabled;
-  }
   setTimeout(() => {
-    formEl.reset();
+    if (!inputEls.some(el => !el.validity.valid)) {
+      formEl.reset();
+    }
   }, 0);
   if (js) {
     document.body.appendChild(document.createElement("script")).textContent = js;

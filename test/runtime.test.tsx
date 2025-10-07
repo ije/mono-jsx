@@ -105,7 +105,7 @@ Deno.serve({ port: 8687, onListen: () => {} }, (request) => {
           return (
             <form route>
               <formslot mode="insertbefore" />
-              <input type="text" name="message" required placeholder="Type Message..." />
+              <input style={{ ":invalid": { borderColor: "red" } }} type="text" name="message" placeholder="Type Message..." />
               <input type="submit" value={"Send"} />
             </form>
           );

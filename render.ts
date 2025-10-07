@@ -699,7 +699,7 @@ async function renderNode(rc: RenderContext, node: ChildType, stripSlotProp?: bo
           case "invalid": {
             const { children, for: forProp } = props;
             if (forProp && isString(forProp)) {
-              write("<m-inv for=" + toAttrStringLit(forProp) + ">");
+              write("<m-inv for=" + toAttrStringLit(forProp) + " hidden>");
               if (children) {
                 await renderChildren(rc, children);
               }
