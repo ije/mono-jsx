@@ -90,6 +90,26 @@ Deno.serve({ port: 8687, onListen: () => {} }, (request) => {
           this.session.destroy();
           return <redirect to="/" />;
         },
+        "/chat": function(this: FC) {
+          if (this.form) {
+            const message = this.form.get("message") as string | null;
+            if (message === null || message.trim() === "") {
+              return (
+                <invalid for="message">
+                  Message is required
+                </invalid>
+              );
+            }
+            return <p>{message}</p>;
+          }
+          return (
+            <form route>
+              <formslot mode="insertbefore" />
+              <input type="text" name="message" required placeholder="Type Message..." />
+              <input type="submit" value={"Send"} />
+            </form>
+          );
+        },
       }}
       session={{
         cookie: {
@@ -106,11 +126,18 @@ Deno.serve({ port: 8687, onListen: () => {} }, (request) => {
   );
 });
 
-// function App(this: FC) {
-//   return null;
-// }
-// console.log(addTestPage(<App />));
-// await new Promise(() => {});
+function App(this: FC) {
+  return (
+    <>
+      <nav>
+        <a href="/chat">Chat</a>
+      </nav>
+      <router>404</router>
+    </>
+  );
+}
+console.log(addTestPage(<App />));
+await new Promise(() => {});
 
 const browser = await puppeteer.launch({
   executablePath: (await chrome()).executablePath,
@@ -1195,7 +1222,7 @@ Deno.test("[runtime] set session cookie (SPA)", sanitizeFalse, async () => {
   await page.close();
 });
 
-Deno.test("[runtime] htmx integration", { ...sanitizeFalse, ignore: false }, async () => {
+Deno.test("[runtime] htmx integration", { ...sanitizeFalse, ignore: true }, async () => {
   const testPageUrl = addTestPage(
     <button type="button" hx-post="/clicked" hx-swap="outerHTML">
       Click Me

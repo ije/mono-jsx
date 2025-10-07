@@ -191,7 +191,7 @@ export interface Elements {
     /**
      * The `key` attribute is used to control the key of the cache.
      */
-    key: string;
+    key?: string;
     /**
      * The `ttl` attribute is used to control the TTL of the cache.
      */
@@ -215,6 +215,23 @@ export interface Elements {
      * Only works when the `router` element is used.
      */
     replace?: boolean;
+  };
+  /**
+   * The `invalid` element is a built-in element of mono-jsx that sets custom validation
+   * state for the form elements.
+   */
+  invalid: BaseAttributes & {
+    /**
+     * Which form elements to set the custom validation state for.
+     */
+    for?: string;
+  };
+  /**
+   * The `formslot` element is a built-in element of mono-jsx that is used to display the content of the route form
+   * in the `form` element.
+   */
+  formslot: {
+    mode?: "insertbefore" | "insertafter" | "replace";
   };
 }
 
@@ -297,6 +314,7 @@ declare global {
      * **⚠ This is a server-side only API.**
      */
     readonly request: WithParams<Request & { URL: URL }>;
+    readonly form?: FormData;
     /**
      * The `session` object contains the current session information.
      *

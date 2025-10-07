@@ -1,8 +1,8 @@
 import type { ChildType, Session } from "./types/mono.d.ts";
 import type { FC, VNode } from "./types/jsx.d.ts";
 import type { MaybeModule, RenderOptions, SessionOptions } from "./types/render.d.ts";
-import { COMPONENT, CX, EVENT, ROUTER, SIGNALS, STYLE, SUSPENSE } from "./runtime/index.ts";
-import { COMPONENT_JS, CX_JS, EVENT_JS, ROUTER_JS, SIGNALS_JS, STYLE_JS, SUSPENSE_JS } from "./runtime/index.ts";
+import { COMPONENT, CX, EVENT, FORM, ROUTER, SIGNALS, STYLE, SUSPENSE } from "./runtime/index.ts";
+import { COMPONENT_JS, CX_JS, EVENT_JS, FORM_JS, ROUTER_JS, SIGNALS_JS, STYLE_JS, SUSPENSE_JS } from "./runtime/index.ts";
 import { RENDER_ATTR, RENDER_SWITCH, RENDER_TOGGLE } from "./runtime/index.ts";
 import { RENDER_ATTR_JS, RENDER_SWITCH_JS, RENDER_TOGGLE_JS } from "./runtime/index.ts";
 import { cx, escapeHTML, isObject, isString, NullProtoObj, styleToCSS, toHyphenCase } from "./runtime/utils.ts";
@@ -21,6 +21,7 @@ interface RenderContext {
   request?: Request;
   session?: Session;
   routeFC?: MaybeModule<FC<any>>;
+  routeForm?: FormData;
   fcCtx?: FCContext;
   svg?: boolean;
 }
@@ -144,6 +145,7 @@ export function renderHtml(node: VNode, options: RenderOptions): Response {
   const componentHeader = reqHeaders?.get("x-component");
 
   let routeFC: MaybeModule<FC<any>> | undefined = request ? Reflect.get(request, "x-route") : undefined;
+  let routeForm: Promise<FormData> | undefined;
   let component = componentHeader ? components?.[componentHeader] : null;
   let status = options.status;
 
@@ -193,11 +195,15 @@ export function renderHtml(node: VNode, options: RenderOptions): Response {
     }
   }
 
-  if (reqHeaders?.get("x-route") === "true") {
+  if (reqHeaders?.get("x-route") === "true" || reqHeaders?.get("x-route-form") === "true") {
     if (!routeFC) {
       return Response.json({ error: { message: "Route not found" }, status }, { headers, status });
     }
     component = routeFC;
+  }
+
+  if (reqHeaders?.get("x-route-form") === "true" && request?.method === "POST") {
+    routeForm = request.formData();
   }
 
   if (component) {
@@ -216,6 +222,7 @@ export function renderHtml(node: VNode, options: RenderOptions): Response {
               (chunk) => html += chunk,
               (chunk) => js += chunk,
               true,
+              routeForm,
             );
             let json = "[" + stringify(html);
             if (js) {
@@ -267,6 +274,7 @@ async function render(
   write: (chunk: string) => void,
   writeJS: (chunk: string) => void,
   componentMode?: boolean,
+  routeForm?: Promise<FormData>,
 ) {
   const { app, context, request, routeFC } = options;
   const suspenses: Promise<string>[] = [];
@@ -312,10 +320,11 @@ async function render(
     treeshake(SUSPENSE, SUSPENSE_JS, suspenses.length > 0);
     treeshake(COMPONENT, COMPONENT_JS);
     treeshake(ROUTER, ROUTER_JS);
+    treeshake(FORM, FORM_JS);
     if (js.length > 0) {
       js = "(()=>{" + js + "})();/* --- */";
     }
-    if ((runtimeFlag & COMPONENT) || (runtimeFlag & ROUTER)) {
+    if ((runtimeFlag & COMPONENT) || (runtimeFlag & ROUTER) || (runtimeFlag & FORM)) {
       const { scope, chunk } = rc.flags;
       js += 'window.$FLAGS="' + scope + "|" + chunk + "|" + runtimeFlag + '";';
     }
@@ -414,6 +423,9 @@ async function render(
   }
   if (options.session && request) {
     rc.session = await createSession(request, options.session);
+  }
+  if (routeForm) {
+    rc.routeForm = await routeForm;
   }
   if (componentMode) {
     const [tag, props] = node as VNode;
@@ -675,11 +687,24 @@ async function renderNode(rc: RenderContext, node: ChildType, stripSlotProp?: bo
           case "redirect": {
             const { to, replace } = props;
             if (to) {
-              const hrefLit = toAttrStringLit(to instanceof URL ? to.href : to);
+              const hrefLit = toAttrStringLit(String(to));
               rc.extraJS.push(
                 "if(window.$router){$router.navigate(" + hrefLit + (replace ? ",!1" : "") + ")}else{location.href="
                   + hrefLit + "}",
               );
+            }
+            break;
+          }
+
+          case "invalid": {
+            const { children, for: forProp } = props;
+            if (forProp && isString(forProp)) {
+              write("<m-inv for=" + toAttrStringLit(forProp) + ">");
+              if (children) {
+                await renderChildren(rc, children);
+              }
+              write("</m-inv>");
+              rc.flags.runtime |= FORM;
             }
             break;
           }
@@ -703,18 +728,29 @@ async function renderNode(rc: RenderContext, node: ChildType, stripSlotProp?: bo
               let noChildren = props.children === undefined;
               let isSvgSelfClosingElement = rc.svg && noChildren;
               for (let [propName, propValue] of Object.entries(props)) {
-                if (propName === "children") {
-                  continue;
+                switch (propName) {
+                  case "children":
+                    // ignore `children` property
+                    break;
+                  case "route":
+                    if (tag === "form") {
+                      buffer += ' onsubmit="$onrfs(event)"';
+                      rc.flags.runtime |= FORM;
+                      break;
+                    }
+                    // fallthrough
+                  default: {
+                    const [attr, addonHtml, signalValue, binding] = renderAttr(rc, propName, propValue, stripSlotProp);
+                    if (addonHtml) {
+                      write(addonHtml);
+                    }
+                    if (signalValue) {
+                      attrModifiers += renderSignal(rc, signalValue, [binding ? propName.slice(1) : propName]);
+                      rc.flags.runtime |= RENDER_ATTR;
+                    }
+                    buffer += attr;
+                  }
                 }
-                const [attr, addonHtml, signalValue, binding] = renderAttr(rc, propName, propValue, stripSlotProp);
-                if (addonHtml) {
-                  write(addonHtml);
-                }
-                if (signalValue) {
-                  attrModifiers += renderSignal(rc, signalValue, [binding ? propName.slice(1) : propName]);
-                  rc.flags.runtime |= RENDER_ATTR;
-                }
-                buffer += attr;
               }
               write(buffer + (isSvgSelfClosingElement ? " />" : ">"));
               if (!voidTags.has(tag)) {
@@ -1082,7 +1118,7 @@ function createThisScope(
   rc: RenderContext,
   scopeId: number,
 ): Record<string, unknown> {
-  const { context, request, session } = rc;
+  const { context, request, routeForm, session } = rc;
   const store = new NullProtoObj() as Record<string | symbol, unknown>;
   const signals = new Map<string, Signal>();
   const effects = [] as string[];
@@ -1132,6 +1168,8 @@ function createThisScope(
           return context;
         case "request":
           return request;
+        case "form":
+          return routeForm;
         case "session":
           if (!session) {
             throw new Error("[mono-jsx] The `session` and `request` props in the `<html>` element are required for the session.");

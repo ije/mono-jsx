@@ -1,6 +1,6 @@
 import type { RenderOptions } from "../types/render.d.ts";
 import { assert, assertEquals } from "jsr:@std/assert@1.0.14";
-import { COMPONENT, RENDER_ATTR, ROUTER, SIGNALS } from "../runtime/index.ts";
+import { COMPONENT, FORM_JS, RENDER_ATTR, ROUTER, SIGNALS } from "../runtime/index.ts";
 import { COMPONENT_JS, CX_JS, EVENT_JS, ROUTER_JS, SIGNALS_JS, STYLE_JS, SUSPENSE_JS } from "../runtime/index.ts";
 import { RENDER_ATTR_JS, RENDER_SWITCH_JS, RENDER_TOGGLE_JS } from "../runtime/index.ts";
 import { cache } from "../render.ts";
@@ -2084,6 +2084,49 @@ Deno.test("[ssr] <redirect>", async () => {
       `</body></html>`,
       `<script data-mono-jsx="${VERSION}">`,
       `if(window.$router){$router.navigate("https://example.com/dash")}else{location.href="https://example.com/dash"}`,
+      `</script>`,
+    ].join(""),
+  );
+});
+
+Deno.test("[ssr] <invalid>", async () => {
+  assertEquals(
+    await renderToString(<invalid />),
+    [
+      `<!DOCTYPE html>`,
+      `<html lang="en"><body>`,
+      `</body></html>`,
+    ].join(""),
+  );
+  assertEquals(
+    await renderToString(<invalid for="foo" />),
+    [
+      `<!DOCTYPE html>`,
+      `<html lang="en"><body>`,
+      `<m-inv for="foo"></m-inv>`,
+      `</body></html>`,
+      `<script data-mono-jsx="${VERSION}">`,
+      `(()=>{`,
+      FORM_JS,
+      `})();/* --- */`,
+      `</script>`,
+    ].join(""),
+  );
+  assertEquals(
+    await renderToString(
+      <invalid for="foo">
+        invalid foo
+      </invalid>,
+    ),
+    [
+      `<!DOCTYPE html>`,
+      `<html lang="en"><body>`,
+      `<m-inv for="foo">invalid foo</m-inv>`,
+      `</body></html>`,
+      `<script data-mono-jsx="${VERSION}">`,
+      `(()=>{`,
+      FORM_JS,
+      `})();/* --- */`,
       `</script>`,
     ].join(""),
   );

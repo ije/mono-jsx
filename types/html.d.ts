@@ -145,7 +145,7 @@ export namespace HTML {
   }
 
   interface FormAttributes<T extends EventTarget> extends GlobalAttributes<T> {
-    acceptCharset?: string;
+    "accept-charset"?: string;
     action?: string | (/* @mono-jsx */ (data: FormData, event: SubmitEvent) => unknown | Promise<unknown>);
     autoComplete?: "on" | "off";
     encType?: "application/x-www-form-urlencoded" | "multipart/form-data" | "text/plain";

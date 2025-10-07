@@ -92,6 +92,7 @@ if (import.meta.main) {
     "suspense.js": await buildRuntime("suspense"),
     "component.js": await buildRuntime("component"),
     "router.js": await buildRuntime("router"),
+    "form.js": await buildRuntime("form"),
   };
 
   await Deno.writeTextFile(
