@@ -1,8 +1,8 @@
 import type { ChildType, Session } from "./types/mono.d.ts";
 import type { FC, VNode } from "./types/jsx.d.ts";
 import type { MaybeModule, RenderOptions, SessionOptions } from "./types/render.d.ts";
-import { CX, EVENT, LAZY, ROUTER, SIGNALS, STYLE, SUSPENSE } from "./runtime/index.ts";
-import { CX_JS, EVENT_JS, LAZY_JS, ROUTER_JS, SIGNALS_JS, STYLE_JS, SUSPENSE_JS } from "./runtime/index.ts";
+import { COMPONENT, CX, EVENT, ROUTER, SIGNALS, STYLE, SUSPENSE } from "./runtime/index.ts";
+import { COMPONENT_JS, CX_JS, EVENT_JS, ROUTER_JS, SIGNALS_JS, STYLE_JS, SUSPENSE_JS } from "./runtime/index.ts";
 import { RENDER_ATTR, RENDER_SWITCH, RENDER_TOGGLE } from "./runtime/index.ts";
 import { RENDER_ATTR_JS, RENDER_SWITCH_JS, RENDER_TOGGLE_JS } from "./runtime/index.ts";
 import { cx, escapeHTML, isObject, isString, NullProtoObj, styleToCSS, toHyphenCase } from "./runtime/utils.ts";
@@ -310,12 +310,12 @@ async function render(
       treeshake(SIGNALS, SIGNALS_JS, true);
     }
     treeshake(SUSPENSE, SUSPENSE_JS, suspenses.length > 0);
-    treeshake(LAZY, LAZY_JS);
+    treeshake(COMPONENT, COMPONENT_JS);
     treeshake(ROUTER, ROUTER_JS);
     if (js.length > 0) {
       js = "(()=>{" + js + "})();/* --- */";
     }
-    if ((runtimeFlag & LAZY) || (runtimeFlag & ROUTER)) {
+    if ((runtimeFlag & COMPONENT) || (runtimeFlag & ROUTER)) {
       const { scope, chunk } = rc.flags;
       js += 'window.$FLAGS="' + scope + "|" + chunk + "|" + runtimeFlag + '";';
     }
@@ -610,7 +610,7 @@ async function renderNode(rc: RenderContext, node: ChildType, stripSlotProp?: bo
               buf += "<m-group>" + attrModifiers + "</m-group>";
             }
             write(buf);
-            rc.flags.runtime |= LAZY;
+            rc.flags.runtime |= COMPONENT;
             break;
           }
 

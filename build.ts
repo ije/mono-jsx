@@ -90,7 +90,7 @@ if (import.meta.main) {
     "render_switch.js": await buildFunction("render.ts", "renderSwitch"),
     "signals.js": await buildRuntime("signals"),
     "suspense.js": await buildRuntime("suspense"),
-    "lazy.js": await buildRuntime("lazy"),
+    "component.js": await buildRuntime("component"),
     "router.js": await buildRuntime("router"),
   };
 
