@@ -699,13 +699,24 @@ async function renderNode(rc: RenderContext, node: ChildType, stripSlotProp?: bo
           case "invalid": {
             const { children, for: forProp } = props;
             if (forProp && isString(forProp)) {
-              write("<m-inv for=" + toAttrStringLit(forProp) + " hidden>");
+              let buf = "<m-invalid for=" + toAttrStringLit(forProp) + " hidden>";
               if (children) {
-                await renderChildren(rc, children);
+                await renderChildren({
+                  ...rc,
+                  write: (chunk: string) => {
+                    buf += chunk;
+                  },
+                }, children);
               }
-              write("</m-inv>");
+              write(buf + "</m-invalid>");
               rc.flags.runtime |= FORM;
             }
+            break;
+          }
+
+          case "formslot": {
+            const { mode } = props;
+            write("<m-formslot" + (isString(mode) ? " mode=" + toAttrStringLit(mode) : "") + "></m-formslot>");
             break;
           }
 

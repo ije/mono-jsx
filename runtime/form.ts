@@ -6,7 +6,7 @@ const setCustomValidity = (inputEl: HTMLInputElement, message: string) => inputE
 const insertAdjacentHTML = (el: Element, position: InsertPosition, html: string) => el.insertAdjacentHTML(position, html);
 
 customElements.define(
-  "m-inv",
+  "m-invalid",
   class extends HTMLElement {
     connectedCallback() {
       const forAttr = this.getAttribute("for");
@@ -47,7 +47,7 @@ window.$onrfs = async (evt) => {
     body: data,
   });
   const [html, js] = await res.json();
-  const formslot = formEl.querySelector("formslot");
+  const formslot = formEl.querySelector("m-formslot");
   for (const inputEl of inputEls) {
     inputEl.disabled = inputEl._disabled!;
     delete inputEl._disabled;
@@ -63,6 +63,8 @@ window.$onrfs = async (evt) => {
       default:
         formslot.innerHTML = html;
     }
+  } else {
+    insertAdjacentHTML(formEl, "beforeend", html);
   }
   setTimeout(() => {
     if (!inputEls.some(el => !el.validity.valid)) {
