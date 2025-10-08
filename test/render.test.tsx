@@ -1,7 +1,7 @@
 import type { RenderOptions } from "../types/render.d.ts";
 import { assert, assertEquals } from "jsr:@std/assert@1.0.14";
-import { LAZY, RENDER_ATTR, ROUTER, SIGNALS } from "../runtime/index.ts";
-import { CX_JS, EVENT_JS, LAZY_JS, ROUTER_JS, SIGNALS_JS, STYLE_JS, SUSPENSE_JS } from "../runtime/index.ts";
+import { COMPONENT, FORM_JS, RENDER_ATTR, ROUTER, SIGNALS } from "../runtime/index.ts";
+import { COMPONENT_JS, CX_JS, EVENT_JS, ROUTER_JS, SIGNALS_JS, STYLE_JS, SUSPENSE_JS } from "../runtime/index.ts";
 import { RENDER_ATTR_JS, RENDER_SWITCH_JS, RENDER_TOGGLE_JS } from "../runtime/index.ts";
 import { cache } from "../render.ts";
 import { VERSION } from "../version.ts";
@@ -1108,10 +1108,10 @@ Deno.test("[ssr] this.refs", async () => {
       `<script data-mono-jsx="${VERSION}">`,
       `(()=>{`,
       SIGNALS_JS,
-      LAZY_JS,
+      COMPONENT_JS,
       `})();`,
       `/* --- */`,
-      `window.$FLAGS="1|0|${SIGNALS | LAZY}";`,
+      `window.$FLAGS="1|0|${SIGNALS | COMPONENT}";`,
       `function $ME_1_0(){return(()=>void this.refs.component.refresh()).call(this)};`,
       `</script>`,
     ].join(""),
@@ -1772,10 +1772,10 @@ Deno.test("[ssr] <component>", async () => {
       `</body></html>`,
       `<script data-mono-jsx="${VERSION}">`,
       `(()=>{`,
-      LAZY_JS,
+      COMPONENT_JS,
       `})();`,
       `/* --- */`,
-      `window.$FLAGS="0|0|${LAZY}";`,
+      `window.$FLAGS="0|0|${COMPONENT}";`,
       `</script>`,
     ].join(""),
   );
@@ -1792,10 +1792,10 @@ Deno.test("[ssr] <component>", async () => {
       `(()=>{`,
       RENDER_ATTR_JS,
       SIGNALS_JS,
-      LAZY_JS,
+      COMPONENT_JS,
       `})();`,
       `/* --- */`,
-      `window.$FLAGS="1|0|${RENDER_ATTR | SIGNALS | LAZY}";`,
+      `window.$FLAGS="1|0|${RENDER_ATTR | SIGNALS | COMPONENT}";`,
       `$MS("1:name","App");`,
       `</script>`,
     ].join(""),
@@ -1813,10 +1813,10 @@ Deno.test("[ssr] <component>", async () => {
       `(()=>{`,
       RENDER_ATTR_JS,
       SIGNALS_JS,
-      LAZY_JS,
+      COMPONENT_JS,
       `})();`,
       `/* --- */`,
-      `window.$FLAGS="1|0|${RENDER_ATTR | SIGNALS | LAZY}";`,
+      `window.$FLAGS="1|0|${RENDER_ATTR | SIGNALS | COMPONENT}";`,
       `$MS("1:props",{"foo":"bar"});`,
       `</script>`,
     ].join(""),
@@ -1834,10 +1834,10 @@ Deno.test("[ssr] <component>", async () => {
       `(()=>{`,
       RENDER_ATTR_JS,
       SIGNALS_JS,
-      LAZY_JS,
+      COMPONENT_JS,
       `})();`,
       `/* --- */`,
-      `window.$FLAGS="1|0|${RENDER_ATTR | SIGNALS | LAZY}";`,
+      `window.$FLAGS="1|0|${RENDER_ATTR | SIGNALS | COMPONENT}";`,
       `$MS("1:foo","bar");`,
       `$MC(1,0,function(){return(${
         // @ts-ignore this
@@ -1858,10 +1858,10 @@ Deno.test("[ssr] <component>", async () => {
       `(()=>{`,
       RENDER_ATTR_JS,
       SIGNALS_JS,
-      LAZY_JS,
+      COMPONENT_JS,
       `})();`,
       `/* --- */`,
-      `window.$FLAGS="1|0|${RENDER_ATTR | SIGNALS | LAZY}";`,
+      `window.$FLAGS="1|0|${RENDER_ATTR | SIGNALS | COMPONENT}";`,
       `$MS("1:foo","bar");`,
       `$MC(1,0,function(){return(()=>$patch({"foo":"bar","color":"blue"},[this["foo"],"foo"])).call(this)},["1:foo"]);`,
       `</script>`,
@@ -1876,7 +1876,7 @@ Deno.test("[ssr] <component>", async () => {
           headers: {
             "x-component": "App",
             "x-props": JSON.stringify({ foo: "bar" }),
-            "x-flags": "1|0|" + LAZY,
+            "x-flags": "1|0|" + COMPONENT,
           },
         }),
       }),
@@ -1888,7 +1888,7 @@ Deno.test("[ssr] <component>", async () => {
         SIGNALS_JS,
         `})();`,
         `/* --- */`,
-        `window.$FLAGS="2|0|${SIGNALS | LAZY}";`,
+        `window.$FLAGS="2|0|${SIGNALS | COMPONENT}";`,
         `$MS("2:message","Welcome to mono-jsx!");`,
       ].join(""),
     ],
@@ -1915,7 +1915,7 @@ Deno.test("[ssr] <router>", async () => {
     [
       `<!DOCTYPE html>`,
       `<html lang="en"><body>`,
-      `<m-router status="200">`,
+      `<m-router>`,
       `<h1>Home</h1>`,
       `<template m-slot><p>Page not found</p></template>`,
       `</m-router>`,
@@ -1941,7 +1941,7 @@ Deno.test("[ssr] <router>", async () => {
     [
       `<!DOCTYPE html>`,
       `<html lang="en"><body>`,
-      `<m-router status="200">`,
+      `<m-router>`,
       `<h1>About</h1>`,
       `<template m-slot><p>Page not found</p></template>`,
       `</m-router>`,
@@ -1967,7 +1967,7 @@ Deno.test("[ssr] <router>", async () => {
     [
       `<!DOCTYPE html>`,
       `<html lang="en"><body>`,
-      `<m-router status="404">`,
+      `<m-router fallback>`,
       `<p>Page not found</p>`,
       `</m-router>`,
       `</body></html>`,
@@ -2089,6 +2089,49 @@ Deno.test("[ssr] <redirect>", async () => {
   );
 });
 
+Deno.test("[ssr] <invalid>", async () => {
+  assertEquals(
+    await renderToString(<invalid />),
+    [
+      `<!DOCTYPE html>`,
+      `<html lang="en"><body>`,
+      `</body></html>`,
+    ].join(""),
+  );
+  assertEquals(
+    await renderToString(<invalid for="foo" />),
+    [
+      `<!DOCTYPE html>`,
+      `<html lang="en"><body>`,
+      `<m-invalid for="foo" hidden></m-invalid>`,
+      `</body></html>`,
+      `<script data-mono-jsx="${VERSION}">`,
+      `(()=>{`,
+      FORM_JS,
+      `})();/* --- */window.$FLAGS="0|0|1024";`,
+      `</script>`,
+    ].join(""),
+  );
+  assertEquals(
+    await renderToString(
+      <invalid for="foo">
+        invalid foo
+      </invalid>,
+    ),
+    [
+      `<!DOCTYPE html>`,
+      `<html lang="en"><body>`,
+      `<m-invalid for="foo" hidden>invalid foo</m-invalid>`,
+      `</body></html>`,
+      `<script data-mono-jsx="${VERSION}">`,
+      `(()=>{`,
+      FORM_JS,
+      `})();/* --- */window.$FLAGS="0|0|1024";`,
+      `</script>`,
+    ].join(""),
+  );
+});
+
 Deno.test("[ssr] this.app.url", async () => {
   function Router(this: FC) {
     this.effect(() => console.log(this.app.url));
@@ -2110,7 +2153,7 @@ Deno.test("[ssr] this.app.url", async () => {
     [
       `<!DOCTYPE html>`,
       `<html lang="en"><body>`,
-      `<m-router status="200">`,
+      `<m-router>`,
       `<h1>Home</h1>`,
       `<template m-slot><p>Page not found</p></template>`,
       `</m-router>`,

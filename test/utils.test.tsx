@@ -26,7 +26,7 @@ Deno.test("[utils] create routes for bun server", async () => {
     [
       `<!DOCTYPE html>`,
       `<html>`,
-      `<m-router status="200">`,
+      `<m-router>`,
       `Home`,
       `</m-router>`,
       `</html>`,
@@ -44,7 +44,7 @@ Deno.test("[utils] create routes for bun server", async () => {
     [
       `<!DOCTYPE html>`,
       `<html>`,
-      `<m-router status="200">`,
+      `<m-router>`,
       `About`,
       `</m-router>`,
       `</html>`,
@@ -62,7 +62,7 @@ Deno.test("[utils] create routes for bun server", async () => {
     [
       `<!DOCTYPE html>`,
       `<html>`,
-      `<m-router status="200">`,
+      `<m-router>`,
       `Blog`,
       `</m-router>`,
       `</html>`,
@@ -80,7 +80,7 @@ Deno.test("[utils] create routes for bun server", async () => {
     [
       `<!DOCTYPE html>`,
       `<html>`,
-      `<m-router status="200">`,
+      `<m-router>`,
       `Blog Post 123`,
       `</m-router>`,
       `</html>`,
