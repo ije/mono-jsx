@@ -630,7 +630,7 @@ async function renderNode(rc: RenderContext, node: ChildType, stripSlotProp?: bo
           case "router": {
             const { children, viewTransition } = props;
             const { routeFC } = rc;
-            write('<m-router status="' + (routeFC ? 200 : 404) + '"' + renderViewTransitionAttr(viewTransition) + ">");
+            write("<m-router" + (!routeFC ? " fallback" : "") + renderViewTransitionAttr(viewTransition) + ">");
             if (routeFC) {
               await renderFC(rc, routeFC instanceof Promise ? (await routeFC).default : routeFC, {});
             }

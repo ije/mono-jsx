@@ -1915,7 +1915,7 @@ Deno.test("[ssr] <router>", async () => {
     [
       `<!DOCTYPE html>`,
       `<html lang="en"><body>`,
-      `<m-router status="200">`,
+      `<m-router>`,
       `<h1>Home</h1>`,
       `<template m-slot><p>Page not found</p></template>`,
       `</m-router>`,
@@ -1941,7 +1941,7 @@ Deno.test("[ssr] <router>", async () => {
     [
       `<!DOCTYPE html>`,
       `<html lang="en"><body>`,
-      `<m-router status="200">`,
+      `<m-router>`,
       `<h1>About</h1>`,
       `<template m-slot><p>Page not found</p></template>`,
       `</m-router>`,
@@ -1967,7 +1967,7 @@ Deno.test("[ssr] <router>", async () => {
     [
       `<!DOCTYPE html>`,
       `<html lang="en"><body>`,
-      `<m-router status="404">`,
+      `<m-router fallback>`,
       `<p>Page not found</p>`,
       `</m-router>`,
       `</body></html>`,
@@ -2153,7 +2153,7 @@ Deno.test("[ssr] this.app.url", async () => {
     [
       `<!DOCTYPE html>`,
       `<html lang="en"><body>`,
-      `<m-router status="200">`,
+      `<m-router>`,
       `<h1>Home</h1>`,
       `<template m-slot><p>Page not found</p></template>`,
       `</m-router>`,

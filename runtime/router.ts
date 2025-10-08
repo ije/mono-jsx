@@ -108,8 +108,8 @@ customElements.define(
       // set a timeout to wait for the element to be fully parsed
       setTimeout(() => {
         if (!this.#fallback) {
-          if (this.getAttribute("status") === "404") {
-            this.removeAttribute("status");
+          if (this.hasAttribute("fallback")) {
+            this.removeAttribute("fallback");
             this.#fallback = [...this.childNodes];
           } else {
             this.#fallback = [];

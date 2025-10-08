@@ -136,7 +136,10 @@ const browser = await puppeteer.launch({
   executablePath: (await chrome()).executablePath,
   args: ["--no-sandbox", "--disable-gpu", "--disable-extensions", "--disable-sync", "--disable-background-networking"],
 });
-const sanitizeFalse = { sanitizeResources: false, sanitizeOps: false };
+const sanitizeFalse = {
+  sanitizeResources: false,
+  sanitizeOps: false,
+};
 
 Deno.test("[runtime] async component", sanitizeFalse, async () => {
   const Blah = () => Promise.resolve(<h2>Building User Interfaces.</h2>);
