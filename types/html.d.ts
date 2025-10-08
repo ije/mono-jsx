@@ -44,8 +44,8 @@ export namespace HTML {
 
   /** Global HTML attributes from https://developer.mozilla.org/en-US/docs/Web/HTML/Global_attributes */
   interface GlobalAttributes<T extends EventTarget> extends EventAttributes<T>, Aria.Attributes, Mono.BaseAttributes, JSX.HtmlTag {
-    /** @mono-jsx
-     *  A reference to the element.
+    /**
+     * A reference to the element.
      */
     ref?: HTMLElement | ((el: T) => unknown);
     /** Defines a unique identifier (ID) which must be unique in the whole document. Its purpose is to identify the element when linking (using a fragment identifier), scripting, or styling (with CSS). */
@@ -124,8 +124,10 @@ export namespace HTML {
   }
 
   interface NavAttributes<T extends EventTarget> extends GlobalAttributes<T> {
-    /** @mono-jsx
-     * This attribute is used to specify the class name for the active link. */
+    /**
+     * This attribute is used to specify the class name for the active link.
+     * @mono-jsx
+     */
     "data-active-class"?: string;
   }
 
@@ -156,7 +158,10 @@ export namespace HTML {
     onSubmit?: EventHandler<Event, T>;
     onReset?: EventHandler<Event, T>;
     onFormData?: EventHandler<Event, T>;
-    /* @mono-jsx */
+    /**
+     * Delegate to the router to handle the form submission
+     * @mono-jsx
+     */
     route?: boolean;
   }
 
@@ -207,13 +212,13 @@ export namespace HTML {
      */
     onSearch?: EventHandler<Event, T>;
     /**
-     * @mono-jsx
      * Two-way binding prop that automatically creates checked and oninput attributes for signal binding
+     * @mono-jsx
      */
     $checked?: boolean;
     /**
-     * @mono-jsx
      * Two-way binding prop that automatically creates value and oninput attributes for signal binding
+     * @mono-jsx
      */
     $value?: string | number;
   }
@@ -235,8 +240,8 @@ export namespace HTML {
     size?: number;
     value?: string | number;
     /**
-     * @mono-jsx
      * Two-way binding prop that automatically creates value and oninput attributes for signal binding
+     * @mono-jsx
      */
     $value?: string | number;
   }
@@ -258,8 +263,8 @@ export namespace HTML {
     wrap?: string;
     onChange?: EventHandler<Event, T>;
     /**
-     * @mono-jsx
      * Two-way binding prop that automatically creates value and oninput attributes for signal binding
+     * @mono-jsx
      */
     $value?: string;
   }
