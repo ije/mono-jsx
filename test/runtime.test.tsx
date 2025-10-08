@@ -1041,6 +1041,7 @@ Deno.test("[runtime] route form", sanitizeFalse, async () => {
   const link = await page.$("nav a");
   assert(link);
   await link.click();
+  await page.waitForNetworkIdle();
 
   const form = await page.$("form");
   assert(form);
@@ -1072,6 +1073,7 @@ Deno.test("[runtime] route form", sanitizeFalse, async () => {
   await input.type(", world!");
   await submit.evaluate((el: HTMLInputElement) => el.click());
   await page.waitForNetworkIdle();
+
   const list = await page.$$("p.message");
   assertEquals(list.length, 2);
   assertEquals(await list[0].evaluate((el: HTMLElement) => el.textContent), " Hello");
