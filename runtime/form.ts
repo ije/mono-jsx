@@ -13,15 +13,17 @@ customElements.define(
       const formEl = this.closest("form");
       const message = this.textContent;
       if (forAttr && formEl && message) {
-        const inputEl = formEl.elements.namedItem(forAttr) as HTMLInputElement | null;
-        if (inputEl) {
-          const delCustomValidity = () => {
-            inputEl.removeEventListener("input", delCustomValidity);
-            setCustomValidity(inputEl, "");
-          };
-          inputEl.addEventListener("input", delCustomValidity);
-          setCustomValidity(inputEl, message);
-          inputEl.focus();
+        for (const name of forAttr.split(",")) {
+          const inputEl = formEl.elements.namedItem(name.trim()) as HTMLInputElement | null;
+          if (inputEl) {
+            const delCustomValidity = () => {
+              inputEl.removeEventListener("input", delCustomValidity);
+              setCustomValidity(inputEl, "");
+            };
+            inputEl.addEventListener("input", delCustomValidity);
+            setCustomValidity(inputEl, message);
+            inputEl.focus();
+          }
         }
       }
       this.remove();
