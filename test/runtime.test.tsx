@@ -100,7 +100,7 @@ Deno.serve({ port: 8687, onListen: () => {} }, (request) => {
                 </invalid>
               );
             }
-            return <p>{message}</p>;
+            return <p class="message">{message}</p>;
           }
           return (
             <form route>
@@ -1015,6 +1015,67 @@ Deno.test("[runtime] <router>", sanitizeFalse, async () => {
   em = await page.$("em");
   assert(em);
   assertEquals(await em.evaluate((el: HTMLElement) => el.textContent), "http://localhost:8687/e404");
+
+  await page.close();
+});
+
+Deno.test("[runtime] route form", sanitizeFalse, async () => {
+  const testPageUrl = addTestPage(
+    <>
+      <nav>
+        <a href="/chat">Chat</a>
+      </nav>
+      <router>
+        <p>Page not found</p>
+      </router>
+    </>,
+  );
+
+  const page = await browser.newPage();
+  await page.goto(testPageUrl);
+
+  let p = await page.$("p");
+  assert(p);
+  assertEquals(await p.evaluate((el: HTMLElement) => el.textContent), "Page not found");
+
+  const link = await page.$("nav a");
+  assert(link);
+  await link.click();
+
+  const form = await page.$("form");
+  assert(form);
+
+  const input = await form.$("input[type='text']");
+  assert(input);
+  const submit = await form.$("input[type='submit']");
+  assert(submit);
+  await input.type(" ");
+  await submit.evaluate((el: HTMLInputElement) => el.click());
+  await page.waitForNetworkIdle();
+
+  p = await page.$("p.message");
+  assert(!p);
+
+  assertEquals(await input.evaluate((el: HTMLInputElement) => el.validationMessage), "Message is required");
+  await input.type("Hello");
+  assertEquals(await input.evaluate((el: HTMLInputElement) => el.validationMessage), "");
+  await submit.evaluate((el: HTMLInputElement) => el.click());
+  await page.waitForNetworkIdle();
+
+  p = await page.$("p.message");
+  assert(p);
+  assertEquals(await p.evaluate((el: HTMLElement) => el.textContent), " Hello");
+
+  // input should be reset
+  assertEquals(await input.evaluate((el: HTMLInputElement) => el.value), "");
+
+  await input.type(", world!");
+  await submit.evaluate((el: HTMLInputElement) => el.click());
+  await page.waitForNetworkIdle();
+  const list = await page.$$("p.message");
+  assertEquals(list.length, 2);
+  assertEquals(await list[0].evaluate((el: HTMLElement) => el.textContent), " Hello");
+  assertEquals(await list[1].evaluate((el: HTMLElement) => el.textContent), ", world!");
 
   await page.close();
 });
