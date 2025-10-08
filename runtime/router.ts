@@ -109,6 +109,7 @@ customElements.define(
       setTimeout(() => {
         if (!this.#fallback) {
           if (this.getAttribute("status") === "404") {
+            this.removeAttribute("status");
             this.#fallback = [...this.childNodes];
           } else {
             this.#fallback = [];

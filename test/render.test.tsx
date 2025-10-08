@@ -2103,12 +2103,12 @@ Deno.test("[ssr] <invalid>", async () => {
     [
       `<!DOCTYPE html>`,
       `<html lang="en"><body>`,
-      `<m-inv for="foo"></m-inv>`,
+      `<m-invalid for="foo" hidden></m-invalid>`,
       `</body></html>`,
       `<script data-mono-jsx="${VERSION}">`,
       `(()=>{`,
       FORM_JS,
-      `})();/* --- */`,
+      `})();/* --- */window.$FLAGS="0|0|1024";`,
       `</script>`,
     ].join(""),
   );
@@ -2121,12 +2121,12 @@ Deno.test("[ssr] <invalid>", async () => {
     [
       `<!DOCTYPE html>`,
       `<html lang="en"><body>`,
-      `<m-inv for="foo">invalid foo</m-inv>`,
+      `<m-invalid for="foo" hidden>invalid foo</m-invalid>`,
       `</body></html>`,
       `<script data-mono-jsx="${VERSION}">`,
       `(()=>{`,
       FORM_JS,
-      `})();/* --- */`,
+      `})();/* --- */window.$FLAGS="0|0|1024";`,
       `</script>`,
     ].join(""),
   );

@@ -126,18 +126,11 @@ Deno.serve({ port: 8687, onListen: () => {} }, (request) => {
   );
 });
 
-function App(this: FC) {
-  return (
-    <>
-      <nav>
-        <a href="/chat">Chat</a>
-      </nav>
-      <router>404</router>
-    </>
-  );
-}
-console.log(addTestPage(<App />));
-await new Promise(() => {});
+// function App(this: FC) {
+//   return null;
+// }
+// console.log(addTestPage(<App />));
+// await new Promise(() => {});
 
 const browser = await puppeteer.launch({
   executablePath: (await chrome()).executablePath,
@@ -1222,7 +1215,7 @@ Deno.test("[runtime] set session cookie (SPA)", sanitizeFalse, async () => {
   await page.close();
 });
 
-Deno.test("[runtime] htmx integration", { ...sanitizeFalse, ignore: true }, async () => {
+Deno.test("[runtime] htmx integration", { ...sanitizeFalse, ignore: false }, async () => {
   const testPageUrl = addTestPage(
     <button type="button" hx-post="/clicked" hx-swap="outerHTML">
       Click Me
