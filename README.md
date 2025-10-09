@@ -161,10 +161,10 @@ mono-jsx supports [pseudo classes](https://developer.mozilla.org/en-US/docs/Web/
 
 mono-jsx supports [View Transition](https://developer.mozilla.org/en-US/docs/Web/API/View_Transitions_API) to create smooth transitions between views. To use view transitions, add the `viewTransition` attribute to the following components:
 
- - `<toggle viewTransition="transition-name">`
- - `<switch viewTransition="transition-name">`
- - `<component viewTransition="transition-name">`
- - `<router viewTransition="transition-name">`
+ - `<toggle viewTransition="view-transition-name">`
+ - `<switch viewTransition="view-transition-name">`
+ - `<component viewTransition="view-transition-name">`
+ - `<router viewTransition="view-transition-name">`
 
 You can set custom transition animations by adding [`::view-transition-group`](https://developer.mozilla.org/en-US/docs/Web/CSS/::view-transition-group), [`::view-transition-old`](https://developer.mozilla.org/en-US/docs/Web/CSS/::view-transition-old), and [`::view-transition-new`](https://developer.mozilla.org/en-US/docs/Web/CSS/::view-transition-new) pseudo-elements with your own CSS animations. For example:
 
@@ -175,9 +175,9 @@ function App(this: FC<{ show: boolean }>) {
       style={{
         "@keyframes fade-in": { from: { opacity: 0 }, to: { opacity: 1 } },
         "@keyframes fade-out": { from: { opacity: 1 }, to: { opacity: 0 } },
-        "::view-transition-group(fade)": { animationDuration: "0.5s" },
-        "::view-transition-old(fade)": { animation: "0.5s ease-in both fade-out" },
-        "::view-transition-new(fade)": { animation: "0.5s ease-in both fade-in" },
+        "::view-transition-group(fade)": { animationDuration: "0.3s" },
+        "::view-transition-old(fade)": { animation: "0.3s ease-in both fade-out" },
+        "::view-transition-new(fade)": { animation: "0.3s ease-in both fade-in" },
       }}
     >
       <toggle show={this.show} viewTransition="fade">
@@ -185,6 +185,28 @@ function App(this: FC<{ show: boolean }>) {
       </toggle>
       <button onClick={() => this.show = !this.show}>Toggle</button>
     </div>
+  )
+}
+```
+
+You can also set the `viewTransition` attribute a html element which contains signal children.
+
+```tsx
+function App(this: FC<{ message: string }>) {
+  this.message = "Hello world!";
+  return (
+    <h1 viewTransition="fade">{this.message}</h1>
+  )
+}
+```
+
+You can also set the view transition name in the style property with the `viewTransition` attribute set to `true`.
+
+```tsx
+function App(this: FC<{ message: string }>) {
+  this.message = "Hello world!";
+  return (
+    <h1 viewTransition style={{ viewTransitionName: "fade" }}>{this.message}</h1>
   )
 }
 ```

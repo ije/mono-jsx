@@ -920,6 +920,13 @@ function renderAttr(
         binding = true;
       }
       break;
+    case "viewTransition":
+      if (attrValue === true || attrValue === "") {
+        attr = " data-vt";
+      } else if (isString(attrValue)) {
+        attr = " data-vt=" + toAttrStringLit(attrValue);
+      }
+      break;
     default:
       if (attrName.startsWith("on") && typeof attrValue === "function") {
         attr = " " + escapeHTML(attrName.toLowerCase()) + '="$emit(event,$MF_'

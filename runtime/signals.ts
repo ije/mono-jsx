@@ -9,6 +9,7 @@ declare global {
 let collectDep: ((scopeId: number, key: string) => void) | undefined;
 
 const win = window as any;
+const doc = document;
 const mcs = new Map<number, [Function, string[]]>();
 const scopes = new Map<number, Signals>();
 const Signals = (scopeId: number) => scopes.get(scopeId) ?? scopes.set(scopeId, createSignals(scopeId)).get(scopeId)!;
@@ -39,7 +40,7 @@ const createSignals = (scopeId: number): Signals => {
   };
 
   const refs = new Proxy(createNullObject(), {
-    get: (_target, prop: string) => document.querySelector("[data-ref='" + scopeId + ":" + prop + "']"),
+    get: (_target, prop: string) => doc.querySelector("[data-ref='" + scopeId + ":" + prop + "']"),
   });
 
   return new Proxy(store, {
@@ -83,7 +84,13 @@ const createDomEffect = (el: Element, mode: string | null, getter: () => unknown
   if (mode && mode.length > 2 && mode.startsWith("[") && mode.endsWith("]")) {
     return $renderAttr(el, mode.slice(1, -1), getter);
   }
-  return () => el.textContent = "" + getter();
+  const parent = el.parentElement!;
+  const update = () => el.textContent = "" + getter();
+  if (doc.startViewTransition && parent.hasAttribute("data-vt")) {
+    parent.style.viewTransitionName = parent.getAttribute("data-vt")!;
+    return () => doc.startViewTransition(update);
+  }
+  return update;
 };
 
 const resolveSignalID = (id: string): [scope: number, key: string] | null => {

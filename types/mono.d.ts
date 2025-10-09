@@ -144,10 +144,6 @@ export interface Elements {
      * The `value` attribute is used to control the value of the children.
      */
     value?: string | number | boolean | null;
-    /**
-     * The `viewTransition` attribute is used to control the view transition of the children.
-     */
-    viewTransition?: string | boolean;
   };
   /**
    * The `component` element is a built-in element of mono-jsx that is used to load components lazily,
@@ -166,10 +162,6 @@ export interface Elements {
      * The `ref` attribute is used to control the ref of the component.
      */
     ref?: ComponentElement | ((el: ComponentElement) => void);
-    /**
-     * The `viewTransition` attribute is used to control the view transition of the children.
-     */
-    viewTransition?: string | boolean;
   };
   /**
    * The `router` element is a built-in element of mono-jsx that provides SPA routing.
@@ -183,10 +175,6 @@ export interface Elements {
      * The `ref` attribute is used to control the ref of the router.
      */
     ref?: RouterElement | ((el: RouterElement) => void);
-    /**
-     * The `viewTransition` attribute is used to control the view transition of the children.
-     */
-    viewTransition?: string | boolean;
   };
   /**
    * The `cache` element is a built-in element of mono-jsx that caches the rendered content of the child nodes
