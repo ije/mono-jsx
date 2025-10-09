@@ -11,6 +11,7 @@ mono-jsx is a JSX runtime that renders the `<html>` element to a `Response` obje
 - 💡 Complete Web API TypeScript definitions
 - ⏳ Streaming rendering
 - 🗂️ Built-in router(SPA mode)
+- 🔑 Session management
 - 🥷 [htmx](#using-htmx) integration
 - 🌎 Universal, works in Node.js, Deno, Bun, Cloudflare Workers, etc.
 
@@ -156,6 +157,38 @@ mono-jsx supports [pseudo classes](https://developer.mozilla.org/en-US/docs/Web/
 </a>;
 ```
 
+### Using View Transition
+
+mono-jsx supports [View Transition](https://developer.mozilla.org/en-US/docs/Web/API/View_Transitions_API) to create smooth transitions between views. To use view transition, add `viewTransition` attribute to below components:
+
+ - `<toggle viewTransition="transition-name">`
+ - `<switch viewTransition="transition-name">`
+ - `<component viewTransition="transition-name">`
+ - `<router viewTransition="transition-name">`
+
+You can set custom transition animation by adding [`::view-transition-group`](https://developer.mozilla.org/en-US/docs/Web/CSS/::view-transition-group) and [`::view-transition-old`](https://developer.mozilla.org/en-US/docs/Web/CSS/::view-transition-old) and [`::view-transition-new`](https://developer.mozilla.org/en-US/docs/Web/CSS/::view-transition-new) pseudo-elements with your own CSS animation. For example,
+
+```tsx
+function App(this: FC<{ show: boolean }>) {
+  return (
+    <div
+      style={{
+        "@keyframes fade-in": { from: { opacity: 0 }, to: { opacity: 1 } },
+        "@keyframes fade-out": { from: { opacity: 1 }, to: { opacity: 0 } },
+        "::view-transition-group(fade)": { animationDuration: "0.5s" },
+        "::view-transition-old(fade)": { animation: "0.5s ease-in both fade-out" },
+        "::view-transition-new(fade)": { animation: "0.5s ease-in both fade-in" },
+      }}
+    >
+      <toggle show={this.show} viewTransition="fade">
+        <h1>Hello world!</h1>
+      </toggle>
+      <button onClick={() => this.show = !this.show}>Toggle</button>
+    </div>
+  )
+}
+```
+
 ### Using `<slot>` Element
 
 mono-jsx uses [`<slot>`](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/slot) elements to render slotted content (equivalent to React's `children` property). You can also add the `name` attribute to define named slots:
@@ -275,7 +308,7 @@ function App() {
 
 ## Async Components
 
-mono-jsx supports async components that return a `Promise` or an async function. With [streaming rendering](#streaming-rendering), async components are rendered asynchronously, allowing you to fetch data or perform other async operations before rendering the component.
+mono-jsx supports async components that return a `Promise` or an async function. With streaming rendering, async components are rendered asynchronously, allowing you to fetch data or perform other async operations before rendering the component.
 
 ```tsx
 async function Loader(props: { url: string }) {
@@ -314,6 +347,125 @@ export default {
   fetch: (req) => (
     <html>
       <Chat prompt="Tell me a story" placeholder={<span style="color:grey">●</span>} />
+    </html>
+  )
+}
+```
+
+You can use `placeholder` to display a loading state while waiting for async components to render:
+
+```tsx
+async function Sleep({ ms }) {
+  await new Promise((resolve) => setTimeout(resolve, ms));
+  return <slot />;
+}
+
+export default {
+  fetch: (req) => (
+    <html>
+      <Sleep ms={1000} placeholder={<p>Loading...</p>}>
+        <p>After 1 second</p>
+      </Sleep>
+    </html>
+  )
+}
+```
+
+You can set the `rendering` attribute to `"eager"` to force synchronous rendering (the `placeholder` will be ignored):
+
+```tsx
+export default {
+  fetch: (req) => (
+    <html>
+      <Sleep ms={1000} rendering="eager">
+        <p>After 1 second</p>
+      </Sleep>
+    </html>
+  )
+}
+```
+
+You can add the `catch` attribute to handle errors in the async component. The `catch` attribute should be a function that returns a JSX element:
+
+```tsx
+async function Hello() {
+  throw new Error("Something went wrong!");
+  return <p>Hello world!</p>;
+}
+
+export default {
+  fetch: (req) => (
+    <html>
+      <Hello catch={err => <p>{err.message}</p>} />
+    </html>
+  )
+}
+```
+
+## Lazy Rendering
+
+mono-jsx renders HTML on the server side and there is no hydration JavaScript sent to the client side, to render a component dynamically on the client side, you can use the `<component>` element to ask the server to render a component l:
+
+```tsx
+export default {
+  fetch: (req) => (
+    <html components={{ Foo }}>
+      <component name="Foo" props={{ /* props for the component */ }} placeholder={<p>Loading...</p>} />
+    </html>
+  )
+}
+```
+
+You can use `<toggle>` element to control when to render a component:
+
+```tsx
+async function Lazy(this: FC<{ show: boolean }>, props: { url: string }) {
+  this.show = false;
+  return (
+    <div>
+      <toggle show={this.show}>
+        <component name="Foo" props={{ /* props for the component */ }} placeholder={<p>Loading...</p>} />
+      </toggle>
+     <button onClick={() => this.show = true }>Load `Foo` Component</button>
+    </div>
+  )
+}
+
+export default {
+  fetch: (req) => (
+    <html components={{ Foo }}>
+      <Lazy />
+    </html>
+  )
+}
+```
+
+You can also use signals for `name` or `props` attributes of a component. Changing the signal value will trigger the component to re-render with the new name or props:
+
+```tsx
+import { Profile, Projects, Settings } from "./pages.tsx"
+
+function Dash(this: FC<{ page: "Profile" | "Projects" | "Settings" }>) {
+  this.page = "Profile";
+
+  return (
+    <>
+      <div class="tab">
+        <button onClick={e => this.page = "Profile"}>Profile</button>
+        <button onClick={e => this.page = "Projects"}>Projects</button>
+        <button onClick={e => this.page = "Settings"}>Settings</button>
+      </div>
+      <div class="page">
+        <component name={this.page} placeholder={<p>Loading...</p>} />
+      </div>
+    </>
+  )
+}
+
+export default {
+  fetch: (req) => (
+    <html components={{ Profile, Projects, Settings }}>
+      <Dash />
     </html>
   )
 }
@@ -640,8 +792,10 @@ mono-jsx binds a scoped signals object to `this` of your component functions. Th
 The `this` object has the following built-in properties:
 
 - `app`: The app global signals.
-- `context`: The context defined on the root `<html>` element.
+- `context`: The context object defined on the root `<html>` element.
 - `request`: The request object from the `fetch` handler.
+- `session`: The session object.
+- `form`: The route form data.
 - `refs`: A map of refs defined in the component.
 - `computed`: A method to create a computed signal.
 - `effect`: A method to create side effects.
@@ -651,11 +805,13 @@ type FC<Signals = {}, AppSignals = {}, Context = {}, Refs = {}, AppRefs = {}> = 
   readonly app: AppSignals & { refs: AppRefs; url: WithParams<URL> }
   readonly context: Context;
   readonly request: WithParams<Request>;
+  readonly session: Session;
+  readonly form?: FormData;
   readonly refs: Refs;
   readonly computed: <T = unknown>(fn: () => T) => T;
   readonly $: FC["computed"];
   readonly effect: (fn: () => void | (() => void)) => void;
-} & Omit<Signals, "app" | "context" | "request" | "computed" | "effect">;
+} & Signals;
 ```
 
 ### Using Signals
@@ -780,128 +936,6 @@ export default {
 }
 ```
 
-## Streaming Rendering
-
-mono-jsx renders your `<html>` as a readable stream, allowing async components to render asynchronously. You can use `placeholder` to display a loading state while waiting for async components to render:
-
-```tsx
-async function Sleep({ ms }) {
-  await new Promise((resolve) => setTimeout(resolve, ms));
-  return <slot />;
-}
-
-export default {
-  fetch: (req) => (
-    <html>
-      <Sleep ms={1000} placeholder={<p>Loading...</p>}>
-        <p>After 1 second</p>
-      </Sleep>
-    </html>
-  )
-}
-```
-
-You can set the `rendering` attribute to `"eager"` to force synchronous rendering (the `placeholder` will be ignored):
-
-```tsx
-export default {
-  fetch: (req) => (
-    <html>
-      <Sleep ms={1000} rendering="eager">
-        <p>After 1 second</p>
-      </Sleep>
-    </html>
-  )
-}
-```
-
-You can add the `catch` attribute to handle errors in the async component. The `catch` attribute should be a function that returns a JSX element:
-
-```tsx
-async function Hello() {
-  throw new Error("Something went wrong!");
-  return <p>Hello world!</p>;
-}
-
-export default {
-  fetch: (req) => (
-    <html>
-      <Hello catch={err => <p>{err.message}</p>} />
-    </html>
-  )
-}
-```
-
-
-## Lazy Rendering
-
-Since mono-jsx renders HTML on the server side and no hydration JavaScript is sent to the client side, to render a component dynamically on the client side, you can use the `<component>` element to ask the server to render a component and send the HTML back to the client:
-
-```tsx
-export default {
-  fetch: (req) => (
-    <html components={{ Foo }}>
-      <component name="Foo" props={{ /* props for the component */ }} placeholder={<p>Loading...</p>} />
-    </html>
-  )
-}
-```
-
-You can use `<toggle>` element to control when to render the component:
-
-```tsx
-async function Lazy(this: FC<{ show: boolean }>, props: { url: string }) {
-  this.show = false;
-  return (
-    <div>
-      <toggle show={this.show}>
-        <component name="Foo" props={{ /* props for the component */ }} placeholder={<p>Loading...</p>} />
-      </toggle>
-     <button onClick={() => this.show = true }>Load `Foo` Component</button>
-    </div>
-  )
-}
-
-export default {
-  fetch: (req) => (
-    <html components={{ Foo }}>
-      <Lazy />
-    </html>
-  )
-}
-```
-
-You can also use signals for `name` or `props`. Changing the signal value will trigger the component to re-render with the new name or props:
-
-```tsx
-import { Profile, Projects, Settings } from "./pages.tsx"
-
-function Dash(this: FC<{ page: "Profile" | "Projects" | "Settings" }>) {
-  this.page = "Profile";
-
-  return (
-    <>
-      <div class="tab">
-        <button onClick={e => this.page = "Profile"}>Profile</button>
-        <button onClick={e => this.page = "Projects"}>Projects</button>
-        <button onClick={e => this.page = "Settings"}>Settings</button>
-      </div>
-      <div class="page">
-        <component name={this.page} placeholder={<p>Loading...</p>} />
-      </div>
-    </>
-  )
-}
-
-export default {
-  fetch: (req) => (
-    <html components={{ Profile, Projects, Settings }}>
-      <Dash />
-    </html>
-  )
-}
-```
-
 ## Using Router(SPA Mode)
 
 mono-jsx provides a built-in `<router>` element that allows your app to render components based on the current URL. On the client side, it listens to all `click` events on `<a>` elements and asynchronously fetches the route component without reloading the entire page.
@@ -977,6 +1011,65 @@ function Post(this: FC) {
 }
 ```
 
+### Using Route Form
+
+When a form is submitted with the `route` attribute in a route component, the form data will be available in the `form` property of the component's `this` context at the time of the form post request.
+
+mono-jsx provides two builtin elements to allow you to control the post-submit behavior:
+
+- `<invalid for="...">{message}</invalid>` to set custom validation state for the form elements.
+- `<redirect to="..." />` to redirect to a new route/URL.
+
+```tsx
+async function Login(this: FC) {
+  if (this.form) {
+    const user = await auth(this.form)
+    if (!user) {
+      return <invalid for="username,password">Invalid Username/Password</invalid>
+    }
+    this.session.set("user", user)
+    return <redirect to="/dash" />
+  }
+  return (
+    <form route style={{ "& input:invalid": { borderColor: "red" } }}>
+      <input type="text" name="username" placeholder="Username" />
+      <input type="password" name="password" placeholder="Password" />
+      <button type="submit">Login</button>
+    </form>
+  )
+}
+```
+
+> [!NOTE]
+> You can use `:invalid` CSS selector to style the form elements with invalid state.
+
+You can also return regular HTML elements from the route form post response. The `formslot` element is used to
+mark the position where the returned HTML elements will be inserted.
+
+- `<formslot mode="insertbefore" />`: Insert html before the `formslot` element.
+- `<formslot mode="insertafter" />`: Insert html after the `formslot` element.
+- `<formslot mode="replace" />`: Replace the `formslot` children. This is the default mode.
+
+```tsx
+function FormSlot(this: FC) {
+  if (this.form) {
+    const message = this.form.get("message") as string | null;
+    if (!message) {
+      return <invalid for="message">Message is required</invalid>
+    }
+    return <p>{message}</p>
+  }
+  return (
+   <form route>
+    {/* <- new message will be inserted here */}
+    <formslot mode="insertbefore" />
+    <input type="type" name="message" placeholder="Type Message..." style={{ ":invalid": { borderColor: "red" } }} />
+    <button type="submit">Send</button>
+   </form>
+  )
+}
+```
+
 ### Using `this.app.url` Signal
 
 `this.app.url` is an app-level signal that contains the current route URL and parameters. The `this.app.url` signal is automatically updated when the route changes, so you can use it to display the current URL in your components or control the view with `<toggle>` or `<switch>` elements:
@@ -1029,24 +1122,6 @@ export default {
 }
 ```
 
-### Using DB/Storage in Route Components
-
-Route components are always rendered on the server-side. You can use any database or storage API to fetch data in your route components.
-
-```tsx
-async function Post(this: FC) {
-  const post = await sql`SELECT * FROM posts WHERE id = ${ this.request.params!.id }`
-  return (
-    <article>
-      <h2>{post.title}<h2>
-      <section>
-        {html(post.content)}
-      </section>
-    </article>
-  )
-}
-```
-
 ### Fallback(404)
 
 You can add fallback(404) content to the `<router>` element as children, which will be displayed when no route matches the current URL.
@@ -1060,38 +1135,6 @@ export default {
         <p>Back to <a href="/">Home</a></p>
       </router>
     </html>
-  )
-}
-```
-
-## Using View Transition
-
-mono-jsx supports [View Transition](https://developer.mozilla.org/en-US/docs/Web/API/View_Transitions_API) to create smooth transitions between views. To use view transition, add `viewTransition` attribute to below components:
-
- - `<toggle viewTransition="transition-name">`
- - `<switch viewTransition="transition-name">`
- - `<component viewTransition="transition-name">`
- - `<router viewTransition="transition-name">`
-
-You can set custom transition animation by adding [`::view-transition-group`](https://developer.mozilla.org/en-US/docs/Web/CSS/::view-transition-group) and [`::view-transition-old`](https://developer.mozilla.org/en-US/docs/Web/CSS/::view-transition-old) and [`::view-transition-new`](https://developer.mozilla.org/en-US/docs/Web/CSS/::view-transition-new) pseudo-elements with your own CSS animation. For example,
-
-```tsx
-function App(this: FC<{ show: boolean }>) {
-  return (
-    <div
-      style={{
-        "@keyframes fade-in": { from: { opacity: 0 }, to: { opacity: 1 } },
-        "@keyframes fade-out": { from: { opacity: 1 }, to: { opacity: 0 } },
-        "::view-transition-group(fade)": { animationDuration: "0.5s" },
-        "::view-transition-old(fade)": { animation: "0.5s ease-in both fade-out" },
-        "::view-transition-new(fade)": { animation: "0.5s ease-in both fade-in" },
-      }}
-    >
-      <toggle show={this.show} viewTransition="fade">
-        <h1>Hello world!</h1>
-      </toggle>
-      <button onClick={() => this.show = !this.show}>Toggle</button>
-    </div>
   )
 }
 ```
