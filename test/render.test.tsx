@@ -1896,6 +1896,11 @@ Deno.test("[ssr] <component>", async () => {
 });
 
 Deno.test("[ssr] <router>", async () => {
+  const routes = {
+    "/": () => <h1>Home</h1>,
+    "/about": () => <h1>About</h1>,
+    "/blog": () => Promise.resolve(<h1>Blog</h1>),
+  };
   function Router(this: FC) {
     return (
       <router>
@@ -1906,10 +1911,7 @@ Deno.test("[ssr] <router>", async () => {
 
   assertEquals(
     await renderToString(<Router />, {
-      routes: {
-        "/": () => <h1>Home</h1>,
-        "/about": () => <h1>About</h1>,
-      },
+      routes,
       request: new Request("https://example.com/"),
     }),
     [
@@ -1932,10 +1934,7 @@ Deno.test("[ssr] <router>", async () => {
 
   assertEquals(
     await renderToString(<Router />, {
-      routes: {
-        "/": () => <h1>Home</h1>,
-        "/about": () => <h1>About</h1>,
-      },
+      routes,
       request: new Request("https://example.com/about"),
     }),
     [
@@ -1958,10 +1957,30 @@ Deno.test("[ssr] <router>", async () => {
 
   assertEquals(
     await renderToString(<Router />, {
-      routes: {
-        "/": () => <h1>Home</h1>,
-        "/about": () => <h1>About</h1>,
-      },
+      routes,
+      request: new Request("https://example.com/blog"),
+    }),
+    [
+      `<!DOCTYPE html>`,
+      `<html lang="en"><body>`,
+      `<m-router>`,
+      `<h1>Blog</h1>`,
+      `<template m-slot><p>Page not found</p></template>`,
+      `</m-router>`,
+      `</body></html>`,
+      `<script data-mono-jsx="${VERSION}">`,
+      `(()=>{`,
+      ROUTER_JS,
+      `})();`,
+      `/* --- */`,
+      `window.$FLAGS="2|0|${ROUTER}";`,
+      `</script>`,
+    ].join(""),
+  );
+
+  assertEquals(
+    await renderToString(<Router />, {
+      routes,
       request: new Request("https://example.com/404"),
     }),
     [
@@ -1984,10 +2003,7 @@ Deno.test("[ssr] <router>", async () => {
   assertEquals(
     JSON.parse(
       await renderToString(<div />, {
-        routes: {
-          "/": () => <h1>Home</h1>,
-          "/about": () => <h1>About</h1>,
-        },
+        routes,
         request: new Request("https://example.com", {
           headers: {
             "x-route": "true",
@@ -2005,10 +2021,7 @@ Deno.test("[ssr] <router>", async () => {
   assertEquals(
     JSON.parse(
       await renderToString(<div />, {
-        routes: {
-          "/": () => <h1>Home</h1>,
-          "/about": () => <h1>About</h1>,
-        },
+        routes,
         request: new Request("https://example.com/about", {
           headers: {
             "x-route": "true",
@@ -2026,10 +2039,7 @@ Deno.test("[ssr] <router>", async () => {
   assertEquals(
     JSON.parse(
       await renderToString(<div />, {
-        routes: {
-          "/": () => <h1>Home</h1>,
-          "/about": () => <h1>About</h1>,
-        },
+        routes,
         request: new Request("https://example.com/404", {
           headers: {
             "x-route": "true",
