@@ -71,15 +71,14 @@ const encoder = new TextEncoder();
 const customElements = new Map<string, FC>();
 const voidTags = new Set("area,base,br,col,embed,hr,img,input,keygen,link,meta,param,source,track,wbr".split(","));
 const cache = new Map<string, { html: string; expires?: number }>();
+const stringify = JSON.stringify;
 const isVNode = (v: unknown): v is VNode => Array.isArray(v) && v.length === 3 && v[2] === $vnode;
 const isSignal = (v: unknown): v is Signal => isObject(v) && !!(v as any)[$signal];
 const hashCode = (s: string) => [...s].reduce((hash, c) => (Math.imul(31, hash) + c.charCodeAt(0)) | 0, 0);
 const escapeCSSText = (str: string): string => str.replace(/[<>]/g, (m) => m.charCodeAt(0) === 60 ? "&lt;" : "&gt;");
 const toAttrStringLit = (str: string) => '"' + escapeHTML(str) + '"';
 const toStr = <T = string | number>(v: T | undefined, str: (v: T) => string) => v !== undefined ? str(v) : "";
-const stringify = JSON.stringify;
 
-// @internal
 class Ref {
   constructor(
     public scope: number,
@@ -87,7 +86,6 @@ class Ref {
   ) {}
 }
 
-// @internal
 class IdGen<T> extends Map<T, number> implements IdGen<T> {
   #seq = 0;
   gen(v: T) {
@@ -95,7 +93,6 @@ class IdGen<T> extends Map<T, number> implements IdGen<T> {
   }
 }
 
-// @internal
 class IdGenManagerImpl<T> implements IdGenManager<T> {
   #scopes = new Map<number, IdGen<T>>();
 
@@ -267,7 +264,6 @@ export function renderHtml(node: VNode, options: RenderOptions): Response {
   );
 }
 
-// @internal
 async function render(
   node: VNode,
   options: RenderOptions & { routeFC?: FC<any> },
@@ -442,7 +438,6 @@ async function render(
   await finalize();
 }
 
-// @internal
 async function renderNode(rc: RenderContext, node: ChildType, stripSlotProp?: boolean): Promise<void> {
   const { write } = rc;
   switch (typeof node) {
@@ -793,7 +788,6 @@ async function renderNode(rc: RenderContext, node: ChildType, stripSlotProp?: bo
   }
 }
 
-// @internal
 async function renderChildren(rc: RenderContext, children: ChildType | ChildType[], stripSlotProp?: boolean) {
   if (Array.isArray(children) && !isVNode(children)) {
     for (const child of children) {
@@ -804,7 +798,6 @@ async function renderChildren(rc: RenderContext, children: ChildType | ChildType
   }
 }
 
-// @internal
 function renderAttr(
   rc: RenderContext,
   attrName: string,
@@ -953,17 +946,13 @@ function renderAttr(
   return [attr, addonHtml, signalValue, binding];
 }
 
-// @internal
 function renderViewTransitionAttr(viewTransition?: string | boolean): string {
   if (viewTransition === true || viewTransition === "") {
     return " vt";
-  } else if (isString(viewTransition)) {
-    return " style=" + toAttrStringLit("view-transition-name:" + viewTransition) + " vt";
   }
-  return "";
+  return isString(viewTransition) ? " style=" + toAttrStringLit("view-transition-name:" + viewTransition) + " vt" : "";
 }
 
-// @internal
 async function renderFC(rc: RenderContext, fc: FC, props: JSX.IntrinsicAttributes, eager?: boolean) {
   const { write } = rc;
   const { children } = props;
@@ -1053,7 +1042,6 @@ async function renderFC(rc: RenderContext, fc: FC, props: JSX.IntrinsicAttribute
   }
 }
 
-// @internal
 function renderSignal(
   rc: RenderContext,
   signal: Signal,
@@ -1096,7 +1084,6 @@ function renderSignal(
 
 let collectDep: ((scopeId: number, key: string) => void) | undefined;
 
-// @internal
 function Signal(
   scope: number,
   key: string | Compute,
@@ -1126,7 +1113,6 @@ function Signal(
   }) as Signal;
 }
 
-// @internal
 function createThisScope(
   rc: RenderContext,
   scopeId: number,
@@ -1298,12 +1284,10 @@ async function createSession(request: Request, options: SessionOptions): Promise
   return session;
 }
 
-// @internal
 function markSignals(rc: RenderContext, signals: Record<symbol, unknown>) {
   (signals[Symbol.for("mark")] as ((rc: RenderContext) => void))(rc);
 }
 
-// @internal
 function traverseProps(
   obj: Record<string, unknown> | Array<unknown>,
   callback: (path: string[], signal: Signal) => void,
