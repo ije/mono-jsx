@@ -87,7 +87,10 @@ const createDomEffect = (el: Element, mode: string | null, getter: () => unknown
   const parent = el.parentElement!;
   const update = () => el.textContent = "" + getter();
   if (doc.startViewTransition && parent.hasAttribute("data-vt")) {
-    parent.style.viewTransitionName = parent.getAttribute("data-vt")!;
+    const viewTransitionName = parent.getAttribute("data-vt");
+    if (viewTransitionName) {
+      parent.style.viewTransitionName = viewTransitionName;
+    }
     return () => doc.startViewTransition(update);
   }
   return update;
