@@ -98,16 +98,16 @@ export interface BaseAttributes {
 
 export interface AsyncComponentAttributes {
   /**
-   * Try to catch errors in the component.
+   * Catch errors in an async component.
    */
   catch?: (err: any) => JSX.Element;
   /**
-   * The loading spinner for the async component.
+   * The loading spinner for an async component.
    */
   placeholder?: JSX.Element;
   /**
-   * Rendering mode
-   * - `eager`: render async component eagerly
+   * Rendering mode of an async component.
+   * - `eager`: render async components eagerly
    */
   rendering?: "eager";
 }
@@ -314,6 +314,11 @@ declare global {
      * **⚠ This is a server-side only API.**
      */
     readonly request: WithParams<Request & { URL: URL }>;
+    /**
+     * The `form` object created by the route form submission.
+     *
+     * **⚠ This is a server-side only API.**
+     */
     readonly form?: FormData;
     /**
      * The `session` object contains the current session information.
@@ -340,7 +345,7 @@ declare global {
      * **The effect function is only called on client side.**
      */
     readonly effect: (fn: () => void | (() => void)) => void;
-  } & Omit<Signals, "app" | "context" | "request" | "refs" | "forIndex" | "forItem" | "computed" | "$" | "effect">;
+  } & Omit<Signals, "app" | "context" | "request" | "session" | "form" | "refs" | "computed" | "$" | "effect">;
   /**
    *  The `Refs` defines the `refs` types.
    */
