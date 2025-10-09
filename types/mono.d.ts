@@ -93,7 +93,16 @@ export type WithParams<T> = T & { params?: Record<string, string> };
 
 export interface BaseAttributes {
   children?: MaybeArray<ChildType>;
+  key?: string | number;
+  /**
+   * The `slot` attribute assigns a slot in a [shadow DOM](https://developer.mozilla.org/en-US/docs/Web/API/Web_components/Using_shadow_DOM) shadow tree to an element: An element with a `slot` attribute is assigned to the slot created by the `<slot>` element whose name attribute's value matches that slot attribute's value.
+   */
   slot?: string;
+  /**
+   * The `viewTransition` attribute is used to control the view transition of the children.
+   * @mono-jsx
+   */
+  viewTransition?: string | boolean;
 }
 
 export interface AsyncComponentAttributes {
@@ -125,10 +134,6 @@ export interface Elements {
      * The `hidden` attribute is used to control the visibility of the children.
      */
     hidden?: any;
-    /**
-     * The `viewTransition` attribute is used to control the view transition of the children.
-     */
-    viewTransition?: string | boolean;
   };
   /**
    * The `switch` element is a built-in element of mono-jsx that chooses one of its children based on the `slot` attribute to display.
@@ -313,7 +318,14 @@ declare global {
      *
      * **⚠ This is a server-side only API.**
      */
-    readonly request: WithParams<Request & { URL: URL }>;
+    readonly request: WithParams<
+      Request & {
+        /**
+         * Returns the URL of request as a URL object.
+         */
+        URL: URL;
+      }
+    >;
     /**
      * The `form` object created by the route form submission.
      *

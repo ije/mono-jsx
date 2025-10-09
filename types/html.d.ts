@@ -101,8 +101,6 @@ export namespace HTML {
     popover?: boolean | "auto" | "manual";
     /** A space-separated list of the part names of the element. Part names allows CSS to select and style specific elements in a shadow tree via the [`::part`](https://developer.mozilla.org/en-US/docs/Web/CSS/::part) pseudo-element. */
     part?: string;
-    /** The `slot` attribute assigns a slot in a [shadow DOM](https://developer.mozilla.org/en-US/docs/Web/API/Web_components/Using_shadow_DOM) shadow tree to an element: An element with a `slot` attribute is assigned to the slot created by the `<slot>` element whose name attribute's value matches that slot attribute's value. */
-    slot?: string;
     /** Allows you to specify that a standard HTML element should behave like a registered custom built-in element (see [Using custom elements](https://developer.mozilla.org/en-US/docs/Web/API/Web_components/Using_custom_elements) for more details). */
     is?: string;
     /** A boolean value that makes the browser disregard user input events for the element. Useful when click events are present. */
