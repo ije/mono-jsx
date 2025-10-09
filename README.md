@@ -794,7 +794,7 @@ The `this` object has the following built-in properties:
 - `app`: The app global signals.
 - `context`: The context object defined on the root `<html>` element.
 - `request`: The request object from the `fetch` handler.
-- `session`: The session object.
+- `session`: The session storage.
 - `form`: The route form data.
 - `refs`: A map of refs defined in the component.
 - `computed`: A method to create a computed signal.
@@ -1139,7 +1139,69 @@ export default {
 }
 ```
 
-## Caching Rendered HTML
+## Using Session
+
+mono-jsx provides a built-in session storage that allows you to manage user sessions. To use the session storage, you need to set the `session` prop on the root `<html>` element with the `cookie.secret` option.
+
+```tsx
+function Index(this: FC) {
+  const user = this.session.get<{ name: string }>("user")
+  if (!user) {
+    return <p>Please <a href="/login">Login</a></p>
+  }
+  return <p>Welcome, {user.name}!</p>
+}
+
+async function Login(this: FC) {
+  if (this.form) {
+    const user = await auth(this.form)
+    if (!user) {
+      return <invalid for="username,password">Invalid Username/Password</invalid>
+    }
+    this.session.set("user", user)
+    return <redirect to="/" />
+  }
+  return (
+    <form route>
+      <input type="text" name="username" placeholder="Username" />
+      <input type="password" name="password" placeholder="Password" />
+      <button type="submit">Login</button>
+    </form>
+  )
+}
+
+const routes = {
+  "/": Index,
+  "/login": Login,
+}
+
+export default {
+  fetch: (req) => (
+    <html request={req} routes={routes} session={{ cookie: { secret: "..." } }}>
+      <router />
+    </html>
+  )
+}
+```
+
+### Session Storage API
+
+```ts
+function Component(this: FC) {
+  // set a value in the session
+  this.session.set("user", { name: "John" })
+  // get a value from the session
+  this.session.get<{ name: string }>("user") // { name: "John" }
+  // get all entries from the session
+  this.session.entries() // [["user", { name: "John" }]]
+  // delete a value from the session
+  this.session.delete("user")
+  // destroy the session
+  this.session.destroy()
+}
+```
+
+## Caching
 
 mono-jsx renders html dynamically pre request, large apps may drain your CPU resources. To improve rendering performance, mono-jsx introduces two builtin elements that can cache the rendered html of the children:
 
