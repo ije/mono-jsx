@@ -108,7 +108,7 @@ npx srvx --import tsx app.tsx
 ```
 
 > [!NOTE]
-> Only root `<html>` element will be rendered as a `Response` object. You cannot return a `<div>` or any other element directly from the `fetch` handler. This is a limitation of the mono-jsx.
+> Only the root `<html>` element will be rendered as a `Response` object. You cannot return a `<div>` or any other element directly from the `fetch` handler. This is a limitation of mono-jsx.
 
 ## Using JSX
 
@@ -159,14 +159,14 @@ mono-jsx supports [pseudo classes](https://developer.mozilla.org/en-US/docs/Web/
 
 ### Using View Transition
 
-mono-jsx supports [View Transition](https://developer.mozilla.org/en-US/docs/Web/API/View_Transitions_API) to create smooth transitions between views. To use view transition, add `viewTransition` attribute to below components:
+mono-jsx supports [View Transition](https://developer.mozilla.org/en-US/docs/Web/API/View_Transitions_API) to create smooth transitions between views. To use view transitions, add the `viewTransition` attribute to the following components:
 
  - `<toggle viewTransition="transition-name">`
  - `<switch viewTransition="transition-name">`
  - `<component viewTransition="transition-name">`
  - `<router viewTransition="transition-name">`
 
-You can set custom transition animation by adding [`::view-transition-group`](https://developer.mozilla.org/en-US/docs/Web/CSS/::view-transition-group) and [`::view-transition-old`](https://developer.mozilla.org/en-US/docs/Web/CSS/::view-transition-old) and [`::view-transition-new`](https://developer.mozilla.org/en-US/docs/Web/CSS/::view-transition-new) pseudo-elements with your own CSS animation. For example,
+You can set custom transition animations by adding [`::view-transition-group`](https://developer.mozilla.org/en-US/docs/Web/CSS/::view-transition-group), [`::view-transition-old`](https://developer.mozilla.org/en-US/docs/Web/CSS/::view-transition-old), and [`::view-transition-new`](https://developer.mozilla.org/en-US/docs/Web/CSS/::view-transition-new) pseudo-elements with your own CSS animations. For example:
 
 ```tsx
 function App(this: FC<{ show: boolean }>) {
@@ -219,7 +219,7 @@ function App() {
 
 ### Using `html` Tag Function
 
-mono-jsx provides an `html` tag function to render raw HTML, it's similar to the `dangerouslySetInnerHTML` property in React.
+mono-jsx provides an `html` tag function to render raw HTML, which is similar to React's `dangerouslySetInnerHTML`.
 
 ```tsx
 function App() {
@@ -227,7 +227,7 @@ function App() {
 }
 ```
 
-Variables in the `html` template literal are escaped, to render raw HTML without escaping, you can call the `html` function with a string literal.
+Variables in the `html` template literal are escaped. To render raw HTML without escaping, call the `html` function with a string literal.
 
 ```tsx
 function App() {
@@ -312,7 +312,7 @@ mono-jsx supports async components that return a `Promise` or an async function.
 
 ```tsx
 async function Loader(props: { url: string }) {
-  const data = await fetch(url).then((res) => res.json());
+  const data = await fetch(props.url).then((res) => res.json());
   return <JsonViewer data={data} />;
 }
 
@@ -404,7 +404,7 @@ export default {
 
 ## Lazy Rendering
 
-mono-jsx renders HTML on the server side and there is no hydration JavaScript sent to the client side, to render a component dynamically on the client side, you can use the `<component>` element to ask the server to render a component l:
+mono-jsx renders HTML on the server side and sends no hydration JavaScript to the client. To render a component dynamically on the client, you can use the `<component>` element to ask the server to render a component:
 
 ```tsx
 export default {
@@ -416,7 +416,7 @@ export default {
 }
 ```
 
-You can use `<toggle>` element to control when to render a component:
+You can use the `<toggle>` element to control when to render a component:
 
 ```tsx
 async function Lazy(this: FC<{ show: boolean }>, props: { url: string }) {
@@ -477,7 +477,7 @@ mono-jsx uses signals for updating the view when a signal changes. Signals are s
 
 ### Using Component Signals
 
-You can use the `this` keyword in your components to manage signals. The signals are bound to the component instance and can be updated directly, and will automatically re-render the view when a signal changes:
+You can use the `this` keyword in your components to manage signals. Signals are bound to the component instance, can be updated directly, and the view will automatically re-render when a signal changes:
 
 ```tsx
 function Counter(
@@ -696,12 +696,12 @@ function App(this: FC<{ checked: boolean }>) {
 }
 ```
 
-### Limitation of Signals
+### Limitations of Signals
 
 1\. Arrow functions are non-stateful components.
 
 ```tsx
-// ❌ Won't work - use `this` in a non-stateful component
+// ❌ Won't work - uses `this` in a non-stateful component
 const App = () => {
   this.count = 0;
   return (
@@ -754,7 +754,7 @@ function App(this: FC) {
 }
 ```
 
-3\. The callback function of `this.computed` must be a pure function. That means it should not create side effects or access any non-stateful variables. For example, you cannot use `Deno` or `document` in the callback function:
+3\. The callback function of `this.computed` must be a pure function. This means it should not create side effects or access any non-stateful variables. For example, you cannot use `Deno` or `document` in the callback function:
 
 ```tsx
 // ❌ Won't work - throws `Deno is not defined` when the button is clicked
@@ -881,6 +881,7 @@ function App(this: Refs<FC, { component: ComponentElement }>) {
     </div>
   )
 }
+```
 
 ### Using Context
 
@@ -936,11 +937,11 @@ export default {
 }
 ```
 
-## Using Router(SPA Mode)
+## Using Router (SPA mode)
 
 mono-jsx provides a built-in `<router>` element that allows your app to render components based on the current URL. On the client side, it listens to all `click` events on `<a>` elements and asynchronously fetches the route component without reloading the entire page.
 
-To use the router, you need to define your routes as a mapping of URL patterns to components and pass it to the `<html>` element as `routes` prop. The `request` prop is also required to match the current URL against the defined routes.
+To use the router, you need to define your routes as a mapping of URL patterns to components and pass it to the `<html>` element as the `routes` prop. The `request` prop is also required to match the current URL against the defined routes.
 
 ```tsx
 const routes = {
@@ -968,7 +969,7 @@ The mono-jsx router requires [URLPattern](https://developer.mozilla.org/en-US/do
 
 - ✅ Deno
 - ✅ Cloudflare Workers
-- ✅ Nodejs (>= 24)
+- ✅ Node.js (>= 24)
 
 For Bun users, mono-jsx provides a `buildRoutes` function that uses Bun's built-in server routing:
 
@@ -1013,9 +1014,9 @@ function Post(this: FC) {
 
 ### Using Route Form
 
-When a form is submitted with the `route` attribute in a route component, the form data will be available in the `form` property of the component's `this` context at the time of the form post request.
+When a form is submitted with the `route` attribute in a route component, the form data will be available in the `form` property of the component's `this` context during the form POST request.
 
-mono-jsx provides two builtin elements to allow you to control the post-submit behavior:
+mono-jsx provides two built-in elements to allow you to control the post-submit behavior:
 
 - `<invalid for="...">{message}</invalid>` to set custom validation state for the form elements.
 - `<redirect to="..." />` to redirect to a new route/URL.
@@ -1046,8 +1047,8 @@ async function Login(this: FC) {
 You can also return regular HTML elements from the route form post response. The `formslot` element is used to
 mark the position where the returned HTML elements will be inserted.
 
-- `<formslot mode="insertbefore" />`: Insert html before the `formslot` element.
-- `<formslot mode="insertafter" />`: Insert html after the `formslot` element.
+- `<formslot mode="insertbefore" />`: Insert HTML before the `formslot` element.
+- `<formslot mode="insertafter" />`: Insert HTML after the `formslot` element.
 - `<formslot mode="replace" />`: Replace the `formslot` children. This is the default mode.
 
 ```tsx
@@ -1063,7 +1064,7 @@ function FormSlot(this: FC) {
    <form route>
     {/* <- new message will be inserted here */}
     <formslot mode="insertbefore" />
-    <input type="type" name="message" placeholder="Type Message..." style={{ ":invalid": { borderColor: "red" } }} />
+    <input type="text" name="message" placeholder="Type Message..." style={{ ":invalid": { borderColor: "red" } }} />
     <button type="submit">Send</button>
    </form>
   )
@@ -1122,7 +1123,7 @@ export default {
 }
 ```
 
-### Fallback(404)
+### Fallback (404)
 
 You can add fallback(404) content to the `<router>` element as children, which will be displayed when no route matches the current URL.
 
@@ -1203,7 +1204,7 @@ function Component(this: FC) {
 
 ## Caching
 
-mono-jsx renders html dynamically pre request, large apps may drain your CPU resources. To improve rendering performance, mono-jsx introduces two builtin elements that can cache the rendered html of the children:
+mono-jsx renders HTML dynamically per request; large apps may tax your CPU resources. To improve rendering performance, mono-jsx introduces two built-in elements that can cache the rendered HTML of the children:
 
 - `<cache>` with specified `key` and `ttl`
 - `<static>` for elements that rarely change, such as `<svg>`
