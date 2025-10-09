@@ -2061,7 +2061,7 @@ Deno.test("[ssr] <redirect>", async () => {
       `<html lang="en"><body>`,
       `</body></html>`,
       `<script data-mono-jsx="${VERSION}">`,
-      `if(window.$router){$router.navigate("/dash")}else{location.href="/dash"}`,
+      `{let u=decodeURI("/dash");if(window.$router){$router.navigate(u)}else{location.href=u}}`,
       `</script>`,
     ].join(""),
   );
@@ -2072,7 +2072,7 @@ Deno.test("[ssr] <redirect>", async () => {
       `<html lang="en"><body>`,
       `</body></html>`,
       `<script data-mono-jsx="${VERSION}">`,
-      `if(window.$router){$router.navigate("/dash",!1)}else{location.href="/dash"}`,
+      `{let u=decodeURI("/dash");if(window.$router){$router.navigate(u,!1)}else{location.href=u}}`,
       `</script>`,
     ].join(""),
   );
@@ -2083,7 +2083,7 @@ Deno.test("[ssr] <redirect>", async () => {
       `<html lang="en"><body>`,
       `</body></html>`,
       `<script data-mono-jsx="${VERSION}">`,
-      `if(window.$router){$router.navigate("https://example.com/dash")}else{location.href="https://example.com/dash"}`,
+      `{let u=decodeURI("https://example.com/dash");if(window.$router){$router.navigate(u)}else{location.href=u}}`,
       `</script>`,
     ].join(""),
   );

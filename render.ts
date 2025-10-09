@@ -676,10 +676,9 @@ async function renderNode(rc: RenderContext, node: ChildType, stripSlotProp?: bo
           case "redirect": {
             const { to, replace } = props;
             if (to) {
-              const hrefLit = toAttrStringLit(String(to));
               rc.extraJS.push(
-                "if(window.$router){$router.navigate(" + hrefLit + (replace ? ",!1" : "") + ")}"
-                  + "else{location.href=" + hrefLit + "}",
+                '{let u=decodeURI("' + encodeURI(String(to)) + '");if(window.$router){$router.navigate(u' + (replace ? ",!1" : "")
+                  + ")}else{location.href=u}}",
               );
             }
             break;
