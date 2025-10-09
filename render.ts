@@ -689,34 +689,36 @@ async function renderNode(rc: RenderContext, node: ChildType, stripSlotProp?: bo
             if (to) {
               const hrefLit = toAttrStringLit(String(to));
               rc.extraJS.push(
-                "if(window.$router){$router.navigate(" + hrefLit + (replace ? ",!1" : "") + ")}else{location.href="
-                  + hrefLit + "}",
+                "if(window.$router){$router.navigate(" + hrefLit + (replace ? ",!1" : "") + ")}"
+                  + "else{location.href=" + hrefLit + "}",
               );
             }
             break;
           }
 
-          case "invalid": {
-            const { children, for: forProp } = props;
-            if (forProp && isString(forProp)) {
-              let buf = "<m-invalid for=" + toAttrStringLit(forProp) + " hidden>";
-              if (children) {
-                await renderChildren({
-                  ...rc,
-                  write: (chunk: string) => {
-                    buf += chunk;
-                  },
-                }, children);
-              }
-              write(buf + "</m-invalid>");
-              rc.flags.runtime |= FORM;
-            }
-            break;
-          }
-
+          case "invalid":
           case "formslot": {
-            const { mode } = props;
-            write("<m-formslot" + (isString(mode) ? " mode=" + toAttrStringLit(mode) : "") + "></m-formslot>");
+            const { children, for: forProp, mode } = props;
+            let buf = "<m-" + tag;
+            if (isString(forProp)) {
+              buf += " for=" + toAttrStringLit(forProp) + " hidden";
+            } else if (tag === "invalid") {
+              break;
+            }
+            if (isString(mode)) {
+              buf += " mode=" + toAttrStringLit(mode);
+            }
+            buf += ">";
+            if (children) {
+              await renderChildren({
+                ...rc,
+                write: (chunk: string) => {
+                  buf += chunk;
+                },
+              }, children);
+            }
+            write(buf + "</m-" + tag + ">");
+            rc.flags.runtime |= FORM;
             break;
           }
 

@@ -230,7 +230,7 @@ export interface Elements {
    * The `formslot` element is a built-in element of mono-jsx that is used to display the content of the route form
    * in the `form` element.
    */
-  formslot: {
+  formslot: BaseAttributes & {
     mode?: "insertbefore" | "insertafter" | "replace";
   };
 }
