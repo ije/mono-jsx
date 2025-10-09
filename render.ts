@@ -289,9 +289,10 @@ async function render(
   // finalize creates runtime JS for client
   // it may be called recursively when thare are unresolved suspenses
   const finalize = async () => {
+    const { extraJS, mfs, mcs, session, flags } = rc;
     const hasEffect = signals.effects.length > 0;
     const treeshake = (flag: number, code: string, force?: boolean) => {
-      if ((force || rc.flags.runtime & flag) && !(runtimeFlag & flag)) {
+      if ((force || flags.runtime & flag) && !(runtimeFlag & flag)) {
         runtimeFlag |= flag;
         js += code;
       }
@@ -299,8 +300,8 @@ async function render(
     let js = "";
     treeshake(CX, CX_JS);
     treeshake(STYLE, STYLE_JS);
-    treeshake(EVENT, EVENT_JS, rc.mfs.size > 0);
-    if (signals.store.size > 0 || rc.mcs.size > 0 || hasEffect) {
+    treeshake(EVENT, EVENT_JS, mfs.size > 0);
+    if (signals.store.size > 0 || mcs.size > 0 || hasEffect) {
       treeshake(RENDER_ATTR, RENDER_ATTR_JS);
       treeshake(RENDER_TOGGLE, RENDER_TOGGLE_JS);
       treeshake(RENDER_SWITCH, RENDER_SWITCH_JS);
@@ -314,14 +315,14 @@ async function render(
       js = "(()=>{" + js + "})();/* --- */";
     }
     if ((runtimeFlag & COMPONENT) || (runtimeFlag & ROUTER) || (runtimeFlag & FORM)) {
-      const { scope, chunk } = rc.flags;
+      const { scope, chunk } = flags;
       js += 'window.$FLAGS="' + scope + "|" + chunk + "|" + runtimeFlag + '";';
     }
-    if (rc.mfs.size > 0) {
-      js += rc.mfs.toJS((scope, seq, fn) =>
+    if (mfs.size > 0) {
+      js += mfs.toJS((scope, seq, fn) =>
         "function $MF_" + scope + "_" + seq + "(){(" + (fn.str ?? String(fn)) + ").apply(this,arguments)};"
       );
-      rc.mfs.clear();
+      mfs.clear();
     }
     if (hasEffect) {
       js += signals.effects.splice(0, signals.effects.length).join("");
@@ -342,17 +343,17 @@ async function render(
       }
       signals.store.clear();
     }
-    if (rc.mcs.size > 0) {
-      js += rc.mcs.toJS((scope, seq, signal) => {
+    if (mcs.size > 0) {
+      js += mcs.toJS((scope, seq, signal) => {
         const { compute, deps } = signal[$signal].key as Compute;
         return "$MC(" + scope + "," + seq + ",function(){return(" + String(compute) + ").call(this)},"
           + stringify([...deps.values()])
           + ");";
       });
-      rc.mcs.clear();
+      mcs.clear();
     }
-    if (rc.session && rc.session.isDirty) {
-      const sessionEntries = rc.session.entries();
+    if (session && session.isDirty) {
+      const sessionEntries = session.entries();
       const { name = "session", domain, path, expires, maxAge, secure, sameSite, secret } = options.session?.cookie ?? {};
       if (secret) {
         let cookie = name + "=";
@@ -388,8 +389,8 @@ async function render(
         js += "document.cookie=" + toAttrStringLit(cookie) + ";";
       }
     }
-    if (rc.extraJS.length > 0) {
-      js += rc.extraJS.join("");
+    if (extraJS.length > 0) {
+      js += extraJS.splice(0, extraJS.length).join("");
     }
     if (js.length > 0) {
       writeJS(js);
