@@ -98,11 +98,6 @@ export interface BaseAttributes {
    * The `slot` attribute assigns a slot in a [shadow DOM](https://developer.mozilla.org/en-US/docs/Web/API/Web_components/Using_shadow_DOM) shadow tree to an element: An element with a `slot` attribute is assigned to the slot created by the `<slot>` element whose name attribute's value matches that slot attribute's value.
    */
   slot?: string;
-  /**
-   * The `viewTransition` attribute is used to control the view transition of the children.
-   * @mono-jsx
-   */
-  viewTransition?: string | boolean;
 }
 
 export interface AsyncComponentAttributes {
@@ -124,6 +119,7 @@ export interface AsyncComponentAttributes {
 export interface Elements {
   /**
    * The `toggle` element is a built-in element of mono-jsx that toggles the visibility of its children.
+   * @mono-jsx
    */
   toggle: BaseAttributes & {
     /**
@@ -134,20 +130,32 @@ export interface Elements {
      * The `hidden` attribute is used to control the visibility of the children.
      */
     hidden?: any;
+
+    /**
+     * The `viewTransition` attribute is used to control the view transition of the children.
+     */
+    viewTransition?: string | boolean;
   };
   /**
    * The `switch` element is a built-in element of mono-jsx that chooses one of its children based on the `slot` attribute to display.
    * It is similar to a switch statement in programming languages.
+   * @mono-jsx
    */
   switch: BaseAttributes & {
     /**
      * The `value` attribute is used to control the value of the children.
      */
     value?: string | number | boolean | null;
+
+    /**
+     * The `viewTransition` attribute is used to control the view transition of the children.
+     */
+    viewTransition?: string | boolean;
   };
   /**
    * The `component` element is a built-in element of mono-jsx that is used to load components lazily,
    * which can improve performance by reducing the initial load time of the application.
+   * @mono-jsx
    */
   component: BaseAttributes & AsyncComponentAttributes & {
     /**
@@ -162,9 +170,15 @@ export interface Elements {
      * The `ref` attribute is used to control the ref of the component.
      */
     ref?: ComponentElement | ((el: ComponentElement) => void);
+
+    /**
+     * The `viewTransition` attribute is used to control the view transition of the children.
+     */
+    viewTransition?: string | boolean;
   };
   /**
    * The `router` element is a built-in element of mono-jsx that provides SPA routing.
+   * @mono-jsx
    */
   router: BaseAttributes & AsyncComponentAttributes & {
     /**
@@ -175,10 +189,17 @@ export interface Elements {
      * The `ref` attribute is used to control the ref of the router.
      */
     ref?: RouterElement | ((el: RouterElement) => void);
+
+    /**
+     * The `viewTransition` attribute is used to control the view transition of the children.
+     * @mono-jsx
+     */
+    viewTransition?: string | boolean;
   };
   /**
    * The `cache` element is a built-in element of mono-jsx that caches the rendered content of the child nodes
    * with the given key and TTL.
+   * @mono-jsx
    */
   cache: BaseAttributes & {
     /**
@@ -193,10 +214,12 @@ export interface Elements {
   /**
    * The `static` element is a built-in element of mono-jsx that treats the child nodes as static content,
    * When the child nodes are rendered once, they will be cached in memory and reused on subsequent renders.
+   * @mono-jsx
    */
   static: BaseAttributes;
   /**
    * The `redirect` element is a built-in element of mono-jsx that redirects to the given URL in the client side.
+   * @mono-jsx
    */
   redirect: {
     /**
@@ -212,6 +235,7 @@ export interface Elements {
   /**
    * The `invalid` element is a built-in element of mono-jsx that sets custom validation
    * state for the form elements.
+   * @mono-jsx
    */
   invalid: BaseAttributes & {
     /**
@@ -222,8 +246,12 @@ export interface Elements {
   /**
    * The `formslot` element is a built-in element of mono-jsx that is used to display the content of the route form
    * in the `form` element.
+   * @mono-jsx
    */
   formslot: BaseAttributes & {
+    /**
+     * The `mode` attribute is used to control the insert position of the formslot.
+     */
     mode?: "insertbefore" | "insertafter" | "replace";
   };
 }

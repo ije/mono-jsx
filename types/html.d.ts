@@ -46,6 +46,7 @@ export namespace HTML {
   interface GlobalAttributes<T extends EventTarget> extends EventAttributes<T>, Aria.Attributes, Mono.BaseAttributes, JSX.HtmlTag {
     /**
      * A reference to the element.
+     * @mono-jsx
      */
     ref?: HTMLElement | ((el: T) => unknown);
     /** Defines a unique identifier (ID) which must be unique in the whole document. Its purpose is to identify the element when linking (using a fragment identifier), scripting, or styling (with CSS). */
@@ -105,6 +106,12 @@ export namespace HTML {
     is?: string;
     /** A boolean value that makes the browser disregard user input events for the element. Useful when click events are present. */
     inert?: boolean;
+    /**
+     * Enables view transition for the element.
+     * @see https://developer.mozilla.org/en-US/docs/Web/API/View_Transitions_API
+     * @mono-jsx
+     */
+    viewTransition?: string | boolean;
   }
 
   interface HtmlAttributes<T extends EventTarget> extends GlobalAttributes<T>, RenderOptions {}
