@@ -121,7 +121,13 @@ Deno.serve({ port: 8687, onListen: () => {} }, (request) => {
       <head>
         <title>Test</title>
       </head>
-      <body>{testRoutes.get(url.pathname)}</body>
+      <body>
+        {testRoutes.get(url.pathname) ?? (
+          <router>
+            <p>Page not found</p>
+          </router>
+        )}
+      </body>
     </html>
   );
 });

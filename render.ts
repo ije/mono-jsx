@@ -353,12 +353,15 @@ async function render(
       mcs.clear();
     }
     if (session && session.isDirty) {
-      const sessionEntries = session.entries();
+      const sessionStore = session.all();
       const { name = "session", domain, path, expires, maxAge, secure, sameSite, secret } = options.session?.cookie ?? {};
       if (secret) {
         let cookie = name + "=";
-        if (sessionEntries.length > 0) {
-          const data = JSON.stringify(sessionEntries);
+        if ((Object.keys(sessionStore)).length > 0) {
+          const data = JSON.stringify([
+            sessionStore,
+            Math.floor((expires ? expires.getTime() : Date.now() + (maxAge ?? 1800_000)) / 1000),
+          ]);
           const signature = await subtle.sign(
             "HMAC",
             await subtle.importKey("raw", encoder.encode(secret), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]),
@@ -1238,7 +1241,7 @@ async function createSession(request: Request, options: SessionOptions): Promise
       return isDirty;
     },
     get: (key) => sessionStore.get(key),
-    entries: () => [...sessionStore.entries()],
+    all: () => Object.fromEntries(sessionStore.entries()),
     set: (key, value) => {
       sessionStore.set(key, value);
       isDirty = true;
@@ -1273,8 +1276,11 @@ async function createSession(request: Request, options: SessionOptions): Promise
           encoder.encode(data),
         );
         if (verified) {
-          sessionId = sid;
-          sessionStore = new Map(JSON.parse(data));
+          const [map, exp] = JSON.parse(data);
+          if (typeof exp === "number" && exp * 1000 > Date.now()) {
+            sessionStore = new Map(Object.entries(map));
+            sessionId = sid;
+          }
         }
       } catch (_) {
         // ignore invalid session data

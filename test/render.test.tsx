@@ -1321,7 +1321,7 @@ Deno.test("[ssr] this.context", async () => {
 
 Deno.test("[ssr] this.session", async () => {
   const secret = "secret";
-  const data = JSON.stringify([["user", "@ije"]]);
+  const data = JSON.stringify([{ "user": "@ije" }, Math.floor(Date.now() / 1000) + 1800]);
   const encoder = new TextEncoder();
   const signature = await crypto.subtle.sign(
     "HMAC",
