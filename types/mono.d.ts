@@ -118,122 +118,121 @@ export interface AsyncComponentAttributes {
 
 export interface Elements {
   /**
-   * The `toggle` element is a built-in element of mono-jsx that toggles the visibility of its children.
+   * A built-in element of mono-jsx that toggles the visibility of its children.
    * @mono-jsx
    */
   toggle: BaseAttributes & {
     /**
-     * The `show` attribute is used to control the visibility of the children.
+     * The visibility of the children.
      */
     show?: any;
     /**
-     * The `hidden` attribute is used to control the visibility of the children.
+     * The visibility of the children.
      */
     hidden?: any;
 
     /**
-     * The `viewTransition` attribute is used to control the view transition of the children.
+     * Enables view transition for the children.
      */
     viewTransition?: string | boolean;
   };
   /**
-   * The `switch` element is a built-in element of mono-jsx that chooses one of its children based on the `slot` attribute to display.
+   * A a built-in element of mono-jsx that chooses one of its children based on the `slot` attribute to display.
    * It is similar to a switch statement in programming languages.
    * @mono-jsx
    */
   switch: BaseAttributes & {
     /**
-     * The `value` attribute is used to control the value of the children.
+     * Which child to display.
      */
     value?: string | number | boolean | null;
 
     /**
-     * The `viewTransition` attribute is used to control the view transition of the children.
+     * Enables view transition for the children.
      */
     viewTransition?: string | boolean;
   };
   /**
-   * The `component` element is a built-in element of mono-jsx that is used to load components lazily,
+   * A built-in element of mono-jsx that is used to load components lazily,
    * which can improve performance by reducing the initial load time of the application.
    * @mono-jsx
    */
   component: BaseAttributes & AsyncComponentAttributes & {
     /**
-     * The `name` attribute is used to control the name of the component.
+     * The name of the component to render.
      */
     name?: string;
     /**
-     * The `props` attribute is used to control the props of the component.
+     * The props of the component to render.
      */
     props?: Record<string, unknown>;
     /**
-     * The `ref` attribute is used to control the ref of the component.
+     * The ref of the component.
      */
     ref?: ComponentElement | ((el: ComponentElement) => void);
 
     /**
-     * The `viewTransition` attribute is used to control the view transition of the children.
+     * Enables view transition for the children.
      */
     viewTransition?: string | boolean;
   };
   /**
-   * The `router` element is a built-in element of mono-jsx that provides SPA routing.
+   * A built-in element of mono-jsx that provides SPA routing.
    * @mono-jsx
    */
   router: BaseAttributes & AsyncComponentAttributes & {
     /**
-     * The `base` attribute is used to set the base URL for the router.
+     * The base URL for the router.
      */
     base?: string;
     /**
-     * The `ref` attribute is used to control the ref of the router.
+     * The ref of the router.
      */
     ref?: RouterElement | ((el: RouterElement) => void);
-
     /**
-     * The `viewTransition` attribute is used to control the view transition of the children.
+     * Enables view transition for the children.
      * @mono-jsx
      */
     viewTransition?: string | boolean;
   };
   /**
-   * The `cache` element is a built-in element of mono-jsx that caches the rendered content of the child nodes
+   * A built-in element of mono-jsx that caches the rendered content of the child nodes
    * with the given key and TTL.
    * @mono-jsx
    */
   cache: BaseAttributes & {
     /**
-     * The `key` attribute is used to control the key of the cache.
+     * The key of the cache.
      */
     key?: string;
     /**
-     * The `ttl` attribute is used to control the TTL of the cache.
+     * The time-to-live of the cache in seconds.
      */
     ttl?: number;
   };
   /**
-   * The `static` element is a built-in element of mono-jsx that treats the child nodes as static content,
+   * A built-in element of mono-jsx that treats the child nodes as static content,
    * When the child nodes are rendered once, they will be cached in memory and reused on subsequent renders.
    * @mono-jsx
    */
   static: BaseAttributes;
   /**
-   * The `redirect` element is a built-in element of mono-jsx that redirects to the given URL in the client side.
+   * A built-in element of mono-jsx that redirects to the given URL in the client side.
    * @mono-jsx
    */
   redirect: {
     /**
-     * The `to` attribute is used to control the redirect URL.
+     * The redirect URL.
      */
     to?: string | URL;
     /**
-     * The `replace` attribute is used to control the replace behavior of the redirect.
+     * The replace behavior of the redirect.
      * Only works when the `router` element is used.
      */
     replace?: boolean;
   };
   /**
-   * The `invalid` element is a built-in element of mono-jsx that sets custom validation
+   * A built-in element of mono-jsx that sets custom validation
    * state for the form elements.
    * @mono-jsx
    */
@@ -244,67 +243,67 @@ export interface Elements {
     for?: string;
   };
   /**
-   * The `formslot` element is a built-in element of mono-jsx that is used to display the content of the route form
+   * A built-in element of mono-jsx that is used to display the content of the route form
    * in the `form` element.
    * @mono-jsx
    */
   formslot: BaseAttributes & {
     /**
-     * The `mode` attribute is used to control the insert position of the formslot.
+     * The insert position of the formslot.
      */
     mode?: "insertbefore" | "insertafter" | "replace";
   };
 }
 
 /**
- * The `Session` type defines the session API.
+ * The session storage API.
  */
 export interface Session {
   /**
-   * The `sessionId` is used to identify the session.
+   * The session ID.
    */
   readonly sessionId: string;
   /**
-   * The `isDirty` is true, update the session cookie to the client.
+   * If true, update the session cookie to the client.
    */
   readonly isDirty: boolean;
   /**
-   * The `get` method is used to get a value from the session.
+   * Gets a value from the session.
    */
   get<T = unknown>(key: string): T | undefined;
   /**
-   * The `entries` method is used to get all the entries from the session.
+   * Gets all the entries from the session.
    */
-  entries(): [string, unknown][];
+  all(): Record<string, unknown>;
   /**
-   * The `set` method is used to set a value in the session.
+   * Sets a value in the session.
    */
   set(key: string, value: string | number | boolean | any[] | Record<string, unknown>): void;
   /**
-   * The `delete` method is used to delete a value from the session.
+   * Deletes a value from the session.
    */
   delete(key: string): void;
   /**
-   * The `destroy` method is used to destroy the session.
+   * Destroys the session.
    */
   destroy(): void;
 }
 
 declare global {
   /**
-   * The `html` function is used to create XSS-unsafed HTML content.
+   * Creates XSS-unsafed HTML content.
    */
   var html: JSX.Raw;
   /**
-   * The `css` function is an alias to `html`.
+   * An alias to `html`.
    */
   var css: JSX.Raw;
   /**
-   * The `js` function is an alias to `html`.
+   * An alias to `html`.
    */
   var js: JSX.Raw;
   /**
-   *  The `FC` type defines Signals/Context/Refs API.
+   *  Defines the Signals/Context/Refs types.
    */
   type FC<Signals = {}, AppSignals = {}, Context = {}, Refs = {}, AppRefs = {}> = {
     /**
@@ -312,78 +311,78 @@ declare global {
      */
     readonly app: {
       /**
-       * The `app.refs` object is used to store variables in the application scope.
+       * The `app.refs` object stores variables in the application scope.
        * It is similar to `refs`, but it is shared across all components in the application.
        *
        * **⚠ This is a client-side only API.**
        */
       readonly refs: AppRefs;
       /**
-       * The `app.url` object contains the current URL information.
+       * The `app.url` object contains the current URL.
        */
       readonly url: WithParams<URL>;
     } & Omit<AppSignals, "refs" | "url">;
     /**
-     * The rendering context.
+     * The rendering context object.
      *
      * **⚠ This is a server-side only API.**
      */
     readonly context: Context;
     /**
-     * The `request` object contains the current request information.
+     * The `request` object contains the current request.
      *
      * **⚠ This is a server-side only API.**
      */
     readonly request: WithParams<
       Request & {
         /**
-         * Returns the URL of request as a URL object.
+         * Returns the URL of the request as a URL object.
          */
         URL: URL;
       }
     >;
     /**
-     * The `form` object created by the route form submission.
+     * The `form` object created by the route form.
      *
      * **⚠ This is a server-side only API.**
      */
     readonly form?: FormData;
     /**
-     * The `session` object contains the current session information.
+     * The `session` object contains the current session.
      *
      * **⚠ This is a server-side only API.**
      */
     readonly session: Session;
     /**
-     * The `refs` object is used to store variables in clide side.
+     * The `refs` object stores variables in clide side.
      *
      * **⚠ This is a client-side only API.**
      */
     readonly refs: Refs;
     /**
-     * The `computed` method is used to create a computed signal.
+     * Creates a computed signal.
      */
     readonly computed: <T = unknown>(fn: () => T) => T;
     /**
-     * `this.$(fn)` is a shortcut for `this.computed(fn)`.
+     * A shortcut for `this.computed(fn)`.
      */
     readonly $: FC["computed"];
     /**
-     * The `effect` method is used to create a side effect.
+     * Creates a side effect.
      * **The effect function is only called on client side.**
      */
     readonly effect: (fn: () => void | (() => void)) => void;
   } & Omit<Signals, "app" | "context" | "request" | "session" | "form" | "refs" | "computed" | "$" | "effect">;
   /**
-   *  The `Refs` defines the `refs` types.
+   *  Defines the `refs` type.
    */
   type Refs<T, R = {}, RR = {}> = T extends FC<infer S, infer A, infer C> ? FC<S, A, C, R, RR> : never;
   /**
-   * The `Context` defines the `context` types.
+   * Defines the `context` type.
    */
   type Context<T, C = {}> = T extends FC<infer S, infer A, infer _, infer R, infer RR> ? FC<S, A, C, R, RR> : never;
   /**
-   * The `ComponentElement` type defines the component element.
+   * The `<component>` element.
    */
   type ComponentElement = {
     name: string;
@@ -391,7 +390,7 @@ declare global {
     refresh: () => Promise<void>;
   };
   /**
-   * The `RouterElement` type defines the router element.
+   * The `<router>` element.
    */
   type RouterElement = {
     navigate: (url: string | URL, options?: { replace?: boolean }) => Promise<void>;
