@@ -1,12 +1,12 @@
 {
   "name": "mono-jsx",
-  "version": "0.7.3",
+  "version": "0.7.4",
   "description": "`<html>` as a `Response`.",
   "type": "module",
   "module": "./index.mjs",
   "types": "./types/index.d.ts",
   "bin": {
-    "mono-jsx": "./bin/mono-jsx"
+    "mono-jsx": "bin/mono-jsx"
   },
   "exports": {
     ".": {
@@ -35,6 +35,6 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/ije/mono-jsx"
+    "url": "git+https://github.com/ije/mono-jsx.git"
   }
 }
