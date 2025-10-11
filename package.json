@@ -1,6 +1,6 @@
 {
   "name": "mono-jsx",
-  "version": "0.7.4",
+  "version": "0.7.5",
   "description": "`<html>` as a `Response`.",
   "type": "module",
   "module": "./index.mjs",
