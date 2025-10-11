@@ -433,7 +433,7 @@ To render a component by name, you can use the `<component>` element with the `n
 ```tsx
 export default {
   fetch: (req) => (
-    <html components={{ Foo }}>
+    <html request={req} components={{ Foo }}>
       <component name="Foo" props={{ /* props for the component */ }} placeholder={<p>Loading...</p>} />
     </html>
   )
@@ -445,7 +445,7 @@ Or you can use the `<component>` element with the `is` prop to render a componen
 ```tsx
 export default {
   fetch: (req) => (
-    <html>
+    <html request={req}>
       <component is={Foo} props={{ /* props for the component */ }} placeholder={<p>Loading...</p>} />
     </html>
   )
@@ -476,7 +476,7 @@ function Dash(this: FC<{ page: "Profile" | "Projects" | "Settings" }>) {
 
 export default {
   fetch: (req) => (
-    <html components={{ Profile, Projects, Settings }}>
+    <html request={req} components={{ Profile, Projects, Settings }}>
       <Dash />
     </html>
   )
@@ -500,7 +500,7 @@ async function Lazy(this: FC<{ show: boolean }>, props: { url: string }) {
 
 export default {
   fetch: (req) => (
-    <html components={{ Foo }}>
+    <html request={req} components={{ Foo }}>
       <Lazy />
     </html>
   )
