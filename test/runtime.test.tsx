@@ -761,10 +761,7 @@ Deno.test("[runtime] <component>", sanitizeFalse, async () => {
     this.show = false;
     return (
       <div>
-        <toggle show={this.show}>
-          <component name="greeting" props={{ message: "Hello, world" }} placeholder={<p>loading...</p>} />
-        </toggle>
-        <button type="button" onClick={() => this.show = !this.show}>Show</button>
+        <component name="greeting" props={{ message: "Hello, world" }} placeholder={<p>loading...</p>} />
       </div>
     );
   }
@@ -773,17 +770,34 @@ Deno.test("[runtime] <component>", sanitizeFalse, async () => {
   const page = await browser.newPage();
   await page.goto(testPageUrl);
 
-  const div = await page.$("h1");
-  assert(!div);
-
-  const button = await page.$("div button");
-  assert(button);
-  await button.click();
-
-  await page.waitForNetworkIdle();
   const h1 = await page.$("h1");
   assert(h1);
   assertEquals(await h1.evaluate((el: HTMLElement) => el.textContent), "Hello, world");
+
+  await page.close();
+});
+
+Deno.test("[runtime] <component is>", sanitizeFalse, async () => {
+  function Greeting(props: { message: string }) {
+    return <h1>{props.message}!</h1>;
+  }
+
+  function App(this: FC<{ show: boolean }>) {
+    this.show = false;
+    return (
+      <div>
+        <component is={Greeting} props={{ message: "Hello, world" }} placeholder={<p>loading...</p>} />
+      </div>
+    );
+  }
+
+  const testPageUrl = addTestPage(<App />);
+  const page = await browser.newPage();
+  await page.goto(testPageUrl);
+
+  const h1 = await page.$("h1");
+  assert(h1);
+  assertEquals(await h1.evaluate((el: HTMLElement) => el.textContent), "Hello, world!");
 
   await page.close();
 });

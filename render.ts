@@ -5,7 +5,7 @@ import { COMPONENT, CX, EVENT, FORM, ROUTER, SIGNALS, STYLE, SUSPENSE } from "./
 import { COMPONENT_JS, CX_JS, EVENT_JS, FORM_JS, ROUTER_JS, SIGNALS_JS, STYLE_JS, SUSPENSE_JS } from "./runtime/index.ts";
 import { RENDER_ATTR, RENDER_SWITCH, RENDER_TOGGLE } from "./runtime/index.ts";
 import { RENDER_ATTR_JS, RENDER_SWITCH_JS, RENDER_TOGGLE_JS } from "./runtime/index.ts";
-import { cx, escapeHTML, isObject, isString, NullProtoObj, styleToCSS, toHyphenCase } from "./runtime/utils.ts";
+import { cx, escapeHTML, IdGen, isObject, isString, NullProtoObj, styleToCSS, toHyphenCase } from "./runtime/utils.ts";
 import { $fragment, $html, $signal, $vnode } from "./symbols.ts";
 import { VERSION } from "./version.ts";
 
@@ -59,11 +59,12 @@ interface Compute {
 }
 
 const cdn = "https://raw.esm.sh"; // the cdn for loading htmx and its extensions
-const subtle = crypto.subtle;
 const encoder = new TextEncoder();
 const customElements = new Map<string, FC>();
 const voidTags = new Set("area,base,br,col,embed,hr,img,input,keygen,link,meta,param,source,track,wbr".split(","));
 const cache = new Map<string, { html: string; expires?: number }>();
+const componentsMap = new IdGen<FC>();
+const subtle = crypto.subtle;
 const stringify = JSON.stringify;
 const isVNode = (v: unknown): v is VNode => Array.isArray(v) && v.length === 3 && v[2] === $vnode;
 const isSignal = (v: unknown): v is Signal => isObject(v) && !!(v as any)[$signal];
@@ -77,13 +78,6 @@ class Ref {
     public scope: number,
     public name: string,
   ) {}
-}
-
-class IdGen<T> extends Map<T, number> implements IdGen<T> {
-  #seq = 0;
-  gen(v: T) {
-    return this.get(v) ?? this.set(v, this.#seq++).get(v)!;
-  }
 }
 
 class IdGenManager<T> {
@@ -132,12 +126,14 @@ export function renderHtml(node: VNode, options: RenderOptions): Response {
   const request: Request & { URL?: URL; params?: Record<string, string> } | undefined = options.request;
   const headers = new Headers();
   const reqHeaders = request?.headers;
-  const componentHeader = reqHeaders?.get("x-component");
+  const compHeader = reqHeaders?.get("x-component");
 
+  let status = options.status;
   let routeFC: MaybeModule<FC<any>> | undefined = request ? Reflect.get(request, "x-route") : undefined;
   let routeForm: Promise<FormData> | undefined;
-  let component = componentHeader ? components?.[componentHeader] : null;
-  let status = options.status;
+  let component = compHeader
+    ? (compHeader.startsWith("@comp_") ? componentsMap.getById(Number(compHeader.slice(6))) : components?.[compHeader])
+    : null;
 
   if (request) {
     request.URL = new URL(request.url);
@@ -226,7 +222,7 @@ export function renderHtml(node: VNode, options: RenderOptions): Response {
       }),
       { headers },
     );
-  } else if (componentHeader) {
+  } else if (compHeader) {
     return new Response("Component not found: " + component, { status: 404 });
   }
 
@@ -588,18 +584,22 @@ async function renderNode(rc: RenderContext, node: ChildType, stripSlotProp?: bo
 
           // `<component>` element
           case "component": {
-            let { placeholder, viewTransition } = props;
+            let { placeholder, viewTransition, is } = props;
             let attrs = "";
             let attrModifiers = "";
             for (const p of ["name", "props", "ref"]) {
-              let propValue = props[p];
-              let [attr, , attrSignal] = renderAttr(rc, p, propValue);
+              const [attr, , attrSignal] = renderAttr(rc, p, props[p]);
               if (attrSignal) {
                 attrModifiers += renderSignal(rc, attrSignal, [p]);
                 rc.flags.runtime |= RENDER_ATTR;
-                propValue = attrSignal[$signal].value;
               }
               attrs += attr;
+            }
+            if (!props.name && typeof is === "function" && is.name) {
+              const c = is.name.charCodeAt(0);
+              if (c >= /*A*/ 65 && c <= /*Z*/ 90) {
+                attrs += ' name="@comp_' + componentsMap.gen(is) + '"';
+              }
             }
             attrs += renderViewTransitionAttr(viewTransition);
             let buf = "<m-component" + attrs + ">";

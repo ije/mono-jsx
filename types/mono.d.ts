@@ -163,6 +163,10 @@ export interface Elements {
      */
     name?: string;
     /**
+     * The component to render.
+     */
+    is?: import("./jsx.d.ts").FC<any>;
+    /**
      * The props of the component to render.
      */
     props?: Record<string, unknown>;

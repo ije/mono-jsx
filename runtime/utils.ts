@@ -10,6 +10,20 @@ export const isString = (v: unknown): v is string => typeof v === "string";
 export const isObject = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null;
 export const toHyphenCase = (k: string) => k.replace(/[a-z][A-Z]/g, (m) => m.charAt(0) + "-" + m.charAt(1).toLowerCase());
 
+export class IdGen<T> extends Map<T, number> {
+  #seq = 0;
+  gen(v: T) {
+    return this.get(v) ?? this.set(v, this.#seq++).get(v)!;
+  }
+  getById(id: number): T | void {
+    for (const [v, i] of this.entries()) {
+      if (i === id) {
+        return v;
+      }
+    }
+  }
+}
+
 /** merge class names. */
 export const cx = (className: unknown): string => {
   if (typeof className === "string") {
@@ -59,6 +73,7 @@ export const styleToCSS = (style: Record<string, unknown>): { inline?: string; c
   return ret;
 };
 
+/** applies the style to the page. */
 export const applyStyle = (el: Element, style: Record<string, unknown>): void => {
   const { inline, css } = styleToCSS(style);
   if (css) {
@@ -73,8 +88,7 @@ export const applyStyle = (el: Element, style: Record<string, unknown>): void =>
   }
 };
 
-// @internal
-const renderStyle = (style: unknown): string => {
+export const renderStyle = (style: unknown): string => {
   if (typeof style === "object" && style !== null) {
     let css = "";
     for (const [k, v] of Array.isArray(style) ? style : Object.entries(style)) {
