@@ -769,6 +769,7 @@ Deno.test("[runtime] <component>", sanitizeFalse, async () => {
   const testPageUrl = addTestPage(<App />);
   const page = await browser.newPage();
   await page.goto(testPageUrl);
+  await page.waitForNetworkIdle();
 
   const h1 = await page.$("h1");
   assert(h1);
@@ -794,6 +795,7 @@ Deno.test("[runtime] <component is>", sanitizeFalse, async () => {
   const testPageUrl = addTestPage(<App />);
   const page = await browser.newPage();
   await page.goto(testPageUrl);
+  await page.waitForNetworkIdle();
 
   const h1 = await page.$("h1");
   assert(h1);
