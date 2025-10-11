@@ -5,7 +5,7 @@
 mono-jsx is a JSX runtime that renders the `<html>` element to a `Response` object.
 
 - 🚀 No build step needed
-- 🦋 Lightweight (10KB gzipped), zero dependencies
+- 🦋 Lightweight (12KB gzipped), zero dependencies
 - 🚦 Signals as reactive primitives
 - ⚡️ Use web components, no virtual DOM
 - 💡 Complete Web API TypeScript definitions
@@ -428,6 +428,8 @@ export default {
 
 mono-jsx renders HTML on the server side and sends no hydration JavaScript to the client. To render a component dynamically on the client, you can use the `<component>` element to ask the server to render a component:
 
+To render a component by name, you can use the `<component>` element with the `name` prop, and ensure the component is registered in the `components` prop of root `<html>` element.
+
 ```tsx
 export default {
   fetch: (req) => (
@@ -438,31 +440,19 @@ export default {
 }
 ```
 
-You can use the `<toggle>` element to control when to render a component:
+Or you can use the `<component>` element with the `is` prop to render a component by function reference without registering the component in the `components` prop of root `<html>` element.
 
 ```tsx
-async function Lazy(this: FC<{ show: boolean }>, props: { url: string }) {
-  this.show = false;
-  return (
-    <div>
-      <toggle show={this.show}>
-        <component name="Foo" props={{ /* props for the component */ }} placeholder={<p>Loading...</p>} />
-      </toggle>
-     <button onClick={() => this.show = true }>Load `Foo` Component</button>
-    </div>
-  )
-}
-
 export default {
   fetch: (req) => (
-    <html components={{ Foo }}>
-      <Lazy />
+    <html>
+      <component is={Foo} props={{ /* props for the component */ }} placeholder={<p>Loading...</p>} />
     </html>
   )
 }
 ```
 
-You can also use signals for `name` or `props` attributes of a component. Changing the signal value will trigger the component to re-render with the new name or props:
+You can also use [signals](#using-signals) for `name` or `props` attributes of a component. Changing the signal value will trigger the component to re-render with the new name or props:
 
 ```tsx
 import { Profile, Projects, Settings } from "./pages.tsx"
@@ -488,6 +478,30 @@ export default {
   fetch: (req) => (
     <html components={{ Profile, Projects, Settings }}>
       <Dash />
+    </html>
+  )
+}
+```
+
+You can use the `<toggle>` element to control when to render a component:
+
+```tsx
+async function Lazy(this: FC<{ show: boolean }>, props: { url: string }) {
+  this.show = false;
+  return (
+    <div>
+      <toggle show={this.show}>
+        <component name="Foo" props={{ /* props for the component */ }} placeholder={<p>Loading...</p>} />
+      </toggle>
+     <button onClick={() => this.show = true }>Load `Foo` Component</button>
+    </div>
+  )
+}
+
+export default {
+  fetch: (req) => (
+    <html components={{ Foo }}>
+      <Lazy />
     </html>
   )
 }

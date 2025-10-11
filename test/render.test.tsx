@@ -1761,6 +1761,10 @@ Deno.test("[ssr] <component>", async () => {
     return <component name="App" props={{ foo: this.foo, color: "blue" }} placeholder={<p>loading...</p>} />;
   }
 
+  function LazyAppIsProp(this: FC) {
+    return <component is={App} props={{ foo: "bar" }} placeholder={<p>loading...</p>} />;
+  }
+
   assertEquals(
     await renderToString(
       <component name="App" props={{ foo: "bar" }} placeholder={<p>loading...</p>} />,
@@ -1892,6 +1896,23 @@ Deno.test("[ssr] <component>", async () => {
         `$MS("2:message","Welcome to mono-jsx!");`,
       ].join(""),
     ],
+  );
+
+  assertEquals(
+    await renderToString(<LazyAppIsProp />),
+    [
+      `<!DOCTYPE html>`,
+      `<html lang="en"><body>`,
+      `<m-component props="base64,eyJmb28iOiJiYXIifQ==" name="@comp_0"><p>loading...</p></m-component>`,
+      `</body></html>`,
+      `<script data-mono-jsx="${VERSION}">`,
+      `(()=>{`,
+      COMPONENT_JS,
+      `})();`,
+      `/* --- */`,
+      `window.$FLAGS="1|0|${COMPONENT}";`,
+      `</script>`,
+    ].join(""),
   );
 });
 
