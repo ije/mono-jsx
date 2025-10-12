@@ -431,22 +431,38 @@ mono-jsx renders HTML on the server side and sends no hydration JavaScript to th
 To render a component by name, you can use the `<component>` element with the `name` prop, and ensure the component is registered in the `components` prop of root `<html>` element.
 
 ```tsx
+function Foo(props: { bar: string }) {
+  return <h1>{props.bar}</h1>;
+}
+
 export default {
   fetch: (req) => (
     <html request={req} components={{ Foo }}>
-      <component name="Foo" props={{ /* props for the component */ }} placeholder={<p>Loading...</p>} />
+      <component name="Foo" props={{ bar: "baz" }} placeholder={<p>Loading...</p>} />
     </html>
   )
 }
 ```
 
-Or you can use the `<component>` element with the `is` prop to render a component by function reference without registering the component in the `components` prop of root `<html>` element.
+You can use the `<component>` element with the `is` prop to render a component by function reference without registering the component in the `components` prop of root `<html>` element.
 
 ```tsx
 export default {
   fetch: (req) => (
     <html request={req}>
-      <component is={Foo} props={{ /* props for the component */ }} placeholder={<p>Loading...</p>} />
+      <component is={Foo} props={{ bar: "baz" }} placeholder={<p>Loading...</p>} />
+    </html>
+  )
+}
+```
+
+Or you can use the `<component>` element with the `as` prop to render a component by JSX element.
+
+```tsx
+export default {
+  fetch: (req) => (
+    <html request={req}>
+      <component as={<Foo bar="baz" />} placeholder={<p>Loading...</p>} />
     </html>
   )
 }
@@ -491,7 +507,7 @@ async function Lazy(this: FC<{ show: boolean }>, props: { url: string }) {
   return (
     <div>
       <toggle show={this.show}>
-        <component name="Foo" props={{ /* props for the component */ }} placeholder={<p>Loading...</p>} />
+        <component name="Foo" props={{ bar: "baz" }} placeholder={<p>Loading...</p>} />
       </toggle>
      <button onClick={() => this.show = true }>Load `Foo` Component</button>
     </div>
@@ -899,6 +915,8 @@ The `<component>` element also supports the `ref` attribute, which allows you to
 - `refresh`: A method to re-render the component with the current name and props.
 
 ```tsx
+import type { ComponentElement } from "mono-jsx";
+
 function App(this: Refs<FC, { component: ComponentElement }>) {
   this.effect(() => {
     // updating the component name and props will trigger a re-render of the component
