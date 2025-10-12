@@ -68,6 +68,7 @@ const subtle = crypto.subtle;
 const stringify = JSON.stringify;
 const isVNode = (v: unknown): v is VNode => Array.isArray(v) && v.length === 3 && v[2] === $vnode;
 const isSignal = (v: unknown): v is Signal => isObject(v) && !!(v as any)[$signal];
+const isFC = (v: unknown): v is FC => typeof v === "function" && v.name.charCodeAt(0) <= /*Z*/ 90;
 const hashCode = (s: string) => [...s].reduce((hash, c) => (Math.imul(31, hash) + c.charCodeAt(0)) | 0, 0);
 const escapeCSSText = (str: string): string => str.replace(/[<>]/g, (m) => m.charCodeAt(0) === 60 ? "&lt;" : "&gt;");
 const toAttrStringLit = (str: string) => '"' + escapeHTML(str) + '"';
@@ -584,23 +585,33 @@ async function renderNode(rc: RenderContext, node: ChildType, stripSlotProp?: bo
 
           // `<component>` element
           case "component": {
-            let { placeholder, viewTransition, is } = props;
+            let { placeholder, viewTransition, is, as } = props;
             let attrs = "";
             let attrModifiers = "";
-            for (const p of ["name", "props", "ref"]) {
-              const [attr, , attrSignal] = renderAttr(rc, p, props[p]);
-              if (attrSignal) {
-                attrModifiers += renderSignal(rc, attrSignal, [p]);
-                rc.flags.runtime |= RENDER_ATTR;
+            let writeAttr = (propName: string, propValue = props[propName]) => {
+              if (propValue !== undefined) {
+                const [attr, , attrSignal] = renderAttr(rc, propName, propValue);
+                if (attrSignal) {
+                  attrModifiers += renderSignal(rc, attrSignal, [propName]);
+                  rc.flags.runtime |= RENDER_ATTR;
+                }
+                attrs += attr;
               }
-              attrs += attr;
-            }
-            if (!props.name && typeof is === "function" && is.name) {
-              const c = is.name.charCodeAt(0);
-              if (c >= /*A*/ 65 && c <= /*Z*/ 90) {
-                attrs += ' name="@comp_' + componentsMap.gen(is) + '"';
+            };
+            if (isVNode(as)) {
+              const [fc, props] = as;
+              if (isFC(fc)) {
+                attrs += ' name="@comp_' + componentsMap.gen(fc) + '"';
+                writeAttr("props", props);
               }
+            } else if (isFC(is)) {
+              attrs += ' name="@comp_' + componentsMap.gen(is) + '"';
+              writeAttr("props");
+            } else if (props.name) {
+              writeAttr("name");
+              writeAttr("props");
             }
+            writeAttr("ref");
             attrs += renderViewTransitionAttr(viewTransition);
             let buf = "<m-component" + attrs + ">";
             if (placeholder) {

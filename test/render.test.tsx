@@ -1,9 +1,10 @@
+import type { ComponentElement } from "../types/mono.d.ts";
 import type { RenderOptions } from "../types/render.d.ts";
 import { assert, assertEquals } from "jsr:@std/assert@1.0.14";
+import { cache } from "../render.ts";
 import { COMPONENT, FORM_JS, RENDER_ATTR, ROUTER, SIGNALS } from "../runtime/index.ts";
 import { COMPONENT_JS, CX_JS, EVENT_JS, ROUTER_JS, SIGNALS_JS, STYLE_JS, SUSPENSE_JS } from "../runtime/index.ts";
 import { RENDER_ATTR_JS, RENDER_SWITCH_JS, RENDER_TOGGLE_JS } from "../runtime/index.ts";
-import { cache } from "../render.ts";
 import { VERSION } from "../version.ts";
 
 const renderToString = (node: JSX.Element, renderOptions?: RenderOptions) => {
@@ -1735,9 +1736,12 @@ Deno.test("[ssr] <switch>", async () => {
 });
 
 Deno.test("[ssr] <component>", async () => {
-  async function App(this: FC<{ message: string }>) {
-    this.message = await Promise.resolve("Welcome to mono-jsx!");
-    return <h1>{this.message}</h1>;
+  function App(props: { foo: string }) {
+    return <h1>{props.foo}</h1>;
+  }
+
+  function App2(props: { foo: string }) {
+    return <h2>{props.foo}</h2>;
   }
 
   function LazyAppWithSingalName(this: FC<{ name: string }>) {
@@ -1763,6 +1767,10 @@ Deno.test("[ssr] <component>", async () => {
 
   function LazyAppIsProp(this: FC) {
     return <component is={App} props={{ foo: "bar" }} placeholder={<p>loading...</p>} />;
+  }
+
+  function LazyAppAsProp(this: FC) {
+    return <component as={<App2 foo="bar" />} placeholder={<p>loading...</p>} />;
   }
 
   assertEquals(
@@ -1873,6 +1881,40 @@ Deno.test("[ssr] <component>", async () => {
   );
 
   assertEquals(
+    await renderToString(<LazyAppIsProp />),
+    [
+      `<!DOCTYPE html>`,
+      `<html lang="en"><body>`,
+      `<m-component name="@comp_0" props="base64,eyJmb28iOiJiYXIifQ=="><p>loading...</p></m-component>`,
+      `</body></html>`,
+      `<script data-mono-jsx="${VERSION}">`,
+      `(()=>{`,
+      COMPONENT_JS,
+      `})();`,
+      `/* --- */`,
+      `window.$FLAGS="1|0|${COMPONENT}";`,
+      `</script>`,
+    ].join(""),
+  );
+
+  assertEquals(
+    await renderToString(<LazyAppAsProp />),
+    [
+      `<!DOCTYPE html>`,
+      `<html lang="en"><body>`,
+      `<m-component name="@comp_1" props="base64,eyJmb28iOiJiYXIifQ=="><p>loading...</p></m-component>`,
+      `</body></html>`,
+      `<script data-mono-jsx="${VERSION}">`,
+      `(()=>{`,
+      COMPONENT_JS,
+      `})();`,
+      `/* --- */`,
+      `window.$FLAGS="1|0|${COMPONENT}";`,
+      `</script>`,
+    ].join(""),
+  );
+
+  assertEquals(
     JSON.parse(
       await renderToString(<div />, {
         components: { App },
@@ -1886,33 +1928,45 @@ Deno.test("[ssr] <component>", async () => {
       }),
     ),
     [
-      `<h1><m-signal scope="2" key="message">Welcome to mono-jsx!</m-signal></h1>`,
-      [
-        `(()=>{`,
-        SIGNALS_JS,
-        `})();`,
-        `/* --- */`,
-        `window.$FLAGS="2|0|${SIGNALS | COMPONENT}";`,
-        `$MS("2:message","Welcome to mono-jsx!");`,
-      ].join(""),
+      `<h1>bar</h1>`,
+      `window.$FLAGS="2|0|${COMPONENT}";`,
     ],
   );
 
   assertEquals(
-    await renderToString(<LazyAppIsProp />),
+    JSON.parse(
+      await renderToString(<div />, {
+        request: new Request("https://example.com", {
+          headers: {
+            "x-component": "@comp_0",
+            "x-props": JSON.stringify({ foo: "bar" }),
+            "x-flags": "1|0|" + COMPONENT,
+          },
+        }),
+      }),
+    ),
     [
-      `<!DOCTYPE html>`,
-      `<html lang="en"><body>`,
-      `<m-component props="base64,eyJmb28iOiJiYXIifQ==" name="@comp_0"><p>loading...</p></m-component>`,
-      `</body></html>`,
-      `<script data-mono-jsx="${VERSION}">`,
-      `(()=>{`,
-      COMPONENT_JS,
-      `})();`,
-      `/* --- */`,
-      `window.$FLAGS="1|0|${COMPONENT}";`,
-      `</script>`,
-    ].join(""),
+      `<h1>bar</h1>`,
+      `window.$FLAGS="2|0|${COMPONENT}";`,
+    ],
+  );
+
+  assertEquals(
+    JSON.parse(
+      await renderToString(<div />, {
+        request: new Request("https://example.com", {
+          headers: {
+            "x-component": "@comp_1",
+            "x-props": JSON.stringify({ foo: "bar" }),
+            "x-flags": "1|0|" + COMPONENT,
+          },
+        }),
+      }),
+    ),
+    [
+      `<h2>bar</h2>`,
+      `window.$FLAGS="2|0|${COMPONENT}";`,
+    ],
   );
 });
 

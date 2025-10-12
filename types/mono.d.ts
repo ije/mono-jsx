@@ -167,6 +167,10 @@ export interface Elements {
      */
     is?: import("./jsx.d.ts").FC<any>;
     /**
+     * The element to render.
+     */
+    as?: JSX.Element;
+    /**
      * The props of the component to render.
      */
     props?: Record<string, unknown>;
@@ -258,6 +262,22 @@ export interface Elements {
     mode?: "insertbefore" | "insertafter" | "replace";
   };
 }
+
+/**
+ * The `<component>` element.
+ */
+export type ComponentElement = {
+  name: string;
+  props: Record<string, unknown> | undefined;
+  refresh: () => Promise<void>;
+};
+
+/**
+ * The `<router>` element.
+ */
+export type RouterElement = {
+  navigate: (url: string | URL, options?: { replace?: boolean }) => Promise<void>;
+};
 
 /**
  * The session storage API.
@@ -385,18 +405,4 @@ declare global {
    * Defines the `context` type.
    */
   type Context<T, C = {}> = T extends FC<infer S, infer A, infer _, infer R, infer RR> ? FC<S, A, C, R, RR> : never;
-  /**
-   * The `<component>` element.
-   */
-  type ComponentElement = {
-    name: string;
-    props: Record<string, unknown> | undefined;
-    refresh: () => Promise<void>;
-  };
-  /**
-   * The `<router>` element.
-   */
-  type RouterElement = {
-    navigate: (url: string | URL, options?: { replace?: boolean }) => Promise<void>;
-  };
 }

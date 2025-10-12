@@ -1,3 +1,4 @@
+import type { ComponentElement } from "../types/mono.d.ts";
 import { assert, assertEquals } from "jsr:@std/assert@1.0.14";
 import puppeteer from "npm:puppeteer-core@23.1.1";
 import chrome from "npm:puppeteer-chromium-resolver@23.0.0";
