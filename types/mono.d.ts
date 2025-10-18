@@ -98,6 +98,10 @@ export interface BaseAttributes {
    * The `slot` attribute assigns a slot in a [shadow DOM](https://developer.mozilla.org/en-US/docs/Web/API/Web_components/Using_shadow_DOM) shadow tree to an element: An element with a `slot` attribute is assigned to the slot created by the `<slot>` element whose name attribute's value matches that slot attribute's value.
    */
   slot?: string;
+  /**
+   * The `mount` attribute is used to mount the element to the DOM.
+   */
+  mount?: HTMLElement;
 }
 
 export interface AsyncComponentAttributes {

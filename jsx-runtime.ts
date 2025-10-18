@@ -6,17 +6,14 @@ import { $fragment, $html, $setup, $vnode } from "./symbols.ts";
 export const Fragment = $fragment as unknown as FC;
 
 export const jsx = (tag: string | FC, props: Record<string, unknown> = new NullProtoObj(), key?: string | number): VNode => {
-  const vnode = new Array(3).fill(null);
-  vnode[0] = tag;
-  vnode[1] = props;
-  vnode[2] = $vnode;
+  const vnode: VNode = [tag, props, $vnode];
   if (key !== undefined) {
     props.key = key;
   }
-  // if the tag name is `html`, render it to a `Response` object
   if (tag === "html") {
     if (props.request as unknown === $setup) {
-      // if the request is a 'setup' request, return the props as a VNode
+      // if the request is a 'setup' request, return the props
+      // this is used for `buildRoutes` function
       return props as unknown as VNode;
     }
     const renderOptions = new NullProtoObj();
@@ -27,12 +24,13 @@ export const jsx = (tag: string | FC, props: Record<string, unknown> = new NullP
         delete props[key];
       }
     }
+    // if the tag name is `html`, render it to a `Response` object
     return renderHtml(vnode as unknown as VNode, renderOptions) as unknown as VNode;
   } else if (tag === "static") {
     // track the stack of the static element to identify the caller
     props.$stack = new Error().stack?.split("at ", 3)[2]?.trim();
   }
-  return vnode as unknown as VNode;
+  return vnode;
 };
 
 export const jsxEscape = (value: unknown): string => {
