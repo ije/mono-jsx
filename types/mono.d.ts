@@ -136,6 +136,7 @@ export interface Elements {
      */
     viewTransition?: string | boolean;
   };
+
   /**
    * A a built-in element of mono-jsx that chooses one of its children based on the `slot` attribute to display.
    * It is similar to a switch statement in programming languages.
@@ -152,6 +153,7 @@ export interface Elements {
      */
     viewTransition?: string | boolean;
   };
+
   /**
    * A built-in element of mono-jsx that is used to load components lazily,
    * which can improve performance by reducing the initial load time of the application.
@@ -184,6 +186,7 @@ export interface Elements {
      */
     viewTransition?: string | boolean;
   };
+
   /**
    * A built-in element of mono-jsx that provides SPA routing.
    * @mono-jsx
@@ -203,6 +206,7 @@ export interface Elements {
      */
     viewTransition?: string | boolean;
   };
+
   /**
    * A built-in element of mono-jsx that caches the rendered content of the child nodes
    * with the given key and TTL.
@@ -218,12 +222,14 @@ export interface Elements {
      */
     ttl?: number;
   };
+
   /**
    * A built-in element of mono-jsx that treats the child nodes as static content,
    * When the child nodes are rendered once, they will be cached in memory and reused on subsequent renders.
    * @mono-jsx
    */
   static: BaseAttributes;
+
   /**
    * A built-in element of mono-jsx that redirects to the given URL in the client side.
    * @mono-jsx
@@ -239,6 +245,7 @@ export interface Elements {
      */
     replace?: boolean;
   };
+
   /**
    * A built-in element of mono-jsx that sets custom validation
    * state for the form elements.
@@ -250,6 +257,7 @@ export interface Elements {
      */
     for?: string;
   };
+
   /**
    * A built-in element of mono-jsx that is used to display the content of the route form
    * in the `form` element.
@@ -326,6 +334,7 @@ declare global {
    * An alias to `html`.
    */
   var js: JSX.Raw;
+
   /**
    *  Defines the Signals/Context/Refs types.
    */
@@ -397,12 +406,14 @@ declare global {
      */
     readonly effect: (fn: () => void | (() => void)) => void;
   } & Omit<Signals, "app" | "context" | "request" | "session" | "form" | "refs" | "computed" | "$" | "effect">;
-  /**
-   *  Defines the `refs` type.
-   */
-  type Refs<T, R = {}, RR = {}> = T extends FC<infer S, infer A, infer C> ? FC<S, A, C, R, RR> : never;
+
   /**
    * Defines the `context` type.
    */
   type Context<T, C = {}> = T extends FC<infer S, infer A, infer _, infer R, infer RR> ? FC<S, A, C, R, RR> : never;
+
+  /**
+   *  Defines the `refs` type.
+   */
+  type Refs<T, R = {}, RR = {}> = T extends FC<infer S, infer A, infer C> ? FC<S, A, C, R, RR> : never;
 }
