@@ -740,8 +740,8 @@ async function renderNode(rc: RenderContext, node: ChildType, stripSlotProp?: bo
               }
               let buffer = "<" + tag;
               let attrModifiers = "";
-              let noChildren = props.children === undefined;
-              let isSvgSelfClosingElement = rc.svg && noChildren;
+              let isSingleEl = props.children === undefined;
+              let isSvgSelfClosingElement = rc.svg && isSingleEl;
               for (let [propName, propValue] of Object.entries(props)) {
                 switch (propName) {
                   case "children":
@@ -772,9 +772,7 @@ async function renderNode(rc: RenderContext, node: ChildType, stripSlotProp?: bo
                 if (attrModifiers) {
                   write(attrModifiers);
                 }
-                if (props.innerHTML) {
-                  write(props.innerHTML);
-                } else if (!noChildren) {
+                if (!isSingleEl) {
                   await renderChildren(tag === "svg" ? { ...rc, svg: true } : rc, props.children);
                 }
                 if (!isSvgSelfClosingElement) {
@@ -787,8 +785,8 @@ async function renderNode(rc: RenderContext, node: ChildType, stripSlotProp?: bo
           }
         }
       } else if (Array.isArray(node)) {
-        if (node.length > 0) {
-          await renderChildren(rc, node);
+        for (const child of node) {
+          await renderNode(rc, child);
         }
       }
       break;
