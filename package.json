@@ -23,6 +23,16 @@
       "types": "./types/jsx-runtime.d.ts",
       "node": "./jsx-runtime.mjs",
       "import": "./jsx-runtime.mjs"
+    },
+    "./dom/jsx-runtime": {
+      "types": "./types/jsx-runtime.d.ts",
+      "node": "./dom/jsx-runtime.mjs",
+      "import": "./dom/jsx-runtime.mjs"
+    },
+    "./dom/jsx-dev-runtime": {
+      "types": "./types/jsx-runtime.d.ts",
+      "node": "./dom/jsx-runtime.mjs",
+      "import": "./dom/jsx-runtime.mjs"
     }
   },
   "scripts": {

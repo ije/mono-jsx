@@ -115,7 +115,7 @@ if (import.meta.main) {
     ].join(eol),
   );
 
-  for (const moduleName of ["index", "jsx-runtime", "setup"]) {
+  for (const moduleName of ["setup", "index", "jsx-runtime", "dom/jsx-runtime"]) {
     const { size } = await buildPackageModule(moduleName, "esm");
     console.log(`· ${moduleName}.mjs %c(${formatBytes(size)})`, "color:grey");
   }

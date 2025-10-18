@@ -5,7 +5,7 @@ import { COMPONENT, CX, EVENT, FORM, ROUTER, SIGNALS, STYLE, SUSPENSE } from "./
 import { COMPONENT_JS, CX_JS, EVENT_JS, FORM_JS, ROUTER_JS, SIGNALS_JS, STYLE_JS, SUSPENSE_JS } from "./runtime/index.ts";
 import { RENDER_ATTR, RENDER_SWITCH, RENDER_TOGGLE } from "./runtime/index.ts";
 import { RENDER_ATTR_JS, RENDER_SWITCH_JS, RENDER_TOGGLE_JS } from "./runtime/index.ts";
-import { cx, escapeHTML, IdGen, isObject, isString, NullProtoObj, styleToCSS, toHyphenCase } from "./runtime/utils.ts";
+import { cx, escapeHTML, IdGen, isObject, isString, NullProtoObject, styleToCSS, toHyphenCase } from "./runtime/utils.ts";
 import { $fragment, $html, $signal, $vnode } from "./symbols.ts";
 import { VERSION } from "./version.ts";
 
@@ -740,8 +740,8 @@ async function renderNode(rc: RenderContext, node: ChildType, stripSlotProp?: bo
               }
               let buffer = "<" + tag;
               let attrModifiers = "";
-              let noChildren = props.children === undefined;
-              let isSvgSelfClosingElement = rc.svg && noChildren;
+              let isSingleEl = props.children === undefined;
+              let isSvgSelfClosingElement = rc.svg && isSingleEl;
               for (let [propName, propValue] of Object.entries(props)) {
                 switch (propName) {
                   case "children":
@@ -772,9 +772,7 @@ async function renderNode(rc: RenderContext, node: ChildType, stripSlotProp?: bo
                 if (attrModifiers) {
                   write(attrModifiers);
                 }
-                if (props.innerHTML) {
-                  write(props.innerHTML);
-                } else if (!noChildren) {
+                if (!isSingleEl) {
                   await renderChildren(tag === "svg" ? { ...rc, svg: true } : rc, props.children);
                 }
                 if (!isSvgSelfClosingElement) {
@@ -787,8 +785,8 @@ async function renderNode(rc: RenderContext, node: ChildType, stripSlotProp?: bo
           }
         }
       } else if (Array.isArray(node)) {
-        if (node.length > 0) {
-          await renderChildren(rc, node);
+        for (const child of node) {
+          await renderNode(rc, child);
         }
       }
       break;
@@ -1104,7 +1102,7 @@ function Signal(
   value: unknown,
 ): Signal {
   const signal = { scope, key, value };
-  return new Proxy(new NullProtoObj(), {
+  return new Proxy(new NullProtoObject(), {
     get(_target, prop) {
       if (prop === $signal) {
         return signal;
@@ -1132,10 +1130,10 @@ function createThisScope(
   scopeId: number,
 ): Record<string, unknown> {
   const { context, request, routeForm, session } = rc;
-  const store = new NullProtoObj() as Record<string | symbol, unknown>;
+  const store = new NullProtoObject() as Record<string | symbol, unknown>;
   const signals = new Map<string, Signal>();
   const effects = [] as string[];
-  const refs = new Proxy(Object.create(null), {
+  const refs = new Proxy(new NullProtoObject(), {
     get(_, key) {
       return new Ref(scopeId, key as string);
     },
@@ -1311,7 +1309,7 @@ function traverseProps(
   path: string[] = [],
 ): typeof obj {
   const isArray = Array.isArray(obj);
-  const copy: any = isArray ? new Array(obj.length) : new NullProtoObj();
+  const copy: any = isArray ? new Array(obj.length) : new NullProtoObject();
   for (const [k, value] of Object.entries(obj)) {
     const newPath = path.concat(isArray ? k : stringify(k));
     const key = isArray ? Number(k) : k;
