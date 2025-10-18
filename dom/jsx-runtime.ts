@@ -1,12 +1,12 @@
 import type { FC, VNode } from "../types/jsx.d.ts";
-import { isString, NullProtoObj } from "../runtime/utils.ts";
+import { isString, NullProtoObject } from "../runtime/utils.ts";
 import { $fragment, $html, $vnode } from "../symbols.ts";
 import { isSignal, JSX, render } from "./render.ts";
 
 const div = document.createElement("div");
 const Fragment = $fragment as unknown as FC;
 
-const jsx = (tag: string | FC, props: Record<string, unknown> = new NullProtoObj(), key?: string | number): VNode => {
+const jsx = (tag: string | FC, props: Record<string, unknown> = new NullProtoObject(), key?: string | number): VNode => {
   const vnode: VNode = [tag, props, $vnode];
   if (key !== undefined) {
     props.key = key;

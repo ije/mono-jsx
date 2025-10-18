@@ -1,6 +1,6 @@
 import type { FC, VNode } from "../types/jsx.d.ts";
 import type { ChildType } from "../types/mono.d.ts";
-import { applyStyle, cx, isObject, isString } from "../runtime/utils.ts";
+import { applyStyle, cx, isObject, isString, NullProtoObject } from "../runtime/utils.ts";
 import { $fragment, $html, $signal, $vnode } from "../symbols.ts";
 
 interface Signal {
@@ -180,11 +180,7 @@ function renderChildren(children: ChildType | ChildType[], root: HTMLElement) {
 }
 
 function renderFC(fc: FC, props: Record<string, unknown>, root: HTMLElement) {
-  const el = document.createElement(fc.name);
-  for (const [key, value] of Object.entries(props)) {
-    el.setAttribute(key, String(value));
-  }
-  root.appendChild(el);
+  const scope = new NullProtoObject();
 }
 
 export { customElements, isSignal, JSX, render };

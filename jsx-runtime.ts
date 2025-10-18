@@ -1,11 +1,11 @@
 import type { FC, VNode } from "./types/jsx.d.ts";
 import { isSignal, JSX, renderHtml } from "./render.ts";
-import { escapeHTML, isString, NullProtoObj } from "./runtime/utils.ts";
+import { escapeHTML, isString, NullProtoObject } from "./runtime/utils.ts";
 import { $fragment, $html, $setup, $vnode } from "./symbols.ts";
 
 export const Fragment = $fragment as unknown as FC;
 
-export const jsx = (tag: string | FC, props: Record<string, unknown> = new NullProtoObj(), key?: string | number): VNode => {
+export const jsx = (tag: string | FC, props: Record<string, unknown> = new NullProtoObject(), key?: string | number): VNode => {
   const vnode: VNode = [tag, props, $vnode];
   if (key !== undefined) {
     props.key = key;
@@ -16,7 +16,7 @@ export const jsx = (tag: string | FC, props: Record<string, unknown> = new NullP
       // this is used for `buildRoutes` function
       return props as unknown as VNode;
     }
-    const renderOptions = new NullProtoObj();
+    const renderOptions = new NullProtoObject();
     const optionsKeys = new Set(["app", "context", "components", "routes", "request", "session", "status", "headers", "htmx"]);
     for (const [key, value] of Object.entries(props)) {
       if (optionsKeys.has(key) || key.startsWith("htmx-ext-")) {

@@ -8,130 +8,14 @@ let testRoutes: Map<string, JSX.Element> = new Map();
 let count = 0;
 
 function addTestPage(page: JSX.Element, query?: string) {
-  let pathname = `/test_${routeSeq++}`;
+  const pathname = `/test_${routeSeq++}`;
   testRoutes.set(pathname, page);
-  return `http://localhost:8687${pathname}${query ? `?${query}` : ""}`;
+  return "http://localhost:8687" + pathname + (query ? `?${query}` : "");
 }
 
 function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
-
-Deno.serve({ port: 8687, onListen: () => {} }, (request) => {
-  const url = new URL(request.url);
-  if (url.pathname === "/favicon.ico") {
-    return new Response(null, { status: 404 });
-  }
-
-  // for htmx integration testing
-  if (url.pathname === "/clicked") {
-    return (
-      <html>
-        <h1>Clicked!</h1>
-      </html>
-    );
-  }
-
-  return (
-    <html
-      request={request}
-      app={{
-        count: 0,
-        themeColor: "",
-      }}
-      components={{
-        greeting: async (props: { message: string }) => {
-          await sleep(20);
-          return <h1>{props.message}</h1>;
-        },
-        count: async () => {
-          await sleep(20);
-          return <span>{count++}</span>;
-        },
-        a: async (props: { name: string }) => {
-          await sleep(20);
-          return <strong>{props.name.toUpperCase()}</strong>;
-        },
-        b: async (props: { name: string }) => {
-          await sleep(20);
-          return <strong>{props.name.toUpperCase()}</strong>;
-        },
-        c: async (props: { name: string }) => {
-          await sleep(20);
-          return <strong>{props.name.toUpperCase()}</strong>;
-        },
-      }}
-      routes={{
-        "/": () => <h1>Home</h1>,
-        "/about": () => <h1>About</h1>,
-        "/post/:slug": function(this: FC) {
-          return <h1>Post: {this.request.params!.slug}</h1>;
-        },
-        "/dash": function(this: FC) {
-          const user = this.session.get<string>("user");
-          if (!user) {
-            return (
-              <div>
-                <a href="/login">Login</a>
-              </div>
-            );
-          }
-          return (
-            <div>
-              <h1>Welcome, {user}!</h1>
-              <a href="/logout">Logout</a>
-            </div>
-          );
-        },
-        "/login": function(this: FC) {
-          this.session.set("user", "@ije");
-          return <redirect to="/dash" />;
-        },
-        "/logout": function(this: FC) {
-          this.session.destroy();
-          return <redirect to="/" />;
-        },
-        "/chat": function(this: FC) {
-          if (this.form) {
-            const message = this.form.get("message") as string | null;
-            if (message === null || message.trim() === "") {
-              return (
-                <invalid for="message">
-                  Message is required
-                </invalid>
-              );
-            }
-            return <p class="message">{message}</p>;
-          }
-          return (
-            <form route>
-              <formslot mode="insertbefore" />
-              <input style={{ ":invalid": { borderColor: "red" } }} type="text" name="message" placeholder="Type Message..." />
-              <input type="submit" value={"Send"} />
-            </form>
-          );
-        },
-      }}
-      session={{
-        cookie: {
-          secret: "secret",
-        },
-      }}
-      htmx={url.searchParams.get("htmx") ?? false}
-    >
-      <head>
-        <title>Test</title>
-      </head>
-      <body>
-        {testRoutes.get(url.pathname) ?? (
-          <router>
-            <p>Page not found</p>
-          </router>
-        )}
-      </body>
-    </html>
-  );
-});
 
 // function App(this: FC) {
 //   return null;
@@ -143,10 +27,131 @@ const browser = await puppeteer.launch({
   executablePath: (await chrome()).executablePath,
   args: ["--no-sandbox", "--disable-gpu", "--disable-extensions", "--disable-sync", "--disable-background-networking"],
 });
-const sanitizeFalse = {
-  sanitizeResources: false,
-  sanitizeOps: false,
-};
+const ac = new AbortController();
+const sanitizeFalse = { sanitizeResources: false, sanitizeOps: false };
+
+Deno.test.beforeAll(() => {
+  Deno.serve({ port: 8687, onListen: () => {}, signal: ac.signal }, (request) => {
+    const url = new URL(request.url);
+    if (url.pathname === "/favicon.ico") {
+      return new Response(null, { status: 404 });
+    }
+
+    // for htmx integration testing
+    if (url.pathname === "/clicked") {
+      return (
+        <html>
+          <h1>Clicked!</h1>
+        </html>
+      );
+    }
+
+    return (
+      <html
+        request={request}
+        app={{
+          count: 0,
+          themeColor: "",
+        }}
+        components={{
+          greeting: async (props: { message: string }) => {
+            await sleep(20);
+            return <h1>{props.message}</h1>;
+          },
+          count: async () => {
+            await sleep(20);
+            return <span>{count++}</span>;
+          },
+          a: async (props: { name: string }) => {
+            await sleep(20);
+            return <strong>{props.name.toUpperCase()}</strong>;
+          },
+          b: async (props: { name: string }) => {
+            await sleep(20);
+            return <strong>{props.name.toUpperCase()}</strong>;
+          },
+          c: async (props: { name: string }) => {
+            await sleep(20);
+            return <strong>{props.name.toUpperCase()}</strong>;
+          },
+        }}
+        routes={{
+          "/": () => <h1>Home</h1>,
+          "/about": () => <h1>About</h1>,
+          "/post/:slug": function(this: FC) {
+            return <h1>Post: {this.request.params!.slug}</h1>;
+          },
+          "/dash": function(this: FC) {
+            const user = this.session.get<string>("user");
+            if (!user) {
+              return (
+                <div>
+                  <a href="/login">Login</a>
+                </div>
+              );
+            }
+            return (
+              <div>
+                <h1>Welcome, {user}!</h1>
+                <a href="/logout">Logout</a>
+              </div>
+            );
+          },
+          "/login": function(this: FC) {
+            this.session.set("user", "@ije");
+            return <redirect to="/dash" />;
+          },
+          "/logout": function(this: FC) {
+            this.session.destroy();
+            return <redirect to="/" />;
+          },
+          "/chat": function(this: FC) {
+            if (this.form) {
+              const message = this.form.get("message") as string | null;
+              if (message === null || message.trim() === "") {
+                return (
+                  <invalid for="message">
+                    Message is required
+                  </invalid>
+                );
+              }
+              return <p class="message">{message}</p>;
+            }
+            return (
+              <form route>
+                <formslot mode="insertbefore" />
+                <input style={{ ":invalid": { borderColor: "red" } }} type="text" name="message" placeholder="Type Message..." />
+                <input type="submit" value={"Send"} />
+              </form>
+            );
+          },
+        }}
+        session={{
+          cookie: {
+            secret: "secret",
+          },
+        }}
+        htmx={url.searchParams.get("htmx") ?? false}
+      >
+        <head>
+          <title>Test</title>
+        </head>
+        <body>
+          {testRoutes.get(url.pathname) ?? (
+            <router>
+              <p>Page not found</p>
+            </router>
+          )}
+        </body>
+      </html>
+    );
+  });
+});
+
+Deno.test.afterAll(async () => {
+  ac.abort();
+  await browser.close();
+});
 
 Deno.test("[runtime] async component", sanitizeFalse, async () => {
   const Blah = () => Promise.resolve(<h2>Building User Interfaces.</h2>);
