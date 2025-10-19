@@ -281,7 +281,7 @@ async function render(
     mfs: new IdGenManager(),
     extraJS: [],
   };
-  signals.app = Object.assign(createThisScope(rc, 0), app);
+  signals.app = Object.assign(createThisProxy(rc, 0), app);
 
   // finalize creates runtime JS for client
   // it may be called recursively when thare are unresolved suspenses
@@ -631,13 +631,21 @@ async function renderNode(rc: RenderContext, node: ChildType, stripSlotProp?: bo
 
           // `<router>` element
           case "router": {
-            const { children, viewTransition } = props;
-            const { routeFC } = rc;
-            write("<m-router" + (!routeFC ? " fallback" : "") + renderViewTransitionAttr(viewTransition) + ">");
+            let { routeFC } = rc;
+            let { children, viewTransition, ref } = props;
+            let buf = "";
+            let attrs = renderViewTransitionAttr(viewTransition);
+            if (ref !== undefined) {
+              attrs += renderAttr(rc, "ref", ref)[0];
+            }
+            if (!routeFC) {
+              attrs += " fallback";
+            }
+            write("<m-router" + attrs + ">");
             if (routeFC) {
               await renderFC(rc, routeFC instanceof Promise ? (await routeFC).default : routeFC, {}, true);
             }
-            let buf = "";
+            // render fallback (404) elements
             if (children) {
               if (routeFC) {
                 buf += "<template m-slot>";
@@ -969,7 +977,7 @@ async function renderFC(rc: RenderContext, fcFn: FC, props: JSX.IntrinsicAttribu
   const { write } = rc;
   const { children } = props;
   const scopeId = ++rc.flags.scope;
-  const signals = createThisScope(rc, scopeId);
+  const signals = createThisProxy(rc, scopeId);
   const slots: ChildType[] | undefined = children !== undefined
     ? (Array.isArray(children) ? (isVNode(children) ? [children as ChildType] : children) : [children])
     : undefined;
@@ -1125,10 +1133,7 @@ function Signal(
   }) as Signal;
 }
 
-function createThisScope(
-  rc: RenderContext,
-  scopeId: number,
-): Record<string, unknown> {
+function createThisProxy(rc: RenderContext, scopeId: number): Record<string, unknown> {
   const { context, request, routeForm, session } = rc;
   const store = new NullProtoObject() as Record<string | symbol, unknown>;
   const signals = new Map<string, Signal>();
@@ -1136,9 +1141,6 @@ function createThisScope(
   const refs = new Proxy(new NullProtoObject(), {
     get(_, key) {
       return new Ref(scopeId, key as string);
-    },
-    set() {
-      throw new Error("[mono-jsx] The `refs` object is read-only at SSR time.");
     },
   });
   const computed = (compute: () => unknown): unknown => {

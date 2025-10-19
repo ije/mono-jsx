@@ -3,14 +3,10 @@ import puppeteer from "npm:puppeteer-core@23.1.1";
 import chrome from "npm:puppeteer-chromium-resolver@23.0.0";
 import { stop, transform } from "https://deno.land/x/esbuild@v0.25.11/mod.js";
 
-const browser = await puppeteer.launch({
-  executablePath: (await chrome()).executablePath,
-  args: ["--no-sandbox", "--disable-gpu", "--disable-extensions", "--disable-sync", "--disable-background-networking"],
-});
-const ac = new AbortController();
-const sanitizeFalse = { sanitizeResources: false, sanitizeOps: false };
+let routeSeq = 0;
+let testRoutes: Map<string, Promise<string>> = new Map();
 
-const buildJs = async (code: string) => {
+const createTestPage = async (code: string) => {
   const js = (await transform(code, {
     loader: "tsx",
     platform: "browser",
@@ -34,14 +30,18 @@ const buildJs = async (code: string) => {
   `;
 };
 
-let routeSeq = 0;
-let testRoutes: Map<string, Promise<string>> = new Map();
-
 function addTestPage(code: string) {
   const pathname = `/test_${routeSeq++}`;
-  testRoutes.set(pathname, buildJs(code));
+  testRoutes.set(pathname, createTestPage(code));
   return "http://localhost:8688" + pathname;
 }
+
+const browser = await puppeteer.launch({
+  executablePath: (await chrome()).executablePath,
+  args: ["--no-sandbox", "--disable-gpu", "--disable-extensions", "--disable-sync", "--disable-background-networking"],
+});
+const ac = new AbortController();
+const sanitizeFalse = { sanitizeResources: false, sanitizeOps: false };
 
 Deno.test.beforeAll(async () => {
   Deno.serve({ port: 8688, onListen: () => {}, signal: ac.signal }, async (request) => {
@@ -54,11 +54,14 @@ Deno.test.beforeAll(async () => {
       const code = await testRoutes.get(url.pathname);
       return new Response(code, { headers: { "Content-Type": "text/html; charset=utf-8" } });
     }
-    return new Response(null, { status: 404 });
+    return new Response("Not Found", { status: 404 });
   });
 
   // console.log(addTestPage(`
-  //   <div mount={document.body}>Hello, world!</div>;
+  //   function App() {
+  //     return <div>Hello, world!</div>;
+  //   }
+  //   <App mount={document.body} />;
   // `));
   // await new Promise(() => {});
 });
@@ -70,10 +73,14 @@ Deno.test.afterAll(async () => {
 });
 
 Deno.test("dom", sanitizeFalse, async () => {
+  const testUrl = addTestPage(`
+    function App() {
+      return <div>Hello, world!</div>;
+    }
+    <App mount={document.body} />;
+  `);
   const page = await browser.newPage();
-  await page.goto(addTestPage(`
-    <div mount={document.body}>Hello, world!</div>;
-  `));
+  await page.goto(testUrl);
 
   const div = await page.$("div");
   assert(div);

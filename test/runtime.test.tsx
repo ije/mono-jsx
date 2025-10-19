@@ -159,7 +159,7 @@ Deno.test("[runtime] async component", sanitizeFalse, async () => {
     await new Promise((resolve) => setTimeout(resolve, ms));
     return <slot />;
   };
-  const testPageUrl = addTestPage(
+  const testUrl = addTestPage(
     <div>
       <Sleep ms={100} placeholder={<p>Loading...</p>}>
         <h1>Welcome to mono-jsx!</h1>
@@ -169,7 +169,7 @@ Deno.test("[runtime] async component", sanitizeFalse, async () => {
   );
 
   const page = await browser.newPage();
-  await page.goto(testPageUrl);
+  await page.goto(testUrl);
 
   const div = await page.$("div");
   assert(div);
@@ -199,14 +199,14 @@ Deno.test("[runtime] async generator component", sanitizeFalse, async () => {
     }
   }
 
-  const testPageUrl = addTestPage(
+  const testUrl = addTestPage(
     <h1>
       <Words placeholder={<span>...</span>} />
     </h1>,
   );
 
   const page = await browser.newPage();
-  await page.goto(testPageUrl);
+  await page.goto(testUrl);
 
   const h1 = await page.$("h1");
   assert(h1);
@@ -230,9 +230,9 @@ Deno.test("[runtime] signals(text)", sanitizeFalse, async () => {
     );
   }
 
-  const testPageUrl = addTestPage(<Hello text="Hello, world!" />);
+  const testUrl = addTestPage(<Hello text="Hello, world!" />);
   const page = await browser.newPage();
-  await page.goto(testPageUrl);
+  await page.goto(testUrl);
 
   const h1 = await page.$("div h1");
   assert(h1);
@@ -259,9 +259,9 @@ Deno.test("[runtime] signals(number)", sanitizeFalse, async () => {
     );
   }
 
-  const testPageUrl = addTestPage(<Counter initialValue={0} />);
+  const testUrl = addTestPage(<Counter initialValue={0} />);
   const page = await browser.newPage();
-  await page.goto(testPageUrl);
+  await page.goto(testUrl);
 
   const span = await page.$("div span");
   assert(span);
@@ -296,9 +296,9 @@ Deno.test("[runtime] signals(boolean)", sanitizeFalse, async () => {
     );
   }
 
-  const testPageUrl = addTestPage(<App />);
+  const testUrl = addTestPage(<App />);
   const page = await browser.newPage();
-  await page.goto(testPageUrl);
+  await page.goto(testUrl);
 
   const input = await page.$("div input");
   assert(input);
@@ -333,7 +333,7 @@ Deno.test("[runtime] app signals", sanitizeFalse, async () => {
     );
   }
 
-  const testPageUrl = addTestPage(
+  const testUrl = addTestPage(
     <div>
       <Display />
       <Display bold />
@@ -341,7 +341,7 @@ Deno.test("[runtime] app signals", sanitizeFalse, async () => {
     </div>,
   );
   const page = await browser.newPage();
-  await page.goto(testPageUrl);
+  await page.goto(testUrl);
 
   const span = await page.$("div span");
   const strong = await page.$("div strong");
@@ -382,9 +382,9 @@ Deno.test("[runtime] computed signals", sanitizeFalse, async () => {
     );
   }
 
-  const testPageUrl = addTestPage(<FooBar />);
+  const testUrl = addTestPage(<FooBar />);
   const page = await browser.newPage();
-  await page.goto(testPageUrl);
+  await page.goto(testUrl);
 
   const h1 = await page.$("div h1");
   assert(h1);
@@ -420,9 +420,9 @@ Deno.test("[runtime] computed class name", sanitizeFalse, async () => {
     );
   }
 
-  const testPageUrl = addTestPage(<App />);
+  const testUrl = addTestPage(<App />);
   const page = await browser.newPage();
-  await page.goto(testPageUrl);
+  await page.goto(testUrl);
 
   const h1 = await page.$("div h1");
   assert(h1);
@@ -448,9 +448,9 @@ Deno.test("[runtime] computed style", sanitizeFalse, async () => {
     );
   }
 
-  const testPageUrl = addTestPage(<App />);
+  const testUrl = addTestPage(<App />);
   const page = await browser.newPage();
-  await page.goto(testPageUrl);
+  await page.goto(testUrl);
 
   const h1 = await page.$("div h1");
   assert(h1);
@@ -478,9 +478,9 @@ Deno.test("[runtime] computed nesting style", sanitizeFalse, async () => {
     );
   }
 
-  const testPageUrl = addTestPage(<App />);
+  const testUrl = addTestPage(<App />);
   const page = await browser.newPage();
-  await page.goto(testPageUrl);
+  await page.goto(testUrl);
 
   const h1 = await page.$("div h1");
   assert(h1);
@@ -548,9 +548,9 @@ Deno.test("[runtime] effect", sanitizeFalse, async () => {
     );
   }
 
-  const testPageUrl = addTestPage(<App />);
+  const testUrl = addTestPage(<App />);
   const page = await browser.newPage();
-  await page.goto(testPageUrl);
+  await page.goto(testUrl);
 
   const log = ["Welcome to mono-jsx!", "0,", "count: 0"];
   const console = await page.$("#web-console");
@@ -605,9 +605,9 @@ Deno.test("[runtime] $value", sanitizeFalse, async () => {
     );
   }
 
-  const testPageUrl = addTestPage(<App />);
+  const testUrl = addTestPage(<App />);
   const page = await browser.newPage();
-  await page.goto(testPageUrl);
+  await page.goto(testUrl);
 
   const h1 = await page.$("h1");
   assert(h1);
@@ -644,9 +644,9 @@ Deno.test("[runtime] $checked", sanitizeFalse, async () => {
     );
   }
 
-  const testPageUrl = addTestPage(<App />);
+  const testUrl = addTestPage(<App />);
   const page = await browser.newPage();
-  await page.goto(testPageUrl);
+  await page.goto(testUrl);
 
   const h1 = await page.$("h1");
   assert(h1);
@@ -686,9 +686,9 @@ Deno.test("[runtime] <toggle>", sanitizeFalse, async () => {
     );
   }
 
-  const testPageUrl = addTestPage(<Toggle />);
+  const testUrl = addTestPage(<Toggle />);
   const page = await browser.newPage();
-  await page.goto(testPageUrl);
+  await page.goto(testUrl);
 
   const div = await page.$("div h1");
   assert(!div);
@@ -731,9 +731,9 @@ Deno.test("[runtime] <switch>", sanitizeFalse, async () => {
     );
   }
 
-  const testPageUrl = addTestPage(<Switch />);
+  const testUrl = addTestPage(<Switch />);
   const page = await browser.newPage();
-  await page.goto(testPageUrl);
+  await page.goto(testUrl);
 
   assertEquals((await page.$$("div h1")).length, 1);
 
@@ -772,9 +772,9 @@ Deno.test("[runtime] <component>", sanitizeFalse, async () => {
     );
   }
 
-  const testPageUrl = addTestPage(<App />);
+  const testUrl = addTestPage(<App />);
   const page = await browser.newPage();
-  await page.goto(testPageUrl);
+  await page.goto(testUrl);
   await page.waitForNetworkIdle();
 
   const h1 = await page.$("h1");
@@ -798,9 +798,9 @@ Deno.test("[runtime] <component is>", sanitizeFalse, async () => {
     );
   }
 
-  const testPageUrl = addTestPage(<App />);
+  const testUrl = addTestPage(<App />);
   const page = await browser.newPage();
-  await page.goto(testPageUrl);
+  await page.goto(testUrl);
   await page.waitForNetworkIdle();
 
   const h1 = await page.$("h1");
@@ -823,9 +823,9 @@ Deno.test("[runtime] <component> controled by <toggle>", sanitizeFalse, async ()
     );
   }
 
-  const testPageUrl = addTestPage(<App />);
+  const testUrl = addTestPage(<App />);
   const page = await browser.newPage();
-  await page.goto(testPageUrl);
+  await page.goto(testUrl);
 
   let h1 = await page.$("h1");
   assert(!h1);
@@ -860,9 +860,9 @@ Deno.test("[runtime] <component> with signal name/props", sanitizeFalse, async (
     );
   }
 
-  const testPageUrl = addTestPage(<App />);
+  const testUrl = addTestPage(<App />);
   const page = await browser.newPage();
-  await page.goto(testPageUrl);
+  await page.goto(testUrl);
 
   await page.waitForNetworkIdle();
   let strong = await page.$("div strong");
@@ -911,9 +911,9 @@ Deno.test("[runtime] <component> ref", sanitizeFalse, async () => {
     );
   }
 
-  const testPageUrl = addTestPage(<App />);
+  const testUrl = addTestPage(<App />);
   const page = await browser.newPage();
-  await page.goto(testPageUrl);
+  await page.goto(testUrl);
 
   await page.waitForNetworkIdle();
   const span = await page.$("div span");
@@ -974,9 +974,9 @@ Deno.test("[runtime] <router>", sanitizeFalse, async () => {
     );
   }
 
-  const testPageUrl = addTestPage(<App />);
+  const testUrl = addTestPage(<App />);
   const page = await browser.newPage();
-  await page.goto(testPageUrl);
+  await page.goto(testUrl);
 
   let p = await page.$("p");
   assert(p);
@@ -1048,7 +1048,7 @@ Deno.test("[runtime] <router>", sanitizeFalse, async () => {
 });
 
 Deno.test("[runtime] route form", sanitizeFalse, async () => {
-  const testPageUrl = addTestPage(
+  const testUrl = addTestPage(
     <>
       <nav>
         <a href="/chat">Chat</a>
@@ -1060,7 +1060,7 @@ Deno.test("[runtime] route form", sanitizeFalse, async () => {
   );
 
   const page = await browser.newPage();
-  await page.goto(testPageUrl);
+  await page.goto(testUrl);
 
   let p = await page.$("p");
   assert(p);
@@ -1111,7 +1111,7 @@ Deno.test("[runtime] route form", sanitizeFalse, async () => {
 });
 
 Deno.test("[runtime] <form> action callback", sanitizeFalse, async () => {
-  const testPageUrl = addTestPage(
+  const testUrl = addTestPage(
     <>
       <p></p>
       <form
@@ -1127,7 +1127,7 @@ Deno.test("[runtime] <form> action callback", sanitizeFalse, async () => {
   );
 
   const page = await browser.newPage();
-  await page.goto(testPageUrl);
+  await page.goto(testUrl);
 
   const p = await page.$("p");
   assert(p);
@@ -1155,10 +1155,10 @@ Deno.test("[runtime] refs", sanitizeFalse, async () => {
       </hgroup>
     );
   }
-  const testPageUrl = addTestPage(<App />);
+  const testUrl = addTestPage(<App />);
 
   const page = await browser.newPage();
-  await page.goto(testPageUrl);
+  await page.goto(testUrl);
 
   const h1 = await page.$("h1");
   assert(h1);
@@ -1181,10 +1181,10 @@ Deno.test("[runtime] ref callback", sanitizeFalse, async () => {
       />
     );
   }
-  const testPageUrl = addTestPage(<App />);
+  const testUrl = addTestPage(<App />);
 
   const page = await browser.newPage();
-  await page.goto(testPageUrl);
+  await page.goto(testUrl);
 
   const div = await page.$("div");
   assert(div);
@@ -1223,9 +1223,9 @@ Deno.test("[runtime] set session cookie", sanitizeFalse, async () => {
       </div>
     );
   }
-  const testPageUrl = addTestPage(<App />);
+  const testUrl = addTestPage(<App />);
   const page = await browser.newPage();
-  await page.goto(testPageUrl);
+  await page.goto(testUrl);
 
   let a = await page.$("div > a");
   assert(a);
@@ -1238,7 +1238,7 @@ Deno.test("[runtime] set session cookie", sanitizeFalse, async () => {
   assert(p);
   assertEquals(await p.evaluate((el: HTMLElement) => el.textContent), "Logged in");
 
-  await page.goto(testPageUrl);
+  await page.goto(testUrl);
 
   let h1 = await page.$("div > h1");
   assert(h1);
@@ -1255,7 +1255,7 @@ Deno.test("[runtime] set session cookie", sanitizeFalse, async () => {
   assert(p);
   assertEquals(await p.evaluate((el: HTMLElement) => el.textContent), "Logged out");
 
-  await page.goto(testPageUrl);
+  await page.goto(testUrl);
 
   a = await page.$("div > a");
   assert(a);
@@ -1273,9 +1273,9 @@ Deno.test("[runtime] set session cookie (SPA)", sanitizeFalse, async () => {
       </router>
     );
   }
-  const testPageUrl = addTestPage(<App />);
+  const testUrl = addTestPage(<App />);
   const page = await browser.newPage();
-  await page.goto(testPageUrl);
+  await page.goto(testUrl);
 
   let a = await page.$("a");
   assert(a);
@@ -1310,7 +1310,7 @@ Deno.test("[runtime] set session cookie (SPA)", sanitizeFalse, async () => {
 });
 
 Deno.test("[runtime] htmx integration", { ...sanitizeFalse, ignore: false }, async () => {
-  const testPageUrl = addTestPage(
+  const testUrl = addTestPage(
     <button type="button" hx-post="/clicked" hx-swap="outerHTML">
       Click Me
     </button>,
@@ -1318,7 +1318,7 @@ Deno.test("[runtime] htmx integration", { ...sanitizeFalse, ignore: false }, asy
   );
 
   const page = await browser.newPage();
-  await page.goto(testPageUrl);
+  await page.goto(testUrl);
   await page.waitForNetworkIdle();
 
   let button = await page.$("button");

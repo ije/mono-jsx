@@ -132,13 +132,29 @@ const render = (node: ChildType, root: HTMLElement) => {
                     }
                     break;
                   }
-                  default:
-                    if (key === "action" && typeof value === "function" && tag === "form") {
+                  case "ref":
+                    if (typeof value === "function") {
+                      // todo: clean up
+                      value(el);
+                    }
+                    break;
+                  case "slot":
+                  case "$checked":
+                  case "$value":
+                  case "viewTransition":
+                    break;
+                  case "action":
+                    if (typeof value === "function" && tag === "form") {
                       el.addEventListener("submit", (evt) => {
                         evt.preventDefault();
                         value(new FormData(evt.target as HTMLFormElement), evt);
                       });
-                    } else if (key.startsWith("on") && typeof value === "function") {
+                    } else if (isString(value)) {
+                      el.setAttribute(key, value);
+                    }
+                    break;
+                  default:
+                    if (key.startsWith("on") && typeof value === "function") {
                       // todo: dispose
                       el.addEventListener(key.slice(2).toLowerCase(), value);
                     } else if (isSignal(value)) {
@@ -180,7 +196,59 @@ function renderChildren(children: ChildType | ChildType[], root: HTMLElement) {
 }
 
 function renderFC(fc: FC, props: Record<string, unknown>, root: HTMLElement) {
-  const scope = new NullProtoObject();
+  const thisProxy = createThisProxy();
+  const v = fc.call(thisProxy, props);
+  if (isObject(v) && !isVNode(v)) {
+    if (v instanceof Promise) {
+      v.then((node) => render(node as ChildType, root));
+    } else if (Symbol.asyncIterator in v) {
+      // todo: render async generator components
+    } else if (Symbol.iterator in v) {
+      // todo: render generator components
+    }
+  } else {
+    render(v as ChildType, root);
+  }
+}
+
+function createThisProxy() {
+  const refs = new Proxy(new NullProtoObject(), {
+    get(target, key, receiver) {
+      const el = Reflect.get(target, key, receiver);
+      if (el instanceof HTMLElement) {
+        return el;
+      }
+      return (el: HTMLElement) => Reflect.set(target, key, el, receiver);
+    },
+  });
+
+  let collectDep: ((key: string) => void) | undefined;
+
+  return new Proxy(new NullProtoObject(), {
+    get(target, key, receiver) {
+      switch (key) {
+        case "$init":
+          return init;
+        case "$watch":
+          return watch;
+        case "app":
+          return Signals(0);
+        case "refs":
+          return refs;
+        case "computed":
+        case "$":
+          return computed;
+        case "effect":
+          return markEffect;
+        default:
+          collectDep?.(key);
+          return Reflect.get(target, key, receiver);
+      }
+    },
+    set(target, key, value, receiver) {
+      return Reflect.set(target, key, value, receiver);
+    },
+  });
 }
 
 export { customElements, isSignal, JSX, render };

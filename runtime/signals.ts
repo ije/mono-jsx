@@ -12,7 +12,7 @@ const win = window as any;
 const doc = document;
 const mcs = new Map<number, [Function, string[]]>();
 const scopes = new Map<number, Signals>();
-const Signals = (scopeId: number) => scopes.get(scopeId) ?? scopes.set(scopeId, createSignals(scopeId)).get(scopeId)!;
+const Signals = (id: number) => scopes.get(id) ?? scopes.set(id, createSignals(id)).get(id)!;
 
 const createNullObject = () => Object.create(null);
 const getAttr = (el: Element, name: string) => el.getAttribute(name);
@@ -40,7 +40,7 @@ const createSignals = (scopeId: number): Signals => {
   };
 
   const refs = new Proxy(createNullObject(), {
-    get: (_target, prop: string) => doc.querySelector("[data-ref='" + scopeId + ":" + prop + "']"),
+    get: (_, prop: string) => doc.querySelector("[data-ref='" + scopeId + ":" + prop + "']"),
   });
 
   return new Proxy(store, {
