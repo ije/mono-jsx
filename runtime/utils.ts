@@ -5,10 +5,13 @@ declare global {
 
 const regexpCssBareUnitProps = /acit|ex(?:s|g|n|p|$)|rph|grid|ows|mnc|ntw|ine[ch]|zoo|^ord|itera/i; // copied https://github.com/preactjs/preact
 const regexpHtmlSafe = /["'&<>]/;
+const cssIdSet = new Set<number>();
 
 export const isString = (v: unknown): v is string => typeof v === "string";
 export const isObject = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null;
+export const isFunction = (v: unknown): v is Function => typeof v === "function";
 export const toHyphenCase = (k: string) => k.replace(/[a-z][A-Z]/g, (m) => m.charAt(0) + "-" + m.charAt(1).toLowerCase());
+export const hashCode = (s: string) => [...s].reduce((hash, c) => (Math.imul(31, hash) + c.charCodeAt(0)) | 0, 0);
 
 export class IdGen<T> extends Map<T, number> {
   #seq = 0;
@@ -77,12 +80,17 @@ export const styleToCSS = (style: Record<string, unknown>): { inline?: string; c
 export const applyStyle = (el: Element, style: Record<string, unknown>): void => {
   const { inline, css } = styleToCSS(style);
   if (css) {
-    const propPrefix = "data-css-";
-    const selector = "[" + propPrefix + (Date.now() + Math.random()).toString(36).replace(".", "") + "]";
-    document.head.appendChild(document.createElement("style")).textContent = (inline ? selector + "{" + inline + "}" : "")
-      + css.map(v => v === null ? selector : v).join("");
-    el.getAttributeNames().forEach((name) => name.startsWith(propPrefix) && el.removeAttribute(name));
-    el.setAttribute(selector.slice(1, -1), "");
+    const prefix = "data-css-";
+    const id = hashCode((inline ?? "") + css.join(""));
+    const attrName = prefix + id.toString(36);
+    const selector = "[" + attrName + "]";
+    if (!cssIdSet.has(id)) {
+      cssIdSet.add(id);
+      document.head.appendChild(document.createElement("style")).textContent = (inline ? selector + "{" + inline + "}" : "")
+        + css.map(v => v === null ? selector : v).join("");
+    }
+    el.getAttributeNames().forEach(name => name.startsWith(prefix) && el.removeAttribute(name));
+    el.setAttribute(attrName, "");
   } else if (inline) {
     el.setAttribute("style", inline);
   }

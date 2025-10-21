@@ -1,6 +1,6 @@
 import type { FC, VNode } from "../types/jsx.d.ts";
 import type { ChildType } from "../types/mono.d.ts";
-import { applyStyle, cx, isObject, isString, NullProtoObject } from "../runtime/utils.ts";
+import { applyStyle, cx, isFunction, isObject, isString, NullProtoObject } from "../runtime/utils.ts";
 import { $fragment, $html, $signal, $vnode } from "../symbols.ts";
 
 interface Signal {
@@ -31,11 +31,9 @@ const isVNode = (v: unknown): v is VNode => Array.isArray(v) && v.length === 3 &
 const render = (node: ChildType, root: HTMLElement) => {
   switch (typeof node) {
     case "string":
-      root.insertAdjacentText("beforeend", node);
-      break;
     case "number":
     case "bigint":
-      root.insertAdjacentText("beforeend", String(node));
+      root.appendChild(document.createTextNode(String(node)));
       break;
     case "object":
       if (node === null) {
@@ -60,7 +58,7 @@ const render = (node: ChildType, root: HTMLElement) => {
             if (isSignal(innerHTML)) {
               // TODO: render signal
             } else if (isString(innerHTML)) {
-              root.insertAdjacentText("beforeend", innerHTML);
+              root.insertAdjacentHTML("beforeend", innerHTML);
             }
             break;
           }
@@ -133,7 +131,7 @@ const render = (node: ChildType, root: HTMLElement) => {
                     break;
                   }
                   case "ref":
-                    if (typeof value === "function") {
+                    if (isFunction(value)) {
                       // todo: clean up
                       value(el);
                     }
@@ -144,7 +142,7 @@ const render = (node: ChildType, root: HTMLElement) => {
                   case "viewTransition":
                     break;
                   case "action":
-                    if (typeof value === "function" && tag === "form") {
+                    if (isFunction(value) && tag === "form") {
                       el.addEventListener("submit", (evt) => {
                         evt.preventDefault();
                         value(new FormData(evt.target as HTMLFormElement), evt);
@@ -154,7 +152,7 @@ const render = (node: ChildType, root: HTMLElement) => {
                     }
                     break;
                   default:
-                    if (key.startsWith("on") && typeof value === "function") {
+                    if (key.startsWith("on") && isFunction(value)) {
                       // todo: dispose
                       el.addEventListener(key.slice(2).toLowerCase(), value);
                     } else if (isSignal(value)) {
@@ -185,6 +183,12 @@ const render = (node: ChildType, root: HTMLElement) => {
   }
 };
 
+const renderToFragment = (node: ChildType) => {
+  const div = document.createElement("div");
+  render(node, div);
+  return [...div.childNodes];
+};
+
 function renderChildren(children: ChildType | ChildType[], root: HTMLElement) {
   if (Array.isArray(children) && !isVNode(children)) {
     for (const child of children) {
@@ -200,11 +204,38 @@ function renderFC(fc: FC, props: Record<string, unknown>, root: HTMLElement) {
   const v = fc.call(thisProxy, props);
   if (isObject(v) && !isVNode(v)) {
     if (v instanceof Promise) {
-      v.then((node) => render(node as ChildType, root));
+      let placeholder: ChildNode[] | undefined;
+      if (isVNode(props.placeholder)) {
+        placeholder = renderToFragment(props.placeholder as ChildType);
+      }
+      if (!placeholder?.length) {
+        placeholder = [document.createComment("")];
+      }
+      root.append(...placeholder);
+      v.then((node) => {
+        placeholder[0].replaceWith(...renderToFragment(node as ChildType));
+      }).catch((err) => {
+        let msg: ChildNode[] = [];
+        if (isFunction(props.catch)) {
+          const v = props.catch(err);
+          if (isVNode(v)) {
+            msg = renderToFragment(v as ChildType);
+          }
+        } else {
+          console.error(err);
+        }
+        placeholder[0].replaceWith(...msg);
+      }).finally(() => {
+        for (let i = 1; i < placeholder.length; i++) {
+          placeholder[i].remove();
+        }
+      });
     } else if (Symbol.asyncIterator in v) {
       // todo: render async generator components
     } else if (Symbol.iterator in v) {
-      // todo: render generator components
+      for (const node of v) {
+        render(node as ChildType, root);
+      }
     }
   } else {
     render(v as ChildType, root);
@@ -212,38 +243,9 @@ function renderFC(fc: FC, props: Record<string, unknown>, root: HTMLElement) {
 }
 
 function createThisProxy() {
-  const refs = new Proxy(new NullProtoObject(), {
-    get(target, key, receiver) {
-      const el = Reflect.get(target, key, receiver);
-      if (el instanceof HTMLElement) {
-        return el;
-      }
-      return (el: HTMLElement) => Reflect.set(target, key, el, receiver);
-    },
-  });
-
-  let collectDep: ((key: string) => void) | undefined;
-
   return new Proxy(new NullProtoObject(), {
     get(target, key, receiver) {
-      switch (key) {
-        case "$init":
-          return init;
-        case "$watch":
-          return watch;
-        case "app":
-          return Signals(0);
-        case "refs":
-          return refs;
-        case "computed":
-        case "$":
-          return computed;
-        case "effect":
-          return markEffect;
-        default:
-          collectDep?.(key);
-          return Reflect.get(target, key, receiver);
-      }
+      return Reflect.get(target, key, receiver);
     },
     set(target, key, value, receiver) {
       return Reflect.set(target, key, value, receiver);

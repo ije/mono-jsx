@@ -1,5 +1,10 @@
 {
   "compilerOptions": {
+    "lib": [
+      "dom",
+      "esnext",
+      "deno.ns"
+    ],
     "jsx": "react-jsx",
     "jsxImportSource": "mono-jsx"
   },
