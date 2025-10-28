@@ -344,6 +344,10 @@ declare global {
    */
   type FC<Signals = {}, AppSignals = {}, Context = {}, Refs = {}, AppRefs = {}> = {
     /**
+     * Initializes the signals.
+     */
+    readonly init: (data: Signals) => void;
+    /**
      * The global signals shared across the application.
      */
     readonly app: {

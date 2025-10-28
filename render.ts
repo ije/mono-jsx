@@ -73,6 +73,17 @@ const escapeCSSText = (str: string): string => str.replace(/[<>]/g, (m) => m.cha
 const toAttrStringLit = (str: string) => '"' + escapeHTML(str) + '"';
 const toStr = <T = string | number>(v: T | undefined, str: (v: T) => string) => v !== undefined ? str(v) : "";
 
+/** The JSX namespace. */
+export const JSX = {
+  customElements: {
+    define(tagName: string, fc: FC) {
+      customElements.set(tagName, fc);
+    },
+  },
+};
+
+let collectDep: ((scopeId: number, key: string) => void) | undefined;
+
 class Ref {
   constructor(
     public scope: number,
@@ -110,15 +121,6 @@ class IdGenManager<T> {
     this.size = 0;
   }
 }
-
-/** The JSX namespace. */
-export const JSX = {
-  customElements: {
-    define(tagName: string, fc: FC) {
-      customElements.set(tagName, fc);
-    },
-  },
-};
 
 /** Renders a `<html>` element to a `Response` object. */
 export function renderHtml(node: VNode, options: RenderOptions): Response {
@@ -507,7 +509,7 @@ async function renderNode(rc: RenderContext, node: ChildType, stripSlotProp?: bo
                       deps: key.deps,
                     };
                   }
-                  show = Signal(scope, key, !value);
+                  show = createSignal(scope, key, !value);
                 } else {
                   show = !hidden;
                 }
@@ -811,6 +813,95 @@ async function renderChildren(rc: RenderContext, children: ChildType | ChildType
   }
 }
 
+async function renderFC(rc: RenderContext, fcFn: FC, props: JSX.IntrinsicAttributes, eager?: boolean) {
+  const { write } = rc;
+  const { children } = props;
+  const scopeId = ++rc.flags.scope;
+  const signals = createThisProxy(rc, scopeId);
+  const slots: ChildType[] | undefined = children !== undefined
+    ? (Array.isArray(children) ? (isVNode(children) ? [children as ChildType] : children) : [children])
+    : undefined;
+  const fc: FCContext = { scopeId, signals, slots, refs: 0 };
+  try {
+    const v = fcFn.call(signals, props);
+    if (isObject(v) && !isVNode(v)) {
+      if (v instanceof Promise) {
+        if (eager || (props.rendering ?? fcFn.rendering) === "eager") {
+          await renderNode({ ...rc, fc }, (await v) as ChildType);
+          markSignals(rc, signals);
+        } else {
+          const chunkIdAttr = 'chunk-id="' + (rc.flags.chunk++).toString(36) + '"';
+          write("<m-portal " + chunkIdAttr + ">");
+          if (props.placeholder) {
+            await renderNode(rc, props.placeholder);
+          }
+          write("</m-portal>");
+          rc.suspenses.push(v.then(async (node) => {
+            let buf = "";
+            let write = (chunk: string) => {
+              buf += chunk;
+            };
+            buf += "<m-chunk " + chunkIdAttr + "><template>";
+            await renderNode({ ...rc, fc, write }, node as ChildType);
+            markSignals({ ...rc, write }, signals);
+            return buf + "</template></m-chunk>";
+          }));
+        }
+      } else if (Symbol.asyncIterator in v) {
+        if (eager || (props.rendering ?? fcFn.rendering) === "eager") {
+          for await (const c of v) {
+            await renderNode({ ...rc, fc }, c as ChildType);
+          }
+          markSignals(rc, signals);
+        } else {
+          const chunkIdAttr = 'chunk-id="' + (rc.flags.chunk++).toString(36) + '"';
+          write("<m-portal " + chunkIdAttr + ">");
+          if (props.placeholder) {
+            await renderNode(rc, props.placeholder);
+          }
+          write("</m-portal>");
+          const iter = () =>
+            rc.suspenses.push(
+              v.next().then(async ({ done, value }) => {
+                let buf = "<m-chunk " + chunkIdAttr;
+                let write = (chunk: string) => {
+                  buf += chunk;
+                };
+                if (done) {
+                  buf += " done>";
+                  markSignals({ ...rc, write }, signals);
+                  return buf + "</m-chunk>";
+                }
+                buf += " next><template>";
+                await renderNode({ ...rc, fc, write }, value as ChildType);
+                iter();
+                return buf + "</template></m-chunk>";
+              }),
+            );
+          iter();
+        }
+      } else if (Symbol.iterator in v) {
+        for (const node of v) {
+          await renderNode({ ...rc, fc }, node as ChildType);
+        }
+        markSignals(rc, signals);
+      }
+    } else if (v) {
+      await renderNode({ ...rc, fc }, v as ChildType);
+      markSignals(rc, signals);
+    }
+  } catch (err) {
+    if (err instanceof Error) {
+      if (props.catch) {
+        await renderNode(rc, props.catch(err)).catch(() => {});
+      } else {
+        console.error(err);
+        write("<script>console.error(" + stringify(err.stack ?? err.message) + ")</script>");
+      }
+    }
+  }
+}
+
 function renderAttr(
   rc: RenderContext,
   attrName: string,
@@ -847,7 +938,7 @@ function renderAttr(
         });
         if (patches.length > 0) {
           const compute = "()=>$patch(" + stringify(staticProps) + ",[" + patches.join("],[") + "])";
-          signal = Signal(scopeId, { compute, deps }, staticProps);
+          signal = createSignal(scopeId, { compute, deps }, staticProps);
         }
       }
     }
@@ -973,95 +1064,6 @@ function renderViewTransitionAttr(viewTransition?: string | boolean): string {
   return isString(viewTransition) ? " style=" + toAttrStringLit("view-transition-name:" + viewTransition) + " vt" : "";
 }
 
-async function renderFC(rc: RenderContext, fcFn: FC, props: JSX.IntrinsicAttributes, eager?: boolean) {
-  const { write } = rc;
-  const { children } = props;
-  const scopeId = ++rc.flags.scope;
-  const signals = createThisProxy(rc, scopeId);
-  const slots: ChildType[] | undefined = children !== undefined
-    ? (Array.isArray(children) ? (isVNode(children) ? [children as ChildType] : children) : [children])
-    : undefined;
-  const fc: FCContext = { scopeId, signals, slots, refs: 0 };
-  try {
-    const v = fcFn.call(signals, props);
-    if (isObject(v) && !isVNode(v)) {
-      if (v instanceof Promise) {
-        if (eager || (props.rendering ?? fcFn.rendering) === "eager") {
-          await renderNode({ ...rc, fc }, (await v) as ChildType);
-          markSignals(rc, signals);
-        } else {
-          const chunkIdAttr = 'chunk-id="' + (rc.flags.chunk++).toString(36) + '"';
-          write("<m-portal " + chunkIdAttr + ">");
-          if (props.placeholder) {
-            await renderNode(rc, props.placeholder);
-          }
-          write("</m-portal>");
-          rc.suspenses.push(v.then(async (node) => {
-            let buf = "";
-            let write = (chunk: string) => {
-              buf += chunk;
-            };
-            buf += "<m-chunk " + chunkIdAttr + "><template>";
-            await renderNode({ ...rc, fc, write }, node as ChildType);
-            markSignals({ ...rc, write }, signals);
-            return buf + "</template></m-chunk>";
-          }));
-        }
-      } else if (Symbol.asyncIterator in v) {
-        if (eager || (props.rendering ?? fcFn.rendering) === "eager") {
-          for await (const c of v) {
-            await renderNode({ ...rc, fc }, c as ChildType);
-          }
-          markSignals(rc, signals);
-        } else {
-          const chunkIdAttr = 'chunk-id="' + (rc.flags.chunk++).toString(36) + '"';
-          write("<m-portal " + chunkIdAttr + ">");
-          if (props.placeholder) {
-            await renderNode(rc, props.placeholder);
-          }
-          write("</m-portal>");
-          const iter = () =>
-            rc.suspenses.push(
-              v.next().then(async ({ done, value }) => {
-                let buf = "<m-chunk " + chunkIdAttr;
-                let write = (chunk: string) => {
-                  buf += chunk;
-                };
-                if (done) {
-                  buf += " done>";
-                  markSignals({ ...rc, write }, signals);
-                  return buf + "</m-chunk>";
-                }
-                buf += " next><template>";
-                await renderNode({ ...rc, fc, write }, value as ChildType);
-                iter();
-                return buf + "</template></m-chunk>";
-              }),
-            );
-          iter();
-        }
-      } else if (Symbol.iterator in v) {
-        for (const node of v) {
-          await renderNode({ ...rc, fc }, node as ChildType);
-        }
-        markSignals(rc, signals);
-      }
-    } else if (v) {
-      await renderNode({ ...rc, fc }, v as ChildType);
-      markSignals(rc, signals);
-    }
-  } catch (err) {
-    if (err instanceof Error) {
-      if (props.catch) {
-        await renderNode(rc, props.catch(err)).catch(() => {});
-      } else {
-        console.error(err);
-        write("<script>console.error(" + stringify(err.stack ?? err.message) + ")</script>");
-      }
-    }
-  }
-}
-
 function renderSignal(
   rc: RenderContext,
   signal: Signal,
@@ -1102,9 +1104,7 @@ function renderSignal(
   return buffer + (close !== false ? "</m-signal>" : "");
 }
 
-let collectDep: ((scopeId: number, key: string) => void) | undefined;
-
-function Signal(
+function createSignal(
   scope: number,
   key: string | Compute,
   value: unknown,
@@ -1148,7 +1148,7 @@ function createThisProxy(rc: RenderContext, scopeId: number): Record<string, unk
     collectDep = (scopeId, key) => deps.add(scopeId + ":" + key);
     const value = compute.call(thisProxy);
     collectDep = undefined;
-    return Signal(scopeId, { compute, deps }, value);
+    return createSignal(scopeId, { compute, deps }, value);
   };
   const markEffect = (effect: CallableFunction) => {
     effects.push(String(effect));
@@ -1172,6 +1172,8 @@ function createThisProxy(rc: RenderContext, scopeId: number): Record<string, unk
   const thisProxy = new Proxy(store, {
     get(target, key, receiver) {
       switch (key) {
+        case "init":
+          return (data: Record<string, unknown>) => Object.assign(store, data);
         case "app":
           if (scopeId === 0) {
             return null;
@@ -1223,7 +1225,7 @@ function createThisProxy(rc: RenderContext, scopeId: number): Record<string, unk
           }
           let signal = signals.get(key);
           if (!signal) {
-            signal = Signal(scopeId, key, value);
+            signal = createSignal(scopeId, key, value);
             signals.set(key, signal);
           }
           return signal;
