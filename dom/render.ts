@@ -1,19 +1,20 @@
 import type { FC, VNode } from "../types/jsx.d.ts";
 import type { ChildType } from "../types/mono.d.ts";
 import { applyStyle, cx, isFunction, isObject, isString, NullProtoObject } from "../runtime/utils.ts";
-import { $fragment, $html, $signal, $vnode } from "../symbols.ts";
-
-interface Signal {
-  [$signal]: {
-    readonly scope: number;
-    readonly key: string | Compute;
-    readonly value: unknown;
-  };
-}
+import { $fragment, $html, $vnode } from "../symbols.ts";
 
 interface Compute {
   readonly compute: (() => unknown) | string;
   readonly deps: Set<string>;
+}
+
+class Signal {
+  constructor(
+    public readonly scope: number,
+    public readonly key: string | Compute,
+    public readonly value: unknown,
+  ) {
+  }
 }
 
 const customElements = new Map<string, FC>();
@@ -25,8 +26,8 @@ const JSX = {
   },
 };
 
-const isSignal = (v: unknown): v is Signal => isObject(v) && !!(v as any)[$signal];
 const isVNode = (v: unknown): v is VNode => Array.isArray(v) && v.length === 3 && v[2] === $vnode;
+const isSignal = (v: unknown): v is Signal => v instanceof Signal;
 
 const render = (node: ChildType, root: HTMLElement) => {
   switch (typeof node) {
@@ -95,10 +96,9 @@ const render = (node: ChildType, root: HTMLElement) => {
           case "static":
           case "redirect":
           case "invalid":
-          case "formslot": {
+          case "formslot":
             // ignore in CSR
             break;
-          }
 
           default: {
             // function component

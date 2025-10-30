@@ -6,7 +6,7 @@ import { COMPONENT_JS, CX_JS, EVENT_JS, FORM_JS, ROUTER_JS, SIGNALS_JS, STYLE_JS
 import { RENDER_ATTR, RENDER_SWITCH, RENDER_TOGGLE } from "./runtime/index.ts";
 import { RENDER_ATTR_JS, RENDER_SWITCH_JS, RENDER_TOGGLE_JS } from "./runtime/index.ts";
 import { cx, escapeHTML, hashCode, IdGen, isObject, isString, NullProtoObject, styleToCSS, toHyphenCase } from "./runtime/utils.ts";
-import { $fragment, $html, $signal, $vnode } from "./symbols.ts";
+import { $fragment, $html, $vnode } from "./symbols.ts";
 import { VERSION } from "./version.ts";
 
 interface RenderContext {
@@ -45,14 +45,6 @@ interface Flags {
   runtime: number;
 }
 
-interface Signal {
-  [$signal]: {
-    readonly scope: number;
-    readonly key: string | Compute;
-    readonly value: unknown;
-  };
-}
-
 interface Compute {
   readonly compute: (() => unknown) | string;
   readonly deps: Set<string>;
@@ -67,7 +59,7 @@ const componentsMap = new IdGen<FC>();
 const subtle = crypto.subtle;
 const stringify = JSON.stringify;
 const isVNode = (v: unknown): v is VNode => Array.isArray(v) && v.length === 3 && v[2] === $vnode;
-const isSignal = (v: unknown): v is Signal => isObject(v) && !!(v as any)[$signal];
+const isSignal = (v: unknown): v is Signal => v instanceof Signal;
 const isFC = (v: unknown): v is FC => typeof v === "function" && v.name.charCodeAt(0) <= /*Z*/ 90;
 const escapeCSSText = (str: string): string => str.replace(/[<>]/g, (m) => m.charCodeAt(0) === 60 ? "&lt;" : "&gt;");
 const toAttrStringLit = (str: string) => '"' + escapeHTML(str) + '"';
@@ -83,13 +75,6 @@ export const JSX = {
 };
 
 let collectDep: ((scopeId: number, key: string) => void) | undefined;
-
-class Ref {
-  constructor(
-    public scope: number,
-    public name: string,
-  ) {}
-}
 
 class IdGenManager<T> {
   #scopes = new Map<number, IdGen<T>>();
@@ -120,6 +105,22 @@ class IdGenManager<T> {
     this.#scopes.clear();
     this.size = 0;
   }
+}
+
+class Signal {
+  constructor(
+    public readonly scope: number,
+    public readonly key: string | Compute,
+    public readonly value: unknown,
+  ) {
+  }
+}
+
+class Ref {
+  constructor(
+    public scope: number,
+    public name: string,
+  ) {}
 }
 
 /** Renders a `<html>` element to a `Response` object. */
@@ -343,7 +344,7 @@ async function render(
     }
     if (mcs.size > 0) {
       js += mcs.toJS((scope, seq, signal) => {
-        const { compute, deps } = signal[$signal].key as Compute;
+        const { compute, deps } = signal.key as Compute;
         return "$MC(" + scope + "," + seq + ",function(){return(" + String(compute) + ").call(this)},"
           + stringify([...deps.values()])
           + ");";
@@ -497,7 +498,7 @@ async function renderNode(rc: RenderContext, node: ChildType, stripSlotProp?: bo
             if (children !== undefined) {
               if (show === undefined && hidden !== undefined) {
                 if (isSignal(hidden)) {
-                  let { scope, key, value } = hidden[$signal];
+                  let { scope, key, value } = hidden;
                   if (typeof key === "string") {
                     key = {
                       compute: "()=>!this[" + stringify(key) + "]",
@@ -509,13 +510,13 @@ async function renderNode(rc: RenderContext, node: ChildType, stripSlotProp?: bo
                       deps: key.deps,
                     };
                   }
-                  show = createSignal(scope, key, !value);
+                  show = new Signal(scope, key, !value);
                 } else {
                   show = !hidden;
                 }
               }
               if (isSignal(show)) {
-                const { value } = show[$signal];
+                const { value } = show;
                 let buf = renderSignal(rc, show, "toggle", false).slice(0, -1) + renderViewTransitionAttr(viewTransition) + ">";
                 if (!value) {
                   buf += "<template m-slot>";
@@ -539,7 +540,7 @@ async function renderNode(rc: RenderContext, node: ChildType, stripSlotProp?: bo
               let signalHtml: string | undefined;
               let toSlotName: string;
               if (isSignal(valueProp)) {
-                const { value } = valueProp[$signal];
+                const { value } = valueProp;
                 signalHtml = renderSignal(rc, valueProp, "switch", false).slice(0, -1) + renderViewTransitionAttr(viewTransition) + ">";
                 rc.flags.runtime |= RENDER_SWITCH;
                 toSlotName = String(value);
@@ -922,7 +923,7 @@ function renderAttr(
         const deps = new Set<string>();
         const patches = [] as string[];
         const staticProps = traverseProps(attrValue, (path, value) => {
-          const { scope, key } = value[$signal];
+          const { scope, key } = value;
           if (isString(key)) {
             patches.push([
               (scope !== scopeId ? "$signals(" + scope + ")" : "this") + "[" + stringify(key) + "]",
@@ -938,7 +939,7 @@ function renderAttr(
         });
         if (patches.length > 0) {
           const compute = "()=>$patch(" + stringify(staticProps) + ",[" + patches.join("],[") + "])";
-          signal = createSignal(scopeId, { compute, deps }, staticProps);
+          signal = new Signal(scopeId, { compute, deps }, staticProps);
         }
       }
     }
@@ -949,7 +950,7 @@ function renderAttr(
         rc.flags.runtime |= STYLE;
       }
       signalValue = signal;
-      attrValue = signal[$signal].value;
+      attrValue = signal.value;
     }
   }
   switch (attrName) {
@@ -1018,7 +1019,7 @@ function renderAttr(
         }
       }
       if (signalValue) {
-        const { key } = signalValue[$signal];
+        const { key } = signalValue;
         if (isString(key)) {
           const fn = () => {}; // todo: use cached fn by the key to reduce the code size
           fn.str = "e=>this[" + toAttrStringLit(key) + "]=e.target." + attrName.slice(1);
@@ -1070,7 +1071,7 @@ function renderSignal(
   mode?: "toggle" | "switch" | "list" | "html" | [string],
   close?: boolean,
 ) {
-  const { scope, key, value } = signal[$signal];
+  const { scope, key, value } = signal;
   let buffer = "<m-signal";
   if (mode) {
     if (Array.isArray(mode)) {
@@ -1104,35 +1105,6 @@ function renderSignal(
   return buffer + (close !== false ? "</m-signal>" : "");
 }
 
-function createSignal(
-  scope: number,
-  key: string | Compute,
-  value: unknown,
-): Signal {
-  const signal = { scope, key, value };
-  return new Proxy(new NullProtoObject(), {
-    get(_target, prop) {
-      if (prop === $signal) {
-        return signal;
-      }
-      if (isObject(value)) {
-        return Reflect.get(value, prop, value);
-      }
-      const v = (value as any)[prop];
-      if (typeof v === "function") {
-        return v.bind(value);
-      }
-      return v;
-    },
-    set(_target, prop, newValue) {
-      if (isObject(value)) {
-        return Reflect.set(value, prop, newValue, value);
-      }
-      return false;
-    },
-  }) as Signal;
-}
-
 function createThisProxy(rc: RenderContext, scopeId: number): Record<string, unknown> {
   const { context, request, routeForm, session } = rc;
   const store = new NullProtoObject() as Record<string | symbol, unknown>;
@@ -1148,7 +1120,7 @@ function createThisProxy(rc: RenderContext, scopeId: number): Record<string, unk
     collectDep = (scopeId, key) => deps.add(scopeId + ":" + key);
     const value = compute.call(thisProxy);
     collectDep = undefined;
-    return createSignal(scopeId, { compute, deps }, value);
+    return new Signal(scopeId, { compute, deps }, value);
   };
   const markEffect = (effect: CallableFunction) => {
     effects.push(String(effect));
@@ -1225,7 +1197,7 @@ function createThisProxy(rc: RenderContext, scopeId: number): Record<string, unk
           }
           let signal = signals.get(key);
           if (!signal) {
-            signal = createSignal(scopeId, key, value);
+            signal = new Signal(scopeId, key, value);
             signals.set(key, signal);
           }
           return signal;
@@ -1319,7 +1291,7 @@ function traverseProps(
     const key = isArray ? Number(k) : k;
     if (isObject(value)) {
       if (isSignal(value)) {
-        copy[key] = value[$signal].value; // use the value of the signal
+        copy[key] = value.value; // use the value of the signal
         callback(newPath, value);
       } else {
         copy[key] = traverseProps(value, callback, newPath);
