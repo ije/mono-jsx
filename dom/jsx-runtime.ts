@@ -13,7 +13,7 @@ const jsx = (tag: string | FC, props: Record<string, unknown> = new NullProtoObj
   }
   // if the tag name is `html`, render it to a `Response` object
   if (props.mount instanceof HTMLElement) {
-    render(vnode as JSX.Element, props.mount);
+    render({}, vnode as JSX.Element, props.mount);
   }
   return vnode;
 };

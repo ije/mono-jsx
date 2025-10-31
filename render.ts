@@ -6,17 +6,18 @@ import { COMPONENT_JS, CX_JS, EVENT_JS, FORM_JS, ROUTER_JS, SIGNALS_JS, STYLE_JS
 import { RENDER_ATTR, RENDER_SWITCH, RENDER_TOGGLE } from "./runtime/index.ts";
 import { RENDER_ATTR_JS, RENDER_SWITCH_JS, RENDER_TOGGLE_JS } from "./runtime/index.ts";
 import { cx, escapeHTML, hashCode, IdGen, isObject, isString, NullProtoObject, styleToCSS, toHyphenCase } from "./runtime/utils.ts";
+import { type Compute, isSignal, Signal } from "./signal.ts";
 import { $fragment, $html, $vnode } from "./symbols.ts";
 import { VERSION } from "./version.ts";
 
 interface RenderContext {
   write: (chunk: string) => void;
   suspenses: Array<Promise<string>>;
-  fc?: FCContext;
-  signals: SignalsContext;
+  fc?: FCScope;
   flags: Flags;
   mcs: IdGenManager<Signal>;
   mfs: IdGenManager<CallableFunction & { str?: string }>;
+  signals: Signals;
   extraJS: string[];
   context?: Record<string, unknown>;
   request?: Request;
@@ -26,14 +27,14 @@ interface RenderContext {
   svg?: boolean;
 }
 
-interface FCContext {
-  scopeId: number;
+interface FCScope {
+  id: number;
   signals: Record<symbol | string, unknown>;
-  slots: Array<ChildType> | undefined;
+  slots?: Array<ChildType>;
   refs: number;
 }
 
-interface SignalsContext {
+interface Signals {
   app: Record<string, unknown>;
   store: Map<string, unknown>;
   effects: Array<string>;
@@ -45,11 +46,6 @@ interface Flags {
   runtime: number;
 }
 
-interface Compute {
-  readonly compute: (() => unknown) | string;
-  readonly deps: Set<string>;
-}
-
 const cdn = "https://raw.esm.sh"; // the cdn for loading htmx and its extensions
 const encoder = new TextEncoder();
 const customElements = new Map<string, FC>();
@@ -59,7 +55,6 @@ const componentsMap = new IdGen<FC>();
 const subtle = crypto.subtle;
 const stringify = JSON.stringify;
 const isVNode = (v: unknown): v is VNode => Array.isArray(v) && v.length === 3 && v[2] === $vnode;
-const isSignal = (v: unknown): v is Signal => v instanceof Signal;
 const isFC = (v: unknown): v is FC => typeof v === "function" && v.name.charCodeAt(0) <= /*Z*/ 90;
 const escapeCSSText = (str: string): string => str.replace(/[><]/g, (m) => m.charCodeAt(0) === 60 ? "&lt;" : "&gt;");
 const toAttrStringLit = (str: string) => '"' + escapeHTML(str) + '"';
@@ -105,14 +100,6 @@ class IdGenManager<T> {
   }
 }
 
-class Signal {
-  constructor(
-    public readonly scope: number,
-    public readonly key: string | Compute,
-    public readonly value: unknown,
-  ) {}
-}
-
 class Ref {
   constructor(
     public readonly scope: number,
@@ -121,7 +108,7 @@ class Ref {
 }
 
 /** Renders a `<html>` element to a `Response` object. */
-export function renderHtml(node: VNode, options: RenderOptions): Response {
+export function renderToWebStream(root: VNode, options: RenderOptions): Response {
   const { routes, components } = options;
   const request: Request & { URL?: URL; params?: Record<string, string> } | undefined = options.request;
   const headers = new Headers();
@@ -235,7 +222,7 @@ export function renderHtml(node: VNode, options: RenderOptions): Response {
         Reflect.set(options, "routeFC", routeFC);
         try {
           write("<!DOCTYPE html>");
-          await render(node, options, write, (js) => write('<script data-mono-jsx="' + VERSION + '">' + js + "</script>"));
+          await render(root, options, write, (js) => write('<script data-mono-jsx="' + VERSION + '">' + js + "</script>"));
           if (options.htmx) {
             write(`<script src="${cdn}/htmx.org${options.htmx === true ? "" : escapeHTML("@" + options.htmx)}/dist/htmx.min.js"></script>`);
             for (const [name, version] of Object.entries(options)) {
@@ -263,7 +250,7 @@ async function render(
 ) {
   const { app, context, request, routeFC } = options;
   const suspenses: Promise<string>[] = [];
-  const signals: SignalsContext = {
+  const signals: Signals = {
     app: {},
     store: new Map(),
     effects: [],
@@ -819,7 +806,7 @@ async function renderFC(rc: RenderContext, fcFn: FC, props: JSX.IntrinsicAttribu
   const slots: ChildType[] | undefined = children !== undefined
     ? (Array.isArray(children) ? (isVNode(children) ? [children as ChildType] : children) : [children])
     : undefined;
-  const fc: FCContext = { scopeId, signals, slots, refs: 0 };
+  const fc: FCScope = { id: scopeId, signals, slots, refs: 0 };
   try {
     const v = fcFn.call(signals, props);
     if (isObject(v) && !isVNode(v)) {
@@ -910,7 +897,7 @@ function renderAttr(
   let addonHtml = "";
   let signalValue: Signal | undefined;
   let binding = false;
-  let scopeId = rc.fc?.scopeId;
+  let scopeId = rc.fc?.id;
   if (isObject(attrValue)) {
     let signal: Signal | undefined;
     if (isSignal(attrValue)) {
@@ -985,7 +972,7 @@ function renderAttr(
           const refId = rc.fc!.refs++;
           const effects = signals[Symbol.for("effects")] as string[];
           effects.push("()=>(" + String(attrValue) + ')(this.refs["' + refId + '"])');
-          attr = " data-ref=" + toAttrStringLit(rc.fc!.scopeId + ":" + refId);
+          attr = " data-ref=" + toAttrStringLit(rc.fc!.id + ":" + refId);
         }
       } else if (attrValue instanceof Ref) {
         attr = " data-ref=" + toAttrStringLit(attrValue.scope + ":" + attrValue.name);
@@ -993,7 +980,7 @@ function renderAttr(
       break;
     case "action":
       if (typeof attrValue === "function") {
-        const scopeId = rc.fc?.scopeId;
+        const scopeId = rc.fc?.id;
         attr = ' onsubmit="$onsubmit(event,$MF_'
           + (scopeId ?? 0) + "_"
           + rc.mfs.gen(attrValue, scopeId) + toStr(scopeId, (i) => "," + i)
@@ -1080,7 +1067,7 @@ function renderSignal(
   if (isString(key)) {
     buffer += " key=" + toAttrStringLit(key);
   } else {
-    buffer += ' computed="' + rc.mcs.gen(signal, rc.fc?.scopeId) + '"';
+    buffer += ' computed="' + rc.mcs.gen(signal, rc.fc?.id) + '"';
   }
   buffer += ">";
   if (!mode || mode === "html") {
@@ -1302,4 +1289,4 @@ function traverseProps(
   return copy;
 }
 
-export { cache, isSignal };
+export { cache };

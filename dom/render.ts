@@ -2,19 +2,9 @@ import type { FC, VNode } from "../types/jsx.d.ts";
 import type { ChildType } from "../types/mono.d.ts";
 import { applyStyle, cx, isFunction, isObject, isString, NullProtoObject } from "../runtime/utils.ts";
 import { $fragment, $html, $vnode } from "../symbols.ts";
+import { type Compute, isSignal, Signal } from "../signal.ts";
 
-interface Compute {
-  readonly compute: (() => unknown) | string;
-  readonly deps: Set<string>;
-}
-
-class Signal {
-  constructor(
-    public readonly scope: number,
-    public readonly key: string | Compute,
-    public readonly value: unknown,
-  ) {
-  }
+interface Scope {
 }
 
 const customElements = new Map<string, FC>();
@@ -27,9 +17,8 @@ const JSX = {
 };
 
 const isVNode = (v: unknown): v is VNode => Array.isArray(v) && v.length === 3 && v[2] === $vnode;
-const isSignal = (v: unknown): v is Signal => v instanceof Signal;
 
-const render = (node: ChildType, root: HTMLElement) => {
+const render = (scope: Scope, node: ChildType, root: HTMLElement) => {
   switch (typeof node) {
     case "string":
     case "number":
@@ -48,7 +37,7 @@ const render = (node: ChildType, root: HTMLElement) => {
           case $fragment: {
             const { children } = props;
             if (children !== undefined) {
-              renderChildren(children, root);
+              renderChildren(scope, children, root);
             }
             break;
           }
@@ -87,7 +76,7 @@ const render = (node: ChildType, root: HTMLElement) => {
 
           // `<router>` element
           case "router": {
-            // todo: client side router
+            // todo: SPA
             break;
           }
 
@@ -169,57 +158,61 @@ const render = (node: ChildType, root: HTMLElement) => {
                 root.appendChild(el);
               }
               if (children !== undefined) {
-                renderChildren(children, el);
+                renderChildren(scope, children, el);
               }
             }
           }
         }
       } else if (Array.isArray(node)) {
         for (const child of node) {
-          render(child, root);
+          render(scope, child, root);
         }
       }
       break;
   }
 };
 
-const renderToFragment = (node: ChildType) => {
+const renderToFragment = (scope: Scope, node: ChildType) => {
   const div = document.createElement("div");
-  render(node, div);
+  render(scope, node, div);
   return [...div.childNodes];
 };
 
-function renderChildren(children: ChildType | ChildType[], root: HTMLElement) {
+function renderChildren(scope: Scope, children: ChildType | ChildType[], root: HTMLElement) {
   if (Array.isArray(children) && !isVNode(children)) {
     for (const child of children) {
-      render(child, root);
+      render(scope, child, root);
     }
   } else {
-    render(children as ChildType, root);
+    render(scope, children as ChildType, root);
   }
 }
 
 function renderFC(fc: FC, props: Record<string, unknown>, root: HTMLElement) {
   const thisProxy = createThisProxy();
   const v = fc.call(thisProxy, props);
+  const scope = {
+    slots: [],
+  };
   if (isObject(v) && !isVNode(v)) {
+    [];
     if (v instanceof Promise) {
       let placeholder: ChildNode[] | undefined;
       if (isVNode(props.placeholder)) {
-        placeholder = renderToFragment(props.placeholder as ChildType);
+        placeholder = renderToFragment(scope, props.placeholder as ChildType);
       }
       if (!placeholder?.length) {
         placeholder = [document.createComment("")];
       }
       root.append(...placeholder);
       v.then((node) => {
-        placeholder[0].replaceWith(...renderToFragment(node as ChildType));
+        placeholder[0].replaceWith(...renderToFragment(scope, node as ChildType));
       }).catch((err) => {
         let msg: ChildNode[] = [];
         if (isFunction(props.catch)) {
           const v = props.catch(err);
           if (isVNode(v)) {
-            msg = renderToFragment(v as ChildType);
+            msg = renderToFragment(scope, v as ChildType);
           }
         } else {
           console.error(err);
@@ -234,11 +227,11 @@ function renderFC(fc: FC, props: Record<string, unknown>, root: HTMLElement) {
       // todo: render async generator components
     } else if (Symbol.iterator in v) {
       for (const node of v) {
-        render(node as ChildType, root);
+        render(scope, node as ChildType, root);
       }
     }
   } else {
-    render(v as ChildType, root);
+    render(scope, v as ChildType, root);
   }
 }
 

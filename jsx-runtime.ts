@@ -1,6 +1,7 @@
 import type { FC, VNode } from "./types/jsx.d.ts";
-import { isSignal, JSX, renderHtml } from "./render.ts";
+import { JSX, renderToWebStream } from "./render.ts";
 import { escapeHTML, isString, NullProtoObject } from "./runtime/utils.ts";
+import { isSignal } from "./signal.ts";
 import { $fragment, $html, $setup, $vnode } from "./symbols.ts";
 
 export const Fragment = $fragment as unknown as FC;
@@ -25,7 +26,7 @@ export const jsx = (tag: string | FC, props: Record<string, unknown> = new NullP
       }
     }
     // if the tag name is `html`, render it to a `Response` object
-    return renderHtml(vnode as unknown as VNode, renderOptions) as unknown as VNode;
+    return renderToWebStream(vnode as unknown as VNode, renderOptions) as unknown as VNode;
   } else if (tag === "static") {
     // track the stack of the static element to identify the caller
     props.$stack = new Error().stack?.split("at ", 3)[2]?.trim();
