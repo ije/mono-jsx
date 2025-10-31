@@ -61,7 +61,7 @@ const stringify = JSON.stringify;
 const isVNode = (v: unknown): v is VNode => Array.isArray(v) && v.length === 3 && v[2] === $vnode;
 const isSignal = (v: unknown): v is Signal => v instanceof Signal;
 const isFC = (v: unknown): v is FC => typeof v === "function" && v.name.charCodeAt(0) <= /*Z*/ 90;
-const escapeCSSText = (str: string): string => str.replace(/[<>]/g, (m) => m.charCodeAt(0) === 60 ? "&lt;" : "&gt;");
+const escapeCSSText = (str: string): string => str.replace(/[><]/g, (m) => m.charCodeAt(0) === 60 ? "&lt;" : "&gt;");
 const toAttrStringLit = (str: string) => '"' + escapeHTML(str) + '"';
 const toStr = <T = string | number>(v: T | undefined, str: (v: T) => string) => v !== undefined ? str(v) : "";
 
@@ -73,8 +73,6 @@ export const JSX = {
     },
   },
 };
-
-let collectDep: ((scopeId: number, key: string) => void) | undefined;
 
 class IdGenManager<T> {
   #scopes = new Map<number, IdGen<T>>();
@@ -112,14 +110,13 @@ class Signal {
     public readonly scope: number,
     public readonly key: string | Compute,
     public readonly value: unknown,
-  ) {
-  }
+  ) {}
 }
 
 class Ref {
   constructor(
-    public scope: number,
-    public name: string,
+    public readonly scope: number,
+    public readonly name: string,
   ) {}
 }
 
@@ -537,6 +534,9 @@ async function renderNode(rc: RenderContext, node: ChildType, stripSlotProp?: bo
             const { value: valueProp, viewTransition, children } = props;
             if (children !== undefined) {
               let slots = Array.isArray(children) ? (isVNode(children) ? [children] : children) : [children];
+              let matchedSlot: [string, ChildType] | undefined;
+              let namedSlots: ChildType[] = [];
+              let unnamedSlots: ChildType[] = [];
               let signalHtml: string | undefined;
               let toSlotName: string;
               if (isSignal(valueProp)) {
@@ -547,9 +547,6 @@ async function renderNode(rc: RenderContext, node: ChildType, stripSlotProp?: bo
               } else {
                 toSlotName = String(valueProp);
               }
-              let matchedSlot: [string, ChildType] | undefined;
-              let namedSlots: ChildType[] = new Array(slots.length);
-              let unnamedSlots: ChildType[] = new Array(slots.length);
               for (const slot of slots) {
                 if (!isVNode(slot) || !slot[1].slot) {
                   unnamedSlots.push(slot);
@@ -1104,6 +1101,8 @@ function renderSignal(
   }
   return buffer + (close !== false ? "</m-signal>" : "");
 }
+
+let collectDep: ((scopeId: number, key: string) => void) | undefined;
 
 function createThisProxy(rc: RenderContext, scopeId: number): Record<string, unknown> {
   const { context, request, routeForm, session } = rc;
