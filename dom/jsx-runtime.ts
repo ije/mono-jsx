@@ -1,7 +1,9 @@
 import type { FC, VNode } from "../types/jsx.d.ts";
+import { JSX } from "../jsx.ts";
 import { isString, NullProtoObject } from "../runtime/utils.ts";
+import { isSignal } from "../signal.ts";
 import { $fragment, $html, $vnode } from "../symbols.ts";
-import { isSignal, JSX, render } from "./render.ts";
+import { render } from "./render.ts";
 
 const div = document.createElement("div");
 const Fragment = $fragment as unknown as FC;

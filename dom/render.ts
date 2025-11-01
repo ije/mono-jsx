@@ -1,20 +1,13 @@
 import type { FC, VNode } from "../types/jsx.d.ts";
 import type { ChildType } from "../types/mono.d.ts";
+import { customElements, JSX } from "../jsx.ts";
 import { applyStyle, cx, isFunction, isObject, isString, NullProtoObject } from "../runtime/utils.ts";
-import { $fragment, $html, $vnode } from "../symbols.ts";
 import { type Compute, isSignal, Signal } from "../signal.ts";
+import { $fragment, $html, $vnode } from "../symbols.ts";
 
 interface Scope {
+  slots?: ChildType[];
 }
-
-const customElements = new Map<string, FC>();
-const JSX = {
-  customElements: {
-    define(tagName: string, fc: FC) {
-      customElements.set(tagName, fc);
-    },
-  },
-};
 
 const isVNode = (v: unknown): v is VNode => Array.isArray(v) && v.length === 3 && v[2] === $vnode;
 
@@ -178,7 +171,7 @@ const renderToFragment = (scope: Scope, node: ChildType) => {
   return [...div.childNodes];
 };
 
-function renderChildren(scope: Scope, children: ChildType | ChildType[], root: HTMLElement) {
+const renderChildren = (scope: Scope, children: ChildType | ChildType[], root: HTMLElement) => {
   if (Array.isArray(children) && !isVNode(children)) {
     for (const child of children) {
       render(scope, child, root);
@@ -186,9 +179,9 @@ function renderChildren(scope: Scope, children: ChildType | ChildType[], root: H
   } else {
     render(scope, children as ChildType, root);
   }
-}
+};
 
-function renderFC(fc: FC, props: Record<string, unknown>, root: HTMLElement) {
+const renderFC = (fc: FC, props: Record<string, unknown>, root: HTMLElement) => {
   const thisProxy = createThisProxy();
   const v = fc.call(thisProxy, props);
   const scope = {
@@ -233,10 +226,10 @@ function renderFC(fc: FC, props: Record<string, unknown>, root: HTMLElement) {
   } else {
     render(scope, v as ChildType, root);
   }
-}
+};
 
-function createThisProxy() {
-  return new Proxy(new NullProtoObject(), {
+const createThisProxy = () =>
+  new Proxy(new NullProtoObject(), {
     get(target, key, receiver) {
       return Reflect.get(target, key, receiver);
     },
@@ -244,6 +237,5 @@ function createThisProxy() {
       return Reflect.set(target, key, value, receiver);
     },
   });
-}
 
-export { customElements, isSignal, JSX, render };
+export { render };

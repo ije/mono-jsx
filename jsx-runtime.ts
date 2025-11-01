@@ -1,5 +1,6 @@
 import type { FC, VNode } from "./types/jsx.d.ts";
-import { JSX, renderToWebStream } from "./render.ts";
+import { JSX } from "./jsx.ts";
+import { renderToWebStream } from "./render.ts";
 import { escapeHTML, isString, NullProtoObject } from "./runtime/utils.ts";
 import { isSignal } from "./signal.ts";
 import { $fragment, $html, $setup, $vnode } from "./symbols.ts";

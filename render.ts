@@ -1,6 +1,7 @@
 import type { ChildType, Session } from "./types/mono.d.ts";
 import type { FC, VNode } from "./types/jsx.d.ts";
 import type { MaybeModule, RenderOptions, SessionOptions } from "./types/render.d.ts";
+import { customElements } from "./jsx.ts";
 import { COMPONENT, CX, EVENT, FORM, ROUTER, SIGNALS, STYLE, SUSPENSE } from "./runtime/index.ts";
 import { COMPONENT_JS, CX_JS, EVENT_JS, FORM_JS, ROUTER_JS, SIGNALS_JS, STYLE_JS, SUSPENSE_JS } from "./runtime/index.ts";
 import { RENDER_ATTR, RENDER_SWITCH, RENDER_TOGGLE } from "./runtime/index.ts";
@@ -48,7 +49,6 @@ interface Flags {
 
 const cdn = "https://raw.esm.sh"; // the cdn for loading htmx and its extensions
 const encoder = new TextEncoder();
-const customElements = new Map<string, FC>();
 const voidTags = new Set("area,base,br,col,embed,hr,img,input,keygen,link,meta,param,source,track,wbr".split(","));
 const cache = new Map<string, { html: string; expires?: number }>();
 const componentsMap = new IdGen<FC>();
@@ -59,15 +59,6 @@ const isFC = (v: unknown): v is FC => typeof v === "function" && v.name.charCode
 const escapeCSSText = (str: string): string => str.replace(/[><]/g, (m) => m.charCodeAt(0) === 60 ? "&lt;" : "&gt;");
 const toAttrStringLit = (str: string) => '"' + escapeHTML(str) + '"';
 const toStr = <T = string | number>(v: T | undefined, str: (v: T) => string) => v !== undefined ? str(v) : "";
-
-/** The JSX namespace. */
-export const JSX = {
-  customElements: {
-    define(tagName: string, fc: FC) {
-      customElements.set(tagName, fc);
-    },
-  },
-};
 
 class IdGenManager<T> {
   #scopes = new Map<number, IdGen<T>>();
@@ -108,7 +99,7 @@ class Ref {
 }
 
 /** Renders a `<html>` element to a `Response` object. */
-export function renderToWebStream(root: VNode, options: RenderOptions): Response {
+function renderToWebStream(root: VNode, options: RenderOptions): Response {
   const { routes, components } = options;
   const request: Request & { URL?: URL; params?: Record<string, string> } | undefined = options.request;
   const headers = new Headers();
@@ -1289,4 +1280,4 @@ function traverseProps(
   return copy;
 }
 
-export { cache };
+export { cache, renderToWebStream };
