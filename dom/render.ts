@@ -1,15 +1,39 @@
 import type { FC, VNode } from "../types/jsx.d.ts";
 import type { ChildType } from "../types/mono.d.ts";
-import { customElements, JSX } from "../jsx.ts";
+import { customElements } from "../jsx.ts";
 import { applyStyle, cx, isFunction, isObject, isString, NullProtoObject } from "../runtime/utils.ts";
-import { type Compute, isSignal, Signal } from "../signal.ts";
 import { $fragment, $html, $vnode } from "../symbols.ts";
 
 interface Scope {
-  slots?: ChildType[];
+  [key: string]: unknown;
+  [$get]: boolean;
+  readonly [$runCompute]: (compute: Compute) => unknown;
+  readonly [$slots]: ChildType[] | undefined;
+  readonly [$watch]: (key: string, effect: () => void) => () => void;
+  readonly [$dispose]: () => void;
 }
 
+class Signal {
+  constructor(
+    public readonly key: string,
+  ) {}
+}
+
+class Compute {
+  deps?: Set<string>;
+  constructor(
+    public readonly compute: () => unknown,
+  ) {}
+}
+
+const $get = Symbol();
+const $slots = Symbol();
+const $watch = Symbol();
+const $runCompute = Symbol();
+const $dispose = Symbol();
 const isVNode = (v: unknown): v is VNode => Array.isArray(v) && v.length === 3 && v[2] === $vnode;
+const isSignal = (v: unknown): v is Signal => v instanceof Signal;
+const isCompute = (v: unknown): v is Compute => v instanceof Compute;
 
 const render = (scope: Scope, node: ChildType, root: HTMLElement) => {
   switch (typeof node) {
@@ -21,8 +45,35 @@ const render = (scope: Scope, node: ChildType, root: HTMLElement) => {
     case "object":
       if (node === null) {
         // skip null
-      } else if (isSignal(node)) {
-        // TODO: render signal
+      } else if (isSignal(node) || isCompute(node)) {
+        const textNode = document.createTextNode("");
+        const watch = scope[$watch];
+        const update = () => {
+          let value: unknown;
+          if (isSignal(node)) {
+            value = scope[node.key];
+          } else {
+            value = scope[$runCompute](node);
+          }
+          switch (typeof value) {
+            case "string":
+            case "number":
+            case "bigint":
+              textNode.textContent = String(value);
+              break;
+            case "object":
+              if (node !== null) {
+                textNode.textContent = JSON.stringify(value);
+              }
+          }
+        };
+        update();
+        if (isSignal(node)) {
+          watch(node.key, update);
+        } else {
+          node.deps?.forEach((key) => watch(key, update));
+        }
+        root.appendChild(textNode);
       } else if (isVNode(node)) {
         const [tag, props] = node;
         switch (tag) {
@@ -182,30 +233,27 @@ const renderChildren = (scope: Scope, children: ChildType | ChildType[], root: H
 };
 
 const renderFC = (fc: FC, props: Record<string, unknown>, root: HTMLElement) => {
-  const thisProxy = createThisProxy();
+  const thisProxy = createThisProxy(props.children as ChildType[] | undefined) as unknown as Scope;
   const v = fc.call(thisProxy, props);
-  const scope = {
-    slots: [],
-  };
+  thisProxy[$get] = true;
   if (isObject(v) && !isVNode(v)) {
-    [];
     if (v instanceof Promise) {
       let placeholder: ChildNode[] | undefined;
       if (isVNode(props.placeholder)) {
-        placeholder = renderToFragment(scope, props.placeholder as ChildType);
+        placeholder = renderToFragment(thisProxy, props.placeholder as ChildType);
       }
       if (!placeholder?.length) {
         placeholder = [document.createComment("")];
       }
       root.append(...placeholder);
       v.then((node) => {
-        placeholder[0].replaceWith(...renderToFragment(scope, node as ChildType));
+        placeholder[0].replaceWith(...renderToFragment(thisProxy, node as ChildType));
       }).catch((err) => {
         let msg: ChildNode[] = [];
         if (isFunction(props.catch)) {
           const v = props.catch(err);
           if (isVNode(v)) {
-            msg = renderToFragment(scope, v as ChildType);
+            msg = renderToFragment(thisProxy, v as ChildType);
           }
         } else {
           console.error(err);
@@ -220,22 +268,78 @@ const renderFC = (fc: FC, props: Record<string, unknown>, root: HTMLElement) => 
       // todo: render async generator components
     } else if (Symbol.iterator in v) {
       for (const node of v) {
-        render(scope, node as ChildType, root);
+        render(thisProxy, node as ChildType, root);
       }
     }
   } else {
-    render(scope, v as ChildType, root);
+    render(thisProxy, v as ChildType, root);
   }
 };
 
-const createThisProxy = () =>
-  new Proxy(new NullProtoObject(), {
-    get(target, key, receiver) {
-      return Reflect.get(target, key, receiver);
+const createThisProxy = (slots: ChildType[] | undefined) => {
+  let watchHandlers = new Map<string, Set<() => void>>();
+  let get = false;
+  let depSet: Set<string> | undefined;
+  return new Proxy(new NullProtoObject(), {
+    get(target, key, reciver) {
+      switch (key) {
+        case $slots:
+          return slots;
+        case $runCompute:
+          return (c: Compute) => {
+            if (!c.deps) {
+              depSet = c.deps = new Set<string>();
+            }
+            const value = c.compute.call(reciver);
+            depSet = undefined;
+            return value;
+          };
+        case $watch:
+          return (key: string, effect: () => void) => {
+            let effects = watchHandlers.get(key);
+            if (!effects) {
+              effects = new Set();
+              watchHandlers.set(key, effects);
+            }
+            effects.add(effect);
+            return () => {
+              effects.delete(effect);
+              if (effects.size === 0) {
+                watchHandlers.delete(key);
+              }
+            };
+          };
+        case $dispose:
+          return () => watchHandlers.clear();
+        case "init":
+          return ((args: Record<string, unknown>) => Object.assign(target, args));
+        case "$":
+        case "compute":
+          return (fn: () => unknown) => new Compute(fn);
+        default:
+          if (get || depSet) {
+            if (depSet && isString(key)) {
+              depSet.add(key);
+            }
+            return Reflect.get(target, key);
+          }
+          if (isString(key)) {
+            return new Signal(String(key));
+          }
+      }
     },
-    set(target, key, value, receiver) {
-      return Reflect.set(target, key, value, receiver);
+    set(target, key, value) {
+      if (key === $get) {
+        get = value as boolean;
+        return true;
+      }
+      const ok = Reflect.set(target, key, value);
+      if (ok && isString(key)) {
+        watchHandlers.get(key)?.forEach((effect) => effect());
+      }
+      return ok;
     },
   });
+};
 
-export { render };
+export { isCompute, isSignal, render };

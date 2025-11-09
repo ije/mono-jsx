@@ -7,7 +7,6 @@ import { COMPONENT_JS, CX_JS, EVENT_JS, FORM_JS, ROUTER_JS, SIGNALS_JS, STYLE_JS
 import { RENDER_ATTR, RENDER_SWITCH, RENDER_TOGGLE } from "./runtime/index.ts";
 import { RENDER_ATTR_JS, RENDER_SWITCH_JS, RENDER_TOGGLE_JS } from "./runtime/index.ts";
 import { cx, escapeHTML, hashCode, IdGen, isObject, isString, NullProtoObject, styleToCSS, toHyphenCase } from "./runtime/utils.ts";
-import { type Compute, isSignal, Signal } from "./signal.ts";
 import { $fragment, $html, $vnode } from "./symbols.ts";
 import { VERSION } from "./version.ts";
 
@@ -35,16 +34,21 @@ interface FCScope {
   refs: number;
 }
 
+interface Flags {
+  scope: number;
+  chunk: number;
+  runtime: number;
+}
+
 interface Signals {
   app: Record<string, unknown>;
   store: Map<string, unknown>;
   effects: Array<string>;
 }
 
-interface Flags {
-  scope: number;
-  chunk: number;
-  runtime: number;
+export interface Compute {
+  readonly compute: (() => unknown) | string;
+  readonly deps: Set<string>;
 }
 
 const cdn = "https://raw.esm.sh"; // the cdn for loading htmx and its extensions
@@ -55,6 +59,7 @@ const componentsMap = new IdGen<FC>();
 const subtle = crypto.subtle;
 const stringify = JSON.stringify;
 const isVNode = (v: unknown): v is VNode => Array.isArray(v) && v.length === 3 && v[2] === $vnode;
+const isSignal = (v: unknown): v is Signal => v instanceof Signal;
 const isFC = (v: unknown): v is FC => typeof v === "function" && v.name.charCodeAt(0) <= /*Z*/ 90;
 const escapeCSSText = (str: string): string => str.replace(/[><]/g, (m) => m.charCodeAt(0) === 60 ? "&lt;" : "&gt;");
 const toAttrStringLit = (str: string) => '"' + escapeHTML(str) + '"';
@@ -89,6 +94,14 @@ class IdGenManager<T> {
     this.#scopes.clear();
     this.size = 0;
   }
+}
+
+class Signal {
+  constructor(
+    public readonly scope: number,
+    public readonly key: string | Compute,
+    public readonly value: unknown,
+  ) {}
 }
 
 class Ref {
@@ -1161,12 +1174,12 @@ function createThisProxy(rc: RenderContext, scopeId: number): Record<string, unk
           }
           // fallthrough
         default: {
+          if (!Reflect.has(target, key)) {
+            Reflect.set(target, key, undefined, receiver);
+          }
           const value = Reflect.get(target, key, receiver);
           if (typeof key === "symbol" || isSignal(value)) {
             return value;
-          }
-          if (value === undefined && !Reflect.has(target, key)) {
-            Reflect.set(target, key, undefined, receiver);
           }
           if (collectDep) {
             collectDep(scopeId, key);
@@ -1280,4 +1293,4 @@ function traverseProps(
   return copy;
 }
 
-export { cache, renderToWebStream };
+export { cache, isSignal, renderToWebStream };

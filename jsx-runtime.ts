@@ -1,8 +1,7 @@
 import type { FC, VNode } from "./types/jsx.d.ts";
 import { JSX } from "./jsx.ts";
-import { renderToWebStream } from "./render.ts";
+import { isSignal, renderToWebStream } from "./render.ts";
 import { escapeHTML, isString, NullProtoObject } from "./runtime/utils.ts";
-import { isSignal } from "./signal.ts";
 import { $fragment, $html, $setup, $vnode } from "./symbols.ts";
 
 export const Fragment = $fragment as unknown as FC;
@@ -36,13 +35,15 @@ export const jsx = (tag: string | FC, props: Record<string, unknown> = new NullP
 };
 
 export const jsxEscape = (value: unknown): string => {
-  if (value === null || value === undefined || typeof value === "boolean") {
-    return "";
+  switch (typeof value) {
+    case "bigint":
+    case "number":
+      return String(value);
+    case "string":
+      return escapeHTML(value);
+    default:
+      return "";
   }
-  if (typeof value === "number" || typeof value === "bigint") {
-    return String(value);
-  }
-  return escapeHTML(String(value));
 };
 
 export const html = (template: string | TemplateStringsArray, ...values: unknown[]): VNode => [

@@ -5,7 +5,7 @@ declare global {
 
 const regexpCssBareUnitProps = /acit|ex(?:s|g|n|p|$)|rph|grid|ows|mnc|ntw|ine[ch]|zoo|^ord|itera/i; // copied https://github.com/preactjs/preact
 const regexpHtmlSafe = /["'&<>]/;
-const cssIdSet = new Set<number>();
+const cssIds = new Set<number>();
 
 export const isString = (v: unknown): v is string => typeof v === "string";
 export const isObject = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null;
@@ -84,8 +84,8 @@ export const applyStyle = (el: Element, style: Record<string, unknown>): void =>
     const id = hashCode((inline ?? "") + css.join(""));
     const attrName = prefix + id.toString(36);
     const selector = "[" + attrName + "]";
-    if (!cssIdSet.has(id)) {
-      cssIdSet.add(id);
+    if (!cssIds.has(id)) {
+      cssIds.add(id);
       document.head.appendChild(document.createElement("style")).textContent = (inline ? selector + "{" + inline + "}" : "")
         + css.map(v => v === null ? selector : v).join("");
     }
@@ -115,9 +115,9 @@ export const renderStyle = (style: unknown): string => {
 // copyied from https://github.com/h3js/rou3/blob/main/src/_utils.ts
 // by @pi0
 export const NullProtoObject = /* @__PURE__ */ (() => {
-  function Obj() {}
-  Obj.prototype = Object.freeze(Object.create(null));
-  return Obj;
+  function NPO() {}
+  NPO.prototype = Object.freeze(Object.create(null));
+  return NPO;
 })() as unknown as { new(): Record<string, any> };
 
 /**

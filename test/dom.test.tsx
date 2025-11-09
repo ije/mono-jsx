@@ -57,13 +57,14 @@ Deno.test.beforeAll(async () => {
     return new Response("Not Found", { status: 404 });
   });
 
-  // console.log(addTestPage(`
-  //   function App() {
-  //     return <div>Hello, world!</div>;
-  //   }
-  //   <App mount={document.body} />;
-  // `));
-  // await new Promise(() => {});
+  console.log(addTestPage(`
+    function App(this: { count: number }) {
+      this.init({ count: 1 });
+      return <button onClick={() => this.count++}>{this.$(()=>2*this.count)}</button>;
+    }
+    <App mount={document.body} />;
+  `));
+  await new Promise(() => {});
 });
 
 Deno.test.afterAll(async () => {
