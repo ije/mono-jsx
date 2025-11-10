@@ -6,9 +6,9 @@ import { $fragment, $html, $vnode } from "../symbols.ts";
 
 interface Scope {
   [key: string]: unknown;
-  [$get]: boolean;
-  readonly [$runCompute]: (compute: Compute) => unknown;
   readonly [$slots]: ChildType[] | undefined;
+  readonly [$afterCall]: () => void;
+  readonly [$runCompute]: (compute: Compute) => unknown;
   readonly [$watch]: (key: string, effect: () => void) => () => void;
   readonly [$dispose]: () => void;
 }
@@ -26,27 +26,28 @@ class Compute {
   ) {}
 }
 
-const $get = Symbol();
 const $slots = Symbol();
-const $watch = Symbol();
+const $afterCall = Symbol();
 const $runCompute = Symbol();
+const $watch = Symbol();
 const $dispose = Symbol();
 const isVNode = (v: unknown): v is VNode => Array.isArray(v) && v.length === 3 && v[2] === $vnode;
 const isSignal = (v: unknown): v is Signal => v instanceof Signal;
 const isCompute = (v: unknown): v is Compute => v instanceof Compute;
+const createTextNode = (text: string) => document.createTextNode(text);
 
 const render = (scope: Scope, node: ChildType, root: HTMLElement) => {
   switch (typeof node) {
     case "string":
     case "number":
     case "bigint":
-      root.appendChild(document.createTextNode(String(node)));
+      root.appendChild(createTextNode(String(node)));
       break;
     case "object":
       if (node === null) {
         // skip null
       } else if (isSignal(node) || isCompute(node)) {
-        const textNode = document.createTextNode("");
+        const textNode = createTextNode("");
         const watch = scope[$watch];
         const update = () => {
           let value: unknown;
@@ -60,11 +61,6 @@ const render = (scope: Scope, node: ChildType, root: HTMLElement) => {
             case "number":
             case "bigint":
               textNode.textContent = String(value);
-              break;
-            case "object":
-              if (node !== null) {
-                textNode.textContent = JSON.stringify(value);
-              }
           }
         };
         update();
@@ -89,7 +85,7 @@ const render = (scope: Scope, node: ChildType, root: HTMLElement) => {
           // XSS!
           case $html: {
             const { innerHTML } = props;
-            if (isSignal(innerHTML)) {
+            if (isSignal(innerHTML) || isCompute(innerHTML)) {
               // TODO: render signal
             } else if (isString(innerHTML)) {
               root.insertAdjacentHTML("beforeend", innerHTML);
@@ -130,7 +126,7 @@ const render = (scope: Scope, node: ChildType, root: HTMLElement) => {
           case "redirect":
           case "invalid":
           case "formslot":
-            // ignore in CSR
+            // ignored in CSR
             break;
 
           default: {
@@ -235,7 +231,7 @@ const renderChildren = (scope: Scope, children: ChildType | ChildType[], root: H
 const renderFC = (fc: FC, props: Record<string, unknown>, root: HTMLElement) => {
   const thisProxy = createThisProxy(props.children as ChildType[] | undefined) as unknown as Scope;
   const v = fc.call(thisProxy, props);
-  thisProxy[$get] = true;
+  thisProxy[$afterCall]();
   if (isObject(v) && !isVNode(v)) {
     if (v instanceof Promise) {
       let placeholder: ChildNode[] | undefined;
@@ -278,13 +274,17 @@ const renderFC = (fc: FC, props: Record<string, unknown>, root: HTMLElement) => 
 
 const createThisProxy = (slots: ChildType[] | undefined) => {
   let watchHandlers = new Map<string, Set<() => void>>();
-  let get = false;
+  let called = false;
   let depSet: Set<string> | undefined;
   return new Proxy(new NullProtoObject(), {
     get(target, key, reciver) {
       switch (key) {
         case $slots:
           return slots;
+        case $afterCall:
+          return () => {
+            called = true;
+          };
         case $runCompute:
           return (c: Compute) => {
             if (!c.deps) {
@@ -317,7 +317,7 @@ const createThisProxy = (slots: ChildType[] | undefined) => {
         case "compute":
           return (fn: () => unknown) => new Compute(fn);
         default:
-          if (get || depSet) {
+          if (called || depSet) {
             if (depSet && isString(key)) {
               depSet.add(key);
             }
@@ -329,10 +329,6 @@ const createThisProxy = (slots: ChildType[] | undefined) => {
       }
     },
     set(target, key, value) {
-      if (key === $get) {
-        get = value as boolean;
-        return true;
-      }
       const ok = Reflect.set(target, key, value);
       if (ok && isString(key)) {
         watchHandlers.get(key)?.forEach((effect) => effect());
