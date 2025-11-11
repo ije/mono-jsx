@@ -412,7 +412,7 @@ declare global {
      * Creates a side effect.
      * **The effect function is only called on client side.**
      */
-    readonly effect: (fn: () => void | (() => void)) => void;
+    readonly effect: (fn: () => (() => void) | void) => void;
   } & Omit<Signals, "app" | "context" | "request" | "session" | "form" | "refs" | "computed" | "$" | "effect">;
 
   /**

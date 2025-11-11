@@ -1,11 +1,10 @@
 import type { FC, VNode } from "../types/jsx.d.ts";
 import { JSX } from "../jsx.ts";
-import { isString, NullProtoObject } from "../runtime/utils.ts";
+import { domEscapeHTML, isString, NullProtoObject } from "../runtime/utils.ts";
 import { $fragment, $html, $vnode } from "../symbols.ts";
 import { isCompute, isSignal, render } from "./render.ts";
 
 const Fragment = $fragment as unknown as FC;
-const div = document.createElement("div");
 
 const jsx = (tag: string | FC, props: Record<string, unknown> = new NullProtoObject(), key?: string | number): VNode => {
   const vnode: VNode = [tag, props, $vnode];
@@ -24,8 +23,7 @@ const jsxEscape = (value: unknown): string => {
     case "number":
       return String(value);
     case "string":
-      div.textContent = String(value);
-      return div.innerHTML;
+      return domEscapeHTML(value);
     default:
       return "";
   }

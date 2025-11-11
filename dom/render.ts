@@ -6,11 +6,11 @@ import { $fragment, $html, $vnode } from "../symbols.ts";
 
 interface Scope {
   [key: string]: unknown;
+  readonly [$ac]: AbortController;
   readonly [$slots]: ChildType[] | undefined;
   readonly [$afterCall]: () => void;
   readonly [$runCompute]: (compute: Compute) => unknown;
-  readonly [$watch]: (key: string, effect: () => void) => () => void;
-  readonly [$dispose]: () => void;
+  readonly [$watch]: (key: string, effect: () => void) => void;
 }
 
 class Signal {
@@ -26,23 +26,27 @@ class Compute {
   ) {}
 }
 
+const $ac = Symbol();
 const $slots = Symbol();
 const $afterCall = Symbol();
 const $runCompute = Symbol();
 const $watch = Symbol();
-const $dispose = Symbol();
 const isVNode = (v: unknown): v is VNode => Array.isArray(v) && v.length === 3 && v[2] === $vnode;
 const isSignal = (v: unknown): v is Signal => v instanceof Signal;
 const isCompute = (v: unknown): v is Compute => v instanceof Compute;
 const createTextNode = (text: string) => document.createTextNode(text);
+const createDocumentFragment = () => document.createDocumentFragment();
 
-const render = (scope: Scope, node: ChildType, root: HTMLElement) => {
+const render = (scope: Scope, node: ChildType, root: HTMLElement | DocumentFragment, abortSignal?: AbortSignal) => {
   switch (typeof node) {
     case "string":
     case "number":
-    case "bigint":
-      root.appendChild(createTextNode(String(node)));
+    case "bigint": {
+      const textNode = createTextNode(String(node));
+      abortSignal?.addEventListener("abort", () => textNode.remove());
+      root.appendChild(textNode);
       break;
+    }
     case "object":
       if (node === null) {
         // skip null
@@ -70,6 +74,7 @@ const render = (scope: Scope, node: ChildType, root: HTMLElement) => {
           node.deps?.forEach((key) => watch(key, update));
         }
         root.appendChild(textNode);
+        abortSignal?.addEventListener("abort", () => textNode.remove());
       } else if (isVNode(node)) {
         const [tag, props] = node;
         switch (tag) {
@@ -77,7 +82,7 @@ const render = (scope: Scope, node: ChildType, root: HTMLElement) => {
           case $fragment: {
             const { children } = props;
             if (children !== undefined) {
-              renderChildren(scope, children, root);
+              renderChildren(scope, children, root, abortSignal);
             }
             break;
           }
@@ -88,27 +93,73 @@ const render = (scope: Scope, node: ChildType, root: HTMLElement) => {
             if (isSignal(innerHTML) || isCompute(innerHTML)) {
               // TODO: render signal
             } else if (isString(innerHTML)) {
-              root.insertAdjacentHTML("beforeend", innerHTML);
+              // root.insertAdjacentHTML("beforeend", innerHTML);
             }
             break;
           }
 
           // `<slot>` element
           case "slot": {
+            const slots = scope[$slots];
+            if (slots) {
+              renderChildren(scope, slots, root, abortSignal);
+            }
             break;
           }
 
           // `<toggle>` element
           case "toggle": {
-            let { show, hidden, viewTransition, children } = props;
+            // todo: support viewTransition
+            let { show, hidden, children } = props;
             if (children !== undefined) {
+              if (show === undefined && hidden !== undefined) {
+                if (isSignal(hidden)) {
+                  show = new Compute(() => !scope[hidden.key]);
+                } else if (isCompute(hidden)) {
+                  show = new Compute(() => !hidden.compute());
+                } else {
+                  show = !hidden;
+                }
+              }
+              if (isSignal(show) || isCompute(show)) {
+                let ac = new AbortController();
+                let childNodes = root.childNodes;
+                let insertIndex = childNodes.length;
+                let watch = scope[$watch];
+                let update = () => {
+                  let value: unknown;
+                  if (isSignal(show)) {
+                    value = scope[show.key];
+                  } else {
+                    value = scope[$runCompute](show);
+                  }
+                  if (value) {
+                    const fragment = createDocumentFragment();
+                    renderChildren(scope, children, fragment, ac.signal);
+                    root.insertBefore(fragment, childNodes[insertIndex]);
+                  } else {
+                    ac.abort();
+                    ac = new AbortController();
+                  }
+                };
+                update();
+                if (isSignal(show)) {
+                  watch(show.key, update);
+                } else {
+                  show.deps?.forEach((key) => watch(key, update));
+                }
+                abortSignal?.addEventListener("abort", () => ac.abort());
+              } else if (show) {
+                renderChildren(scope, children, root, abortSignal);
+              }
             }
             break;
           }
 
           // `<switch>` element
           case "switch": {
-            const { value: valueProp, viewTransition, children } = props;
+            // todo: support viewTransition
+            const { value: valueProp, children } = props;
             if (children !== undefined) {
             }
             break;
@@ -132,16 +183,17 @@ const render = (scope: Scope, node: ChildType, root: HTMLElement) => {
           default: {
             // function component
             if (typeof tag === "function") {
-              renderFC(tag as FC, props, root);
+              renderFC(tag as FC, props, root, abortSignal);
               break;
             }
 
             // regular html element
             if (isString(tag)) {
               if (customElements.has(tag)) {
-                renderFC(customElements.get(tag)!, props, root);
+                renderFC(customElements.get(tag)!, props, root, abortSignal);
                 break;
               }
+
               const { mount, children, ...attrs } = props;
               const el = document.createElement(tag);
               for (const [key, value] of Object.entries(attrs)) {
@@ -197,65 +249,72 @@ const render = (scope: Scope, node: ChildType, root: HTMLElement) => {
               } else {
                 root.appendChild(el);
               }
+              abortSignal?.addEventListener("abort", () => el.remove());
               if (children !== undefined) {
-                renderChildren(scope, children, el);
+                renderChildren(scope, children, el, abortSignal);
               }
             }
           }
         }
       } else if (Array.isArray(node)) {
         for (const child of node) {
-          render(scope, child, root);
+          render(scope, child, root, abortSignal);
         }
       }
       break;
   }
 };
 
-const renderToFragment = (scope: Scope, node: ChildType) => {
-  const div = document.createElement("div");
-  render(scope, node, div);
-  return [...div.childNodes];
+const renderToFragment = (scope: Scope, node: ChildType, aboutSignal?: AbortSignal) => {
+  const fragment = createDocumentFragment();
+  render(scope, node, fragment, aboutSignal);
+  return [...fragment.childNodes];
 };
 
-const renderChildren = (scope: Scope, children: ChildType | ChildType[], root: HTMLElement) => {
+const renderChildren = (
+  scope: Scope,
+  children: ChildType | ChildType[],
+  root: HTMLElement | DocumentFragment,
+  aboutSignal?: AbortSignal,
+) => {
   if (Array.isArray(children) && !isVNode(children)) {
     for (const child of children) {
-      render(scope, child, root);
+      render(scope, child, root, aboutSignal);
     }
   } else {
-    render(scope, children as ChildType, root);
+    render(scope, children as ChildType, root, aboutSignal);
   }
 };
 
-const renderFC = (fc: FC, props: Record<string, unknown>, root: HTMLElement) => {
-  const thisProxy = createThisProxy(props.children as ChildType[] | undefined) as unknown as Scope;
+const renderFC = (fc: FC, props: Record<string, unknown>, root: HTMLElement | DocumentFragment, abortSignal?: AbortSignal) => {
+  const thisProxy = createThisProxy(props.children as ChildType[] | undefined, abortSignal) as unknown as Scope;
   const v = fc.call(thisProxy, props);
   thisProxy[$afterCall]();
   if (isObject(v) && !isVNode(v)) {
     if (v instanceof Promise) {
       let placeholder: ChildNode[] | undefined;
       if (isVNode(props.placeholder)) {
-        placeholder = renderToFragment(thisProxy, props.placeholder as ChildType);
+        placeholder = renderToFragment(thisProxy, props.placeholder as ChildType, abortSignal);
       }
       if (!placeholder?.length) {
-        placeholder = [document.createComment("")];
+        placeholder = [document.createComment("pending...")];
       }
       root.append(...placeholder);
       v.then((node) => {
-        placeholder[0].replaceWith(...renderToFragment(thisProxy, node as ChildType));
+        placeholder[0].replaceWith(...renderToFragment(thisProxy, node as ChildType, abortSignal));
       }).catch((err) => {
         let msg: ChildNode[] = [];
         if (isFunction(props.catch)) {
           const v = props.catch(err);
           if (isVNode(v)) {
-            msg = renderToFragment(thisProxy, v as ChildType);
+            msg = renderToFragment(thisProxy, v as ChildType, abortSignal);
           }
         } else {
           console.error(err);
         }
         placeholder[0].replaceWith(...msg);
       }).finally(() => {
+        // remove extra placeholder elements
         for (let i = 1; i < placeholder.length; i++) {
           placeholder[i].remove();
         }
@@ -264,21 +323,24 @@ const renderFC = (fc: FC, props: Record<string, unknown>, root: HTMLElement) => 
       // todo: render async generator components
     } else if (Symbol.iterator in v) {
       for (const node of v) {
-        render(thisProxy, node as ChildType, root);
+        render(thisProxy, node as ChildType, root, abortSignal);
       }
     }
   } else {
-    render(thisProxy, v as ChildType, root);
+    render(thisProxy, v as ChildType, root, abortSignal);
   }
 };
 
-const createThisProxy = (slots: ChildType[] | undefined) => {
+const createThisProxy = (slots: ChildType[] | undefined, abortSignal?: AbortSignal) => {
   let watchHandlers = new Map<string, Set<() => void>>();
   let called = false;
   let depSet: Set<string> | undefined;
+  let ac = new AbortController();
   return new Proxy(new NullProtoObject(), {
     get(target, key, reciver) {
       switch (key) {
+        case $ac:
+          return ac;
         case $slots:
           return slots;
         case $afterCall:
@@ -302,20 +364,18 @@ const createThisProxy = (slots: ChildType[] | undefined) => {
               watchHandlers.set(key, effects);
             }
             effects.add(effect);
-            return () => {
+            abortSignal?.addEventListener("abort", () => {
               effects.delete(effect);
-              if (effects.size === 0) {
-                watchHandlers.delete(key);
-              }
-            };
+            });
           };
-        case $dispose:
-          return () => watchHandlers.clear();
         case "init":
           return ((args: Record<string, unknown>) => Object.assign(target, args));
         case "$":
         case "compute":
           return (fn: () => unknown) => new Compute(fn);
+        case "effect":
+          return (fn: () => (() => void) | void) => {
+          };
         default:
           if (called || depSet) {
             if (depSet && isString(key)) {

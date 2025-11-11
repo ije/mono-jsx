@@ -175,3 +175,13 @@ export const escapeHTML = (str: string): string => {
 
   return lastIndex !== index ? html + str.slice(lastIndex, index) : html;
 };
+
+/**
+ * Escapes special characters and HTML entities in a given html string.
+ * Use `document.createElement("div").textContent = text` instead of `escapeHTML` in browser.
+ */
+export const domEscapeHTML = (text: string): string => {
+  const div = document.createElement("div");
+  div.textContent = text;
+  return div.innerHTML;
+};
