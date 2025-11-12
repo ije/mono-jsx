@@ -1,5 +1,4 @@
-import type { FC, VNode } from "../types/jsx.d.ts";
-import type { ChildType } from "../types/mono.d.ts";
+import type { ChildType, FC, VNode } from "../types/jsx.d.ts";
 import { customElements } from "../jsx.ts";
 import { applyStyle, cx, isFunction, isObject, isString, NullProtoObject } from "../runtime/utils.ts";
 import { $fragment, $html, $vnode } from "../symbols.ts";
@@ -38,9 +37,9 @@ const onAbort = (signal: AbortSignal | undefined, callback: () => void) => signa
 
 const render = (scope: Scope, node: ChildType, root: HTMLElement | DocumentFragment, abortSignal?: AbortSignal) => {
   switch (typeof node) {
-    case "string":
     case "number":
-    case "bigint": {
+    case "bigint":
+    case "string": {
       const textNode = createTextNode(String(node));
       root.appendChild(textNode);
       onAbort(abortSignal, () => textNode.remove());
@@ -52,12 +51,7 @@ const render = (scope: Scope, node: ChildType, root: HTMLElement | DocumentFragm
       } else if (isSignal(node) || isCompute(node)) {
         const textNode = createTextNode("");
         reactive(scope, node, value => {
-          switch (typeof value) {
-            case "string":
-            case "number":
-            case "bigint":
-              textNode.textContent = String(value);
-          }
+          textNode.textContent = String(value);
         });
         root.appendChild(textNode);
         onAbort(abortSignal, () => textNode.remove());
@@ -108,9 +102,9 @@ const render = (scope: Scope, node: ChildType, root: HTMLElement | DocumentFragm
                 }
               }
               if (isSignal(show) || isCompute(show)) {
-                let ac = new AbortController();
                 let childNodes = root.childNodes;
                 let insertIndex = childNodes.length;
+                let ac = new AbortController();
                 reactive(scope, show, value => {
                   if (value) {
                     const fragment = createDocumentFragment();
@@ -137,20 +131,10 @@ const render = (scope: Scope, node: ChildType, root: HTMLElement | DocumentFragm
             break;
           }
 
-          // `<router>` element
+          // todo: implement `<router>` element
           case "router": {
-            // todo: SPA
             break;
           }
-
-          case "component":
-          case "cache":
-          case "static":
-          case "redirect":
-          case "invalid":
-          case "formslot":
-            // ignored in CSR
-            break;
 
           default: {
             // function component

@@ -1,8 +1,17 @@
+import type { Elements } from "./types/mono.d.ts";
 import type { FC, VNode } from "./types/jsx.d.ts";
+import type { RenderOptions } from "./types/render.d.ts";
 import { JSX } from "./jsx.ts";
 import { isSignal, renderToWebStream } from "./render.ts";
 import { escapeHTML, isString, NullProtoObject } from "./runtime/utils.ts";
 import { $fragment, $html, $setup, $vnode } from "./symbols.ts";
+
+declare global {
+  namespace JSX {
+    interface MonoElements extends Elements {}
+    interface HtmlCustomAttributes extends RenderOptions {}
+  }
+}
 
 export const Fragment = $fragment as unknown as FC;
 

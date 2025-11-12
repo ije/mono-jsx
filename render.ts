@@ -1,5 +1,5 @@
-import type { ChildType, Session } from "./types/mono.d.ts";
-import type { FC, VNode } from "./types/jsx.d.ts";
+import type { Session } from "./types/mono.d.ts";
+import type { ChildType, FC, VNode } from "./types/jsx.d.ts";
 import type { MaybeModule, RenderOptions, SessionOptions } from "./types/render.d.ts";
 import { customElements } from "./jsx.ts";
 import { COMPONENT, CX, EVENT, FORM, ROUTER, SIGNALS, STYLE, SUSPENSE } from "./runtime/index.ts";
