@@ -120,36 +120,74 @@ Deno.test("[dom] signals", sanitizeFalse, async () => {
   await page.close();
 });
 
-Deno.test("[dom] `<toggle>` component", sanitizeFalse, async () => {
-  const testUrl = addTestPage(`
-    function App(this: FC<{ show: boolean }>) {
-      this.init({ show: true });
-      return <div>
-        <toggle show={this.show}>
-          <h1>Welcome to mono-jsx!</h1>
-        </toggle>
-        <button onClick={() => this.show = !this.show}>{this.$(()=>this.show ? "Show" : "Hide")}</button>
-      </div>;
-    }
-    <App mount={document.body} />;
-  `);
-  const page = await browser.newPage();
-  await page.goto(testUrl);
+Deno.test("[dom] `<toggle>` component", sanitizeFalse, async (t) => {
+  await t.step("using `show` prop", async () => {
+    const testUrl = addTestPage(`
+      function App(this: FC<{ show: boolean }>) {
+        this.init({ show: true });
+        return <div>
+          <toggle show={this.show}>
+            <h1>Welcome to mono-jsx!</h1>
+          </toggle>
+          <button onClick={() => this.show = !this.show}>{this.$(() => this.show ? "Show" : "Hide")}</button>
+        </div>;
+      }
+      <App mount={document.body} />;
+    `);
+    const page = await browser.newPage();
+    await page.goto(testUrl);
 
-  let h1 = await page.$("body > div > h1");
-  assert(h1);
-  assertEquals(await h1.evaluate((el) => el.textContent), "Welcome to mono-jsx!");
+    let h1 = await page.$("body > div > h1");
+    assert(h1);
+    assertEquals(await h1.evaluate((el) => el.textContent), "Welcome to mono-jsx!");
 
-  const button = await page.$("body > div > button");
-  assert(button);
-  await button.click();
-  h1 = await page.$("body > div > h1");
-  assert(!h1);
+    const button = await page.$("body > div > button");
+    assert(button);
 
-  await button.click();
-  h1 = await page.$("body > div > h1");
-  assert(h1);
-  assertEquals(await h1.evaluate((el) => el.textContent), "Welcome to mono-jsx!");
+    await button.click();
+    h1 = await page.$("body > div > h1");
+    assert(!h1);
 
-  await page.close();
+    await button.click();
+    h1 = await page.$("body > div > h1");
+    assert(h1);
+    assertEquals(await h1.evaluate((el) => el.textContent), "Welcome to mono-jsx!");
+    assertEquals(await h1.evaluate((el) => (el.nextSibling as HTMLElement).tagName), "BUTTON");
+
+    await page.close();
+  });
+  await t.step("using `hidden` prop", async () => {
+    const testUrl = addTestPage(`
+      function App(this: FC<{ hidden: boolean }>) {
+        this.init({ hidden: true });
+        return <div>
+          <toggle hidden={this.hidden}>
+            <h1>Welcome to mono-jsx!</h1>
+          </toggle>
+          <button onClick={() => this.hidden = !this.hidden}>{this.$(() => this.hidden ? "Hide" : "Show")}</button>
+        </div>;
+      }
+      <App mount={document.body} />;
+    `);
+    const page = await browser.newPage();
+    await page.goto(testUrl);
+
+    let h1 = await page.$("body > div > h1");
+    assert(!h1);
+
+    const button = await page.$("body > div > button");
+    assert(button);
+
+    await button.click();
+    h1 = await page.$("body > div > h1");
+    assert(h1);
+    assertEquals(await h1.evaluate((el) => el.textContent), "Welcome to mono-jsx!");
+    assertEquals(await h1.evaluate((el) => (el.nextSibling as HTMLElement).tagName), "BUTTON");
+
+    await button.click();
+    h1 = await page.$("body > div > h1");
+    assert(!h1);
+
+    await page.close();
+  });
 });
