@@ -6,10 +6,9 @@ import { $fragment, $html, $vnode } from "../symbols.ts";
 
 interface Scope {
   [key: string]: unknown;
-  readonly [$ac]: AbortController;
   readonly [$slots]: ChildType[] | undefined;
-  readonly [$afterCall]: () => void;
-  readonly [$runCompute]: (compute: Compute) => unknown;
+  readonly [$postcall]: () => void;
+  readonly [$docompute]: (compute: Compute) => unknown;
   readonly [$watch]: (key: string, effect: () => void) => void;
 }
 
@@ -26,16 +25,16 @@ class Compute {
   ) {}
 }
 
-const $ac = Symbol();
 const $slots = Symbol();
-const $afterCall = Symbol();
-const $runCompute = Symbol();
+const $postcall = Symbol();
+const $docompute = Symbol();
 const $watch = Symbol();
 const isVNode = (v: unknown): v is VNode => Array.isArray(v) && v.length === 3 && v[2] === $vnode;
 const isSignal = (v: unknown): v is Signal => v instanceof Signal;
 const isCompute = (v: unknown): v is Compute => v instanceof Compute;
 const createTextNode = (text: string) => document.createTextNode(text);
 const createDocumentFragment = () => document.createDocumentFragment();
+const onAbort = (signal: AbortSignal | undefined, callback: () => void) => signal?.addEventListener("abort", callback);
 
 const render = (scope: Scope, node: ChildType, root: HTMLElement | DocumentFragment, abortSignal?: AbortSignal) => {
   switch (typeof node) {
@@ -43,8 +42,8 @@ const render = (scope: Scope, node: ChildType, root: HTMLElement | DocumentFragm
     case "number":
     case "bigint": {
       const textNode = createTextNode(String(node));
-      abortSignal?.addEventListener("abort", () => textNode.remove());
       root.appendChild(textNode);
+      onAbort(abortSignal, () => textNode.remove());
       break;
     }
     case "object":
@@ -52,29 +51,16 @@ const render = (scope: Scope, node: ChildType, root: HTMLElement | DocumentFragm
         // skip null
       } else if (isSignal(node) || isCompute(node)) {
         const textNode = createTextNode("");
-        const watch = scope[$watch];
-        const update = () => {
-          let value: unknown;
-          if (isSignal(node)) {
-            value = scope[node.key];
-          } else {
-            value = scope[$runCompute](node);
-          }
+        reactive(scope, node, value => {
           switch (typeof value) {
             case "string":
             case "number":
             case "bigint":
               textNode.textContent = String(value);
           }
-        };
-        update();
-        if (isSignal(node)) {
-          watch(node.key, update);
-        } else {
-          node.deps?.forEach((key) => watch(key, update));
-        }
+        });
         root.appendChild(textNode);
-        abortSignal?.addEventListener("abort", () => textNode.remove());
+        onAbort(abortSignal, () => textNode.remove());
       } else if (isVNode(node)) {
         const [tag, props] = node;
         switch (tag) {
@@ -125,14 +111,7 @@ const render = (scope: Scope, node: ChildType, root: HTMLElement | DocumentFragm
                 let ac = new AbortController();
                 let childNodes = root.childNodes;
                 let insertIndex = childNodes.length;
-                let watch = scope[$watch];
-                let update = () => {
-                  let value: unknown;
-                  if (isSignal(show)) {
-                    value = scope[show.key];
-                  } else {
-                    value = scope[$runCompute](show);
-                  }
+                reactive(scope, show, value => {
                   if (value) {
                     const fragment = createDocumentFragment();
                     renderChildren(scope, children, fragment, ac.signal);
@@ -141,14 +120,7 @@ const render = (scope: Scope, node: ChildType, root: HTMLElement | DocumentFragm
                     ac.abort();
                     ac = new AbortController();
                   }
-                };
-                update();
-                if (isSignal(show)) {
-                  watch(show.key, update);
-                } else {
-                  show.deps?.forEach((key) => watch(key, update));
-                }
-                abortSignal?.addEventListener("abort", () => ac.abort());
+                });
               } else if (show) {
                 renderChildren(scope, children, root, abortSignal);
               }
@@ -249,7 +221,7 @@ const render = (scope: Scope, node: ChildType, root: HTMLElement | DocumentFragm
               } else {
                 root.appendChild(el);
               }
-              abortSignal?.addEventListener("abort", () => el.remove());
+              onAbort(abortSignal, () => el.remove());
               if (children !== undefined) {
                 renderChildren(scope, children, el, abortSignal);
               }
@@ -263,12 +235,6 @@ const render = (scope: Scope, node: ChildType, root: HTMLElement | DocumentFragm
       }
       break;
   }
-};
-
-const renderToFragment = (scope: Scope, node: ChildType, aboutSignal?: AbortSignal) => {
-  const fragment = createDocumentFragment();
-  render(scope, node, fragment, aboutSignal);
-  return [...fragment.childNodes];
 };
 
 const renderChildren = (
@@ -289,7 +255,7 @@ const renderChildren = (
 const renderFC = (fc: FC, props: Record<string, unknown>, root: HTMLElement | DocumentFragment, abortSignal?: AbortSignal) => {
   const thisProxy = createThisProxy(props.children as ChildType[] | undefined, abortSignal) as unknown as Scope;
   const v = fc.call(thisProxy, props);
-  thisProxy[$afterCall]();
+  thisProxy[$postcall]();
   if (isObject(v) && !isVNode(v)) {
     if (v instanceof Promise) {
       let placeholder: ChildNode[] | undefined;
@@ -331,23 +297,37 @@ const renderFC = (fc: FC, props: Record<string, unknown>, root: HTMLElement | Do
   }
 };
 
+const renderToFragment = (scope: Scope, node: ChildType, aboutSignal?: AbortSignal) => {
+  const fragment = createDocumentFragment();
+  render(scope, node, fragment, aboutSignal);
+  return [...fragment.childNodes];
+};
+
+const reactive = (scope: Scope, signal: Signal | Compute, callback: (value: unknown) => void) => {
+  const watch = scope[$watch];
+  const update = () => callback(isSignal(signal) ? scope[signal.key] : scope[$docompute](signal));
+  update();
+  if (isSignal(signal)) {
+    watch(signal.key, update);
+  } else {
+    signal.deps?.forEach((key) => watch(key, update));
+  }
+};
+
 const createThisProxy = (slots: ChildType[] | undefined, abortSignal?: AbortSignal) => {
   let watchHandlers = new Map<string, Set<() => void>>();
   let called = false;
   let depSet: Set<string> | undefined;
-  let ac = new AbortController();
   return new Proxy(new NullProtoObject(), {
     get(target, key, reciver) {
       switch (key) {
-        case $ac:
-          return ac;
         case $slots:
           return slots;
-        case $afterCall:
+        case $postcall:
           return () => {
             called = true;
           };
-        case $runCompute:
+        case $docompute:
           return (c: Compute) => {
             if (!c.deps) {
               depSet = c.deps = new Set<string>();
@@ -364,9 +344,7 @@ const createThisProxy = (slots: ChildType[] | undefined, abortSignal?: AbortSign
               watchHandlers.set(key, effects);
             }
             effects.add(effect);
-            abortSignal?.addEventListener("abort", () => {
-              effects.delete(effect);
-            });
+            onAbort(abortSignal, () => effects.delete(effect));
           };
         case "init":
           return ((args: Record<string, unknown>) => Object.assign(target, args));
