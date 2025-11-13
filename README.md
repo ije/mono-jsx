@@ -712,7 +712,7 @@ function App(this: FC<{ lang: "en" | "zh" | "🙂" }>) {
       <switch value={this.lang}>
         <h1 slot="en">Hello, world!</h1>
         <h1 slot="zh">你好，世界！</h1>
-        <h1>✋🌎❗️</h1>
+        <h1 slot="🙂">✋🌎❗️</h1>
       </switch>
       <p>
         <button onClick={() => this.lang = "en"}>English</button>
