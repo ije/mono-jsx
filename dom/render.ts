@@ -7,7 +7,6 @@ interface Scope {
   [key: string]: unknown;
   readonly [$slots]: ChildType[] | undefined;
   readonly [$postcall]: () => void;
-  readonly [$docompute]: (compute: Compute) => unknown;
   readonly [$watch]: (key: string, effect: () => void) => void;
 }
 
@@ -17,45 +16,52 @@ class Signal {
     public readonly key: string,
   ) {}
   reactive(effect: (value: unknown) => void) {
-    const watch = this.scope[$watch];
     const update = () => effect(this.scope[this.key]);
     update();
-    watch(this.key, update);
+    this.scope[$watch](this.key, update);
   }
 }
 
+let depC: Set<Signal> | undefined;
+
 class Compute {
-  deps?: Set<string>;
   constructor(
     public readonly scope: Scope,
     public readonly compute: () => unknown,
   ) {}
   reactive(effect: (value: unknown) => void) {
-    const watch = this.scope[$watch];
-    const update = () => effect(this.scope[$docompute](this));
+    let deps: Set<Signal> | undefined;
+    let update = () => {
+      if (!deps) {
+        // start collecting dependencies
+        depC = deps = new Set<Signal>();
+      }
+      effect(this.compute.call(this.scope));
+      // stop collecting dependencies
+      depC = undefined;
+    };
     update();
-    this.deps?.forEach((key) => watch(key, update));
+    deps?.forEach(({ scope, key }) => scope[$watch](key, update));
   }
 }
 
 class InsertAt {
   #root: HTMLElement | DocumentFragment;
-  at: number;
+  #index: number;
   constructor(
     root: HTMLElement | DocumentFragment,
     at?: number,
   ) {
     this.#root = root;
-    this.at = at ?? root.childNodes.length;
+    this.#index = at ?? root.childNodes.length;
   }
   insert(node: Node) {
-    this.#root.insertBefore(node, this.#root.childNodes[this.at]);
+    this.#root.insertBefore(node, this.#root.childNodes[this.#index]);
   }
 }
 
 const $slots = Symbol();
 const $postcall = Symbol();
-const $docompute = Symbol();
 const $watch = Symbol();
 const isVNode = (v: unknown): v is VNode => Array.isArray(v) && v.length === 3 && v[2] === $vnode;
 const isReactive = (v: unknown): v is Signal | Compute => v instanceof Signal || v instanceof Compute;
@@ -367,7 +373,6 @@ const filterSlots = (slots: ChildType[], name: any) => {
 const createThisProxy = (slots: ChildType[] | undefined, abortSignal?: AbortSignal) => {
   let watchHandlers = new Map<string, Set<() => void>>();
   let called = false;
-  let depSet: Set<string> | undefined;
   onAbort(abortSignal, () => watchHandlers.clear());
   return new Proxy(new NullProtoObject(), {
     get(target, key, reciver) {
@@ -377,15 +382,6 @@ const createThisProxy = (slots: ChildType[] | undefined, abortSignal?: AbortSign
         case $postcall:
           return () => {
             called = true;
-          };
-        case $docompute:
-          return (c: Compute) => {
-            if (!c.deps) {
-              depSet = c.deps = new Set<string>();
-            }
-            const value = c.compute.call(reciver);
-            depSet = undefined;
-            return value;
           };
         case $watch:
           return (key: string, effect: () => void) => {
@@ -405,9 +401,9 @@ const createThisProxy = (slots: ChildType[] | undefined, abortSignal?: AbortSign
           return (fn: () => (() => void) | void) => {
           };
         default:
-          if (called || depSet) {
-            if (depSet && isString(key)) {
-              depSet.add(key);
+          if (called || depC) {
+            if (depC && isString(key)) {
+              depC.add(new Signal(reciver, key));
             }
             return Reflect.get(target, key);
           }

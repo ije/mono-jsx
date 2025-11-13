@@ -80,7 +80,7 @@ Deno.test.beforeAll(() => {
 });
 
 Deno.test.afterAll(async () => {
-  ac.abort();
+  ac.abort(); // close the server
   await browser.close();
   await stop();
 });
