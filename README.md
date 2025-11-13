@@ -10,7 +10,7 @@ mono-jsx is a JSX runtime that renders the `<html>` element to a `Response` obje
 - ⚡️ Use web components, no virtual DOM
 - 💡 Complete Web API TypeScript definitions
 - ⏳ Streaming rendering
-- 🗂️ Built-in router(SPA mode)
+- 🗂️ Built-in router (SPA mode)
 - 🔑 Session storage
 - 🥷 [htmx](#using-htmx) integration
 - 🌎 Universal, works in Node.js, Deno, Bun, Cloudflare Workers, etc.
@@ -712,7 +712,7 @@ function App(this: FC<{ lang: "en" | "zh" | "🙂" }>) {
       <switch value={this.lang}>
         <h1 slot="en">Hello, world!</h1>
         <h1 slot="zh">你好，世界！</h1>
-        <h1>✋🌎❗️</h1>
+        <h1 slot="🙂">✋🌎❗️</h1>
       </switch>
       <p>
         <button onClick={() => this.lang = "en"}>English</button>
