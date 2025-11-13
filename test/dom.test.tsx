@@ -66,10 +66,15 @@ Deno.test.beforeAll(() => {
   });
 
   // console.log(addTestPage(`
-  //   function App() {
+  //   async function App() {
+  //     await new Promise((resolve) => setTimeout(resolve, 1000));
   //     return <div>Hello, world!</div>;
   //   }
-  //   <App mount={document.body} />;
+  //   <mount root={document.body}>
+  //     <p>---</p>
+  //     <App placeholder={<p>Loading...</p>} />
+  //     <p>---</p>
+  //   </mount>
   // `));
   // await new Promise(() => {});
 });
@@ -137,6 +142,7 @@ Deno.test("[dom] signals", sanitizeFalse, async (t) => {
 
     await page.close();
   });
+
   await t.step("compiuted signals", async () => {
     const testUrl = addTestPage(`
       function App(this: FC<{ count: number }>) {
@@ -161,6 +167,7 @@ Deno.test("[dom] signals", sanitizeFalse, async (t) => {
 
     await page.close();
   });
+
   await t.step("signals as props", async () => {
     const testUrl = addTestPage(`
       function Display({ count }: { count: number }) {
@@ -189,6 +196,29 @@ Deno.test("[dom] signals", sanitizeFalse, async (t) => {
 
     await button.click();
     assertEquals(await span.evaluate((el) => el.textContent), "2");
+
+    await page.close();
+  });
+
+  await t.step("reactive attributes", async () => {
+    const testUrl = addTestPage(`
+      function App(this: FC<{ title: string }>) {
+        this.title = "Hello, world!";
+        return <div title={this.title} onClick={() => this.title = "Hello, mono-jsx!"}>{this.title}</div>;
+      }
+      <mount root={document.body}>
+        <App />
+      </mount>
+    `);
+    const page = await browser.newPage();
+    await page.goto(testUrl);
+
+    const div = await page.$("body > div");
+    assert(div);
+    assertEquals(await div.evaluate((el) => el.title), "Hello, world!");
+
+    await div.click();
+    assertEquals(await div.evaluate((el) => el.title), "Hello, mono-jsx!");
 
     await page.close();
   });
@@ -232,6 +262,7 @@ Deno.test("[dom] `<toggle>` component", sanitizeFalse, async (t) => {
 
     await page.close();
   });
+
   await t.step("using `hidden` prop", async () => {
     const testUrl = addTestPage(`
       function App(this: FC<{ hidden: boolean }>) {

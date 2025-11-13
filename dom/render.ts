@@ -38,6 +38,21 @@ class Compute {
   }
 }
 
+class InsertAt {
+  #root: HTMLElement | DocumentFragment;
+  at: number;
+  constructor(
+    root: HTMLElement | DocumentFragment,
+    at?: number,
+  ) {
+    this.#root = root;
+    this.at = at ?? root.childNodes.length;
+  }
+  insert(node: Node) {
+    this.#root.insertBefore(node, this.#root.childNodes[this.at]);
+  }
+}
+
 const $slots = Symbol();
 const $postcall = Symbol();
 const $docompute = Symbol();
@@ -117,15 +132,12 @@ const render = (scope: Scope, node: ChildType, root: HTMLElement | DocumentFragm
                 }
               }
               if (isReactive(show)) {
-                let childNodes = root.childNodes;
-                let insertIndex = childNodes.length;
+                let insertAt = new InsertAt(root);
                 let ac: AbortController | undefined;
                 show.reactive(value => {
                   if (value) {
-                    const fragment = createDocumentFragment();
                     ac = new AbortController();
-                    renderChildren(scope, children, fragment, ac.signal);
-                    root.insertBefore(fragment, childNodes[insertIndex]);
+                    insertAt.insert(renderToFragment(scope, children, ac.signal));
                   } else {
                     ac?.abort();
                   }
@@ -143,17 +155,14 @@ const render = (scope: Scope, node: ChildType, root: HTMLElement | DocumentFragm
             const { value: valueProp, children } = props;
             if (children !== undefined) {
               if (isReactive(valueProp)) {
-                let childNodes = root.childNodes;
-                let insertIndex = childNodes.length;
+                let insertAt = new InsertAt(root);
                 let ac: AbortController | undefined;
                 valueProp.reactive(value => {
                   const slots = filterSlots(children, value as any);
                   ac?.abort();
                   if (slots.length > 0) {
-                    const fragment = createDocumentFragment();
                     ac = new AbortController();
-                    renderChildren(scope, slots, fragment, ac.signal);
-                    root.insertBefore(fragment, childNodes[insertIndex]);
+                    insertAt.insert(renderToFragment(scope, slots, ac.signal));
                   }
                 });
               } else {
@@ -190,30 +199,59 @@ const render = (scope: Scope, node: ChildType, root: HTMLElement | DocumentFragm
               const el = document.createElement(tag);
               for (const [key, value] of Object.entries(attrs)) {
                 switch (key) {
-                  case "class":
-                    // todo: signals
-                    el.className = cx(value);
+                  case "class": {
+                    const updateClassName = (value: unknown) => {
+                      el.className = cx(value);
+                    };
+                    if (isReactive(value)) {
+                      value.reactive(updateClassName);
+                    } else {
+                      updateClassName(value);
+                    }
                     break;
+                  }
                   case "style": {
-                    // todo: signals
-                    if (isObject(value)) {
-                      applyStyle(el, value);
-                    } else if (isString(value)) {
-                      el.style.cssText = value;
+                    const updateStyle = (value: unknown) => {
+                      if (isObject(value)) {
+                        applyStyle(el, value);
+                      } else if (isString(value)) {
+                        el.style.cssText = value;
+                      }
+                    };
+                    if (isReactive(value)) {
+                      value.reactive(updateStyle);
+                    } else {
+                      updateStyle(value);
                     }
                     break;
                   }
                   case "ref":
                     if (isFunction(value)) {
-                      // todo: clean up
-                      value(el);
+                      const ret = value(el);
+                      if (isFunction(ret)) {
+                        onAbort(abortSignal, ret);
+                      }
+                    } else {
+                      // todo: this.refs
                     }
                     break;
                   case "slot":
+                    // todo: render slot attribute if necessary
+                    break;
                   case "$checked":
                   case "$value":
-                  case "viewTransition":
                     break;
+                  case "viewTransition": {
+                    // const updateViewTransitionName = (value: unknown) => {
+                    //   el.style.viewTransitionName = String(value);
+                    // };
+                    // if (isReactive(value)) {
+                    //   value.reactive(updateViewTransitionName);
+                    // } else {
+                    //   updateViewTransitionName(value);
+                    // }
+                    break;
+                  }
                   case "action":
                     if (isFunction(value) && tag === "form") {
                       el.addEventListener("submit", (evt) => {
@@ -226,10 +264,9 @@ const render = (scope: Scope, node: ChildType, root: HTMLElement | DocumentFragm
                     break;
                   default:
                     if (key.startsWith("on") && isFunction(value)) {
-                      // todo: dispose
                       el.addEventListener(key.slice(2).toLowerCase(), value);
                     } else if (isReactive(value)) {
-                      // TODO: render signal
+                      value.reactive(value => el.setAttribute(key, String(value)));
                     } else {
                       el.setAttribute(key, String(value));
                     }
@@ -274,35 +311,32 @@ const renderFC = (fc: FC, props: Record<string, unknown>, root: HTMLElement | Do
   thisProxy[$postcall]();
   if (isObject(v) && !isVNode(v)) {
     if (v instanceof Promise) {
+      let insertAt = new InsertAt(root);
       let placeholder: ChildNode[] | undefined;
       if (isVNode(props.placeholder)) {
-        placeholder = renderToFragment(thisProxy, props.placeholder as ChildType, abortSignal);
+        placeholder = [...renderToFragment(thisProxy, props.placeholder as ChildType, abortSignal).childNodes];
+        root.append(...placeholder);
       }
-      if (!placeholder?.length) {
-        placeholder = [document.createComment("pending...")];
-      }
-      root.append(...placeholder);
-      v.then((node) => {
-        placeholder[0].replaceWith(...renderToFragment(thisProxy, node as ChildType, abortSignal));
-      }).catch((err) => {
-        let msg: ChildNode[] = [];
+      v.then((node) => insertAt.insert(renderToFragment(thisProxy, node as ChildType, abortSignal))).catch((err) => {
         if (isFunction(props.catch)) {
           const v = props.catch(err);
           if (isVNode(v)) {
-            msg = renderToFragment(thisProxy, v as ChildType, abortSignal);
+            insertAt.insert(renderToFragment(thisProxy, v as ChildType, abortSignal));
           }
         } else {
           console.error(err);
         }
-        placeholder[0].replaceWith(...msg);
       }).finally(() => {
-        // remove extra placeholder elements
-        for (let i = 1; i < placeholder.length; i++) {
-          placeholder[i].remove();
-        }
+        // remove placeholder elements
+        placeholder?.forEach(node => node.remove());
       });
     } else if (Symbol.asyncIterator in v) {
       // todo: render async generator components
+      // (async () => {
+      //   for await (const node of v) {
+      //     render(thisProxy, node as ChildType, root, abortSignal);
+      //   }
+      // })();
     } else if (Symbol.iterator in v) {
       for (const node of v) {
         render(thisProxy, node as ChildType, root, abortSignal);
@@ -313,10 +347,10 @@ const renderFC = (fc: FC, props: Record<string, unknown>, root: HTMLElement | Do
   }
 };
 
-const renderToFragment = (scope: Scope, node: ChildType, aboutSignal?: AbortSignal) => {
+const renderToFragment = (scope: Scope, node: ChildType | ChildType[], aboutSignal?: AbortSignal) => {
   const fragment = createDocumentFragment();
-  render(scope, node, fragment, aboutSignal);
-  return [...fragment.childNodes];
+  renderChildren(scope, node, fragment, aboutSignal);
+  return fragment;
 };
 
 const filterSlots = (slots: ChildType[], name: any) => {
@@ -334,6 +368,7 @@ const createThisProxy = (slots: ChildType[] | undefined, abortSignal?: AbortSign
   let watchHandlers = new Map<string, Set<() => void>>();
   let called = false;
   let depSet: Set<string> | undefined;
+  onAbort(abortSignal, () => watchHandlers.clear());
   return new Proxy(new NullProtoObject(), {
     get(target, key, reciver) {
       switch (key) {
@@ -360,7 +395,6 @@ const createThisProxy = (slots: ChildType[] | undefined, abortSignal?: AbortSign
               watchHandlers.set(key, effects);
             }
             effects.add(effect);
-            onAbort(abortSignal, () => effects.delete(effect));
           };
         case "init":
           return ((args: Record<string, unknown>) => Object.assign(target, args));
