@@ -2,7 +2,7 @@ import type { FC, VNode } from "../types/jsx.d.ts";
 import { JSX } from "../jsx.ts";
 import { domEscapeHTML, isString, NullProtoObject } from "../runtime/utils.ts";
 import { $fragment, $html, $vnode } from "../symbols.ts";
-import { isCompute, isSignal, render } from "./render.ts";
+import { isReactive, render } from "./render.ts";
 
 const Fragment = $fragment as unknown as FC;
 
@@ -38,7 +38,7 @@ const jsxEscape = (value: unknown): string => {
 const html = (template: string | TemplateStringsArray, ...values: unknown[]): VNode => [
   $html,
   {
-    innerHTML: isString(template) || isSignal(template) || isCompute(template) ? template : String.raw(template, ...values.map(jsxEscape)),
+    innerHTML: isString(template) || isReactive(template) ? template : String.raw(template, ...values.map(jsxEscape)),
   },
   $vnode,
 ];

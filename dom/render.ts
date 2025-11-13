@@ -43,8 +43,7 @@ const $postcall = Symbol();
 const $docompute = Symbol();
 const $watch = Symbol();
 const isVNode = (v: unknown): v is VNode => Array.isArray(v) && v.length === 3 && v[2] === $vnode;
-const isSignal = (v: unknown): v is Signal => v instanceof Signal;
-const isCompute = (v: unknown): v is Compute => v instanceof Compute;
+const isReactive = (v: unknown): v is Signal | Compute => v instanceof Signal || v instanceof Compute;
 const createTextNode = (text: string) => document.createTextNode(text);
 const createDocumentFragment = () => document.createDocumentFragment();
 const onAbort = (signal: AbortSignal | undefined, callback: () => void) => signal?.addEventListener("abort", callback);
@@ -62,7 +61,7 @@ const render = (scope: Scope, node: ChildType, root: HTMLElement | DocumentFragm
     case "object":
       if (node === null) {
         // skip null
-      } else if (isSignal(node) || isCompute(node)) {
+      } else if (isReactive(node)) {
         const textNode = createTextNode("");
         node.reactive(value => {
           textNode.textContent = String(value);
@@ -86,7 +85,7 @@ const render = (scope: Scope, node: ChildType, root: HTMLElement | DocumentFragm
           // XSS!
           case $html: {
             const { innerHTML } = props;
-            if (isSignal(innerHTML) || isCompute(innerHTML)) {
+            if (isReactive(innerHTML)) {
               // TODO: render signal
             } else if (isString(innerHTML)) {
               // root.insertAdjacentHTML("beforeend", innerHTML);
@@ -109,15 +108,15 @@ const render = (scope: Scope, node: ChildType, root: HTMLElement | DocumentFragm
             let { show, hidden, children } = props;
             if (children !== undefined) {
               if (show === undefined && hidden !== undefined) {
-                if (isSignal(hidden)) {
+                if (hidden instanceof Signal) {
                   show = new Compute(scope, () => !scope[hidden.key]);
-                } else if (isCompute(hidden)) {
+                } else if (hidden instanceof Compute) {
                   show = new Compute(scope, () => !hidden.compute());
                 } else {
                   show = !hidden;
                 }
               }
-              if (isSignal(show) || isCompute(show)) {
+              if (isReactive(show)) {
                 let childNodes = root.childNodes;
                 let insertIndex = childNodes.length;
                 let ac: AbortController | undefined;
@@ -143,7 +142,7 @@ const render = (scope: Scope, node: ChildType, root: HTMLElement | DocumentFragm
             // todo: support viewTransition
             const { value: valueProp, children } = props;
             if (children !== undefined) {
-              if (isSignal(valueProp) || isCompute(valueProp)) {
+              if (isReactive(valueProp)) {
                 let childNodes = root.childNodes;
                 let insertIndex = childNodes.length;
                 let ac: AbortController | undefined;
@@ -229,7 +228,7 @@ const render = (scope: Scope, node: ChildType, root: HTMLElement | DocumentFragm
                     if (key.startsWith("on") && isFunction(value)) {
                       // todo: dispose
                       el.addEventListener(key.slice(2).toLowerCase(), value);
-                    } else if (isSignal(value)) {
+                    } else if (isReactive(value)) {
                       // TODO: render signal
                     } else {
                       el.setAttribute(key, String(value));
@@ -393,4 +392,4 @@ const createThisProxy = (slots: ChildType[] | undefined, abortSignal?: AbortSign
   });
 };
 
-export { isCompute, isSignal, render };
+export { isReactive, render };
