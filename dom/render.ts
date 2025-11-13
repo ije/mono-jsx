@@ -143,6 +143,23 @@ const render = (scope: Scope, node: ChildType, root: HTMLElement | DocumentFragm
             // todo: support viewTransition
             const { value: valueProp, children } = props;
             if (children !== undefined) {
+              if (isSignal(valueProp) || isCompute(valueProp)) {
+                let childNodes = root.childNodes;
+                let insertIndex = childNodes.length;
+                let ac: AbortController | undefined;
+                valueProp.reactive(value => {
+                  const slots = filterSlots(children, value as any);
+                  ac?.abort();
+                  if (slots.length > 0) {
+                    const fragment = createDocumentFragment();
+                    ac = new AbortController();
+                    renderChildren(scope, slots, fragment, ac.signal);
+                    root.insertBefore(fragment, childNodes[insertIndex]);
+                  }
+                });
+              } else {
+                renderChildren(scope, filterSlots(children, valueProp), root, abortSignal);
+              }
             }
             break;
           }
@@ -301,6 +318,17 @@ const renderToFragment = (scope: Scope, node: ChildType, aboutSignal?: AbortSign
   const fragment = createDocumentFragment();
   render(scope, node, fragment, aboutSignal);
   return [...fragment.childNodes];
+};
+
+const filterSlots = (slots: ChildType[], name: any) => {
+  switch (typeof name) {
+    case "string":
+    case "number":
+    case "boolean":
+      return slots.filter((v) => isVNode(v) && v[1].slot === name);
+    default:
+      return [];
+  }
 };
 
 const createThisProxy = (slots: ChildType[] | undefined, abortSignal?: AbortSignal) => {

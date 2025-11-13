@@ -269,3 +269,57 @@ Deno.test("[dom] `<toggle>` component", sanitizeFalse, async (t) => {
     await page.close();
   });
 });
+
+Deno.test("[dom] `<toggle>` component", sanitizeFalse, async () => {
+  const testUrl = addTestPage(`
+    function App(this: FC<{ lang: 'en' | 'zh' | 'emoji' }>) {
+      this.init({ lang: 'en' });
+      return <div>
+        <switch value={this.lang}>
+          <h1 slot="en">Welcome to mono-jsx!</h1>
+          <h1 slot="zh">你好，世界！</h1>
+          <h1 slot="emoji">✋🌎❗️</h1>
+        </switch>
+        <button id="btn1" onClick={() => this.lang = 'en'}>English</button>
+        <button id="btn2" onClick={() => this.lang = 'zh'}>中文</button>
+        <button id="btn3" onClick={() => this.lang = 'emoji'}>🙂</button>
+        <button id="btn4" onClick={() => this.lang = '??'}>??</button>
+
+      </div>;
+    }
+    <mount root={document.body}>
+      <App />
+    </mount>
+  `);
+  const page = await browser.newPage();
+  await page.goto(testUrl);
+
+  const btn1 = await page.$("#btn1");
+  assert(btn1);
+  await btn1.click();
+  let h1 = await page.$("body > div > h1");
+  assert(h1);
+  assertEquals(await h1.evaluate((el) => el.textContent), "Welcome to mono-jsx!");
+
+  const btn2 = await page.$("#btn2");
+  assert(btn2);
+  await btn2.click();
+  h1 = await page.$("body > div > h1");
+  assert(h1);
+  assertEquals(await h1.evaluate((el) => el.textContent), "你好，世界！");
+
+  const btn3 = await page.$("#btn3");
+  assert(btn3);
+  await btn3.click();
+  h1 = await page.$("body > div > h1");
+  assert(h1);
+  assertEquals(await h1.evaluate((el) => el.textContent), "✋🌎❗️");
+
+  const btn4 = await page.$("#btn4");
+  assert(btn4);
+  await btn4.click();
+  h1 = await page.$("body > div > h1");
+  assert(!h1);
+
+  await page.close();
+});
