@@ -85,39 +85,113 @@ Deno.test("[dom] mount", sanitizeFalse, async () => {
     function App() {
       return <div>Hello, world!</div>;
     }
-    <App mount={document.body} />;
+
+    const ac = new AbortController();
+
+    <mount root={document.body} abortSignal={ac.signal}>
+      <App />
+      <button onClick={() => ac.abort()}>Unmount</button>
+    </mount>
   `);
   const page = await browser.newPage();
   await page.goto(testUrl);
 
-  const div = await page.$("body > div");
+  let div = await page.$("body > div");
   assert(div);
   assertEquals(await div.evaluate((el) => el.textContent), "Hello, world!");
+
+  let unmountButton = await page.$("body > button");
+  assert(unmountButton);
+
+  await unmountButton.click();
+  div = await page.$("div > div");
+  assert(!div);
+  unmountButton = await page.$("body > button");
+  assert(!unmountButton);
 
   await page.close();
 });
 
-Deno.test("[dom] signals", sanitizeFalse, async () => {
-  const testUrl = addTestPage(`
-    function App(this: FC<{ count: number }>) {
-      this.init({ count: 1 });
-      return <div>
-        <button onClick={() => this.count++}>{this.$(()=>2*this.count)}</button>
-      </div>;
-    }
-    <App mount={document.body} />;
-  `);
-  const page = await browser.newPage();
-  await page.goto(testUrl);
+Deno.test("[dom] signals", sanitizeFalse, async (t) => {
+  await t.step("signals reactive", async () => {
+    const testUrl = addTestPage(`
+      function App(this: FC<{ count: number }>) {
+        this.init({ count: 1 });
+        return <div>
+          <button onClick={() => this.count++}>{this.count}</button>
+        </div>;
+      }
+      <mount root={document.body}>
+        <App />
+      </mount>
+    `);
+    const page = await browser.newPage();
+    await page.goto(testUrl);
 
-  const button = await page.$("body > div > button");
-  assert(button);
-  assertEquals(await button.evaluate((el) => el.textContent), "2");
-  await button.click();
-  assertEquals(await button.evaluate((el) => el.textContent), "4");
-  await button.click();
+    const button = await page.$("body > div > button");
+    assert(button);
+    assertEquals(await button.evaluate((el) => el.textContent), "1");
+    await button.click();
+    assertEquals(await button.evaluate((el) => el.textContent), "2");
+    await button.click();
 
-  await page.close();
+    await page.close();
+  });
+  await t.step("compiuted signals", async () => {
+    const testUrl = addTestPage(`
+      function App(this: FC<{ count: number }>) {
+        this.init({ count: 1 });
+        return <div>
+          <button onClick={() => this.count++}>{this.$(() => 2*this.count)}</button>
+        </div>;
+      }
+      <mount root={document.body}>
+        <App />
+      </mount>
+    `);
+    const page = await browser.newPage();
+    await page.goto(testUrl);
+
+    const button = await page.$("body > div > button");
+    assert(button);
+    assertEquals(await button.evaluate((el) => el.textContent), "2");
+    await button.click();
+    assertEquals(await button.evaluate((el) => el.textContent), "4");
+    await button.click();
+
+    await page.close();
+  });
+  await t.step("signals as props", async () => {
+    const testUrl = addTestPage(`
+      function Display({ count }: { count: number }) {
+        return <span>{count}</span>;
+      }
+      function App(this: FC<{ count: number }>) {
+        this.init({ count: 1 });
+        return <div>
+          <Display count={this.count} />
+          <button onClick={() => this.count++}>Click me</button>
+        </div>;
+      }
+      <mount root={document.body}>
+        <App />
+      </mount>
+    `);
+    const page = await browser.newPage();
+    await page.goto(testUrl);
+
+    const button = await page.$("body > div > button");
+    assert(button);
+
+    const span = await page.$("body > div > span");
+    assert(span);
+    assertEquals(await span.evaluate((el) => el.textContent), "1");
+
+    await button.click();
+    assertEquals(await span.evaluate((el) => el.textContent), "2");
+
+    await page.close();
+  });
 });
 
 Deno.test("[dom] `<toggle>` component", sanitizeFalse, async (t) => {
@@ -132,7 +206,9 @@ Deno.test("[dom] `<toggle>` component", sanitizeFalse, async (t) => {
           <button onClick={() => this.show = !this.show}>{this.$(() => this.show ? "Show" : "Hide")}</button>
         </div>;
       }
-      <App mount={document.body} />;
+      <mount root={document.body}>
+        <App />
+      </mount>
     `);
     const page = await browser.newPage();
     await page.goto(testUrl);
@@ -167,7 +243,9 @@ Deno.test("[dom] `<toggle>` component", sanitizeFalse, async (t) => {
           <button onClick={() => this.hidden = !this.hidden}>{this.$(() => this.hidden ? "Hide" : "Show")}</button>
         </div>;
       }
-      <App mount={document.body} />;
+      <mount root={document.body}>
+        <App />
+      </mount>
     `);
     const page = await browser.newPage();
     await page.goto(testUrl);

@@ -13,15 +13,29 @@ interface Scope {
 
 class Signal {
   constructor(
+    public readonly scope: Scope,
     public readonly key: string,
   ) {}
+  reactive(effect: (value: unknown) => void) {
+    const watch = this.scope[$watch];
+    const update = () => effect(this.scope[this.key]);
+    update();
+    watch(this.key, update);
+  }
 }
 
 class Compute {
   deps?: Set<string>;
   constructor(
+    public readonly scope: Scope,
     public readonly compute: () => unknown,
   ) {}
+  reactive(effect: (value: unknown) => void) {
+    const watch = this.scope[$watch];
+    const update = () => effect(this.scope[$docompute](this));
+    update();
+    this.deps?.forEach((key) => watch(key, update));
+  }
 }
 
 const $slots = Symbol();
@@ -50,7 +64,7 @@ const render = (scope: Scope, node: ChildType, root: HTMLElement | DocumentFragm
         // skip null
       } else if (isSignal(node) || isCompute(node)) {
         const textNode = createTextNode("");
-        reactive(scope, node, value => {
+        node.reactive(value => {
           textNode.textContent = String(value);
         });
         root.appendChild(textNode);
@@ -59,10 +73,12 @@ const render = (scope: Scope, node: ChildType, root: HTMLElement | DocumentFragm
         const [tag, props] = node;
         switch (tag) {
           // fragment element
+          case "mount":
           case $fragment: {
-            const { children } = props;
+            const { children, root: rootProp } = props;
+            const rootEl = rootProp instanceof HTMLElement ? rootProp : root;
             if (children !== undefined) {
-              renderChildren(scope, children, root, abortSignal);
+              renderChildren(scope, children, rootEl, abortSignal);
             }
             break;
           }
@@ -94,9 +110,9 @@ const render = (scope: Scope, node: ChildType, root: HTMLElement | DocumentFragm
             if (children !== undefined) {
               if (show === undefined && hidden !== undefined) {
                 if (isSignal(hidden)) {
-                  show = new Compute(() => !scope[hidden.key]);
+                  show = new Compute(scope, () => !scope[hidden.key]);
                 } else if (isCompute(hidden)) {
-                  show = new Compute(() => !hidden.compute());
+                  show = new Compute(scope, () => !hidden.compute());
                 } else {
                   show = !hidden;
                 }
@@ -104,15 +120,15 @@ const render = (scope: Scope, node: ChildType, root: HTMLElement | DocumentFragm
               if (isSignal(show) || isCompute(show)) {
                 let childNodes = root.childNodes;
                 let insertIndex = childNodes.length;
-                let ac = new AbortController();
-                reactive(scope, show, value => {
+                let ac: AbortController | undefined;
+                show.reactive(value => {
                   if (value) {
                     const fragment = createDocumentFragment();
+                    ac = new AbortController();
                     renderChildren(scope, children, fragment, ac.signal);
                     root.insertBefore(fragment, childNodes[insertIndex]);
                   } else {
-                    ac.abort();
-                    ac = new AbortController();
+                    ac?.abort();
                   }
                 });
               } else if (show) {
@@ -131,8 +147,12 @@ const render = (scope: Scope, node: ChildType, root: HTMLElement | DocumentFragm
             break;
           }
 
-          // todo: implement `<router>` element
-          case "router": {
+          // `<list>` element
+          case "list": {
+            const { children } = props;
+            if (isFunction(children)) {
+              // todo: render list
+            }
             break;
           }
 
@@ -150,7 +170,7 @@ const render = (scope: Scope, node: ChildType, root: HTMLElement | DocumentFragm
                 break;
               }
 
-              const { mount, children, ...attrs } = props;
+              const { root: rootProp, children, ...attrs } = props;
               const el = document.createElement(tag);
               for (const [key, value] of Object.entries(attrs)) {
                 switch (key) {
@@ -200,11 +220,7 @@ const render = (scope: Scope, node: ChildType, root: HTMLElement | DocumentFragm
                     break;
                 }
               }
-              if (mount instanceof HTMLElement) {
-                mount.appendChild(el);
-              } else {
-                root.appendChild(el);
-              }
+              (rootProp instanceof HTMLElement ? rootProp : root).appendChild(el);
               onAbort(abortSignal, () => el.remove());
               if (children !== undefined) {
                 renderChildren(scope, children, el, abortSignal);
@@ -287,17 +303,6 @@ const renderToFragment = (scope: Scope, node: ChildType, aboutSignal?: AbortSign
   return [...fragment.childNodes];
 };
 
-const reactive = (scope: Scope, signal: Signal | Compute, callback: (value: unknown) => void) => {
-  const watch = scope[$watch];
-  const update = () => callback(isSignal(signal) ? scope[signal.key] : scope[$docompute](signal));
-  update();
-  if (isSignal(signal)) {
-    watch(signal.key, update);
-  } else {
-    signal.deps?.forEach((key) => watch(key, update));
-  }
-};
-
 const createThisProxy = (slots: ChildType[] | undefined, abortSignal?: AbortSignal) => {
   let watchHandlers = new Map<string, Set<() => void>>();
   let called = false;
@@ -334,7 +339,7 @@ const createThisProxy = (slots: ChildType[] | undefined, abortSignal?: AbortSign
           return ((args: Record<string, unknown>) => Object.assign(target, args));
         case "$":
         case "compute":
-          return (fn: () => unknown) => new Compute(fn);
+          return (fn: () => unknown) => new Compute(reciver, fn);
         case "effect":
           return (fn: () => (() => void) | void) => {
           };
@@ -346,7 +351,7 @@ const createThisProxy = (slots: ChildType[] | undefined, abortSignal?: AbortSign
             return Reflect.get(target, key);
           }
           if (isString(key)) {
-            return new Signal(String(key));
+            return new Signal(reciver, String(key));
           }
       }
     },

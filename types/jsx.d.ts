@@ -12,9 +12,9 @@ export interface BaseAttributes {
    */
   slot?: string;
   /**
-   * The `mount` attribute is used to mount the component to the DOM.
+   * The `root` attribute is used to mount the component to the DOM.
    */
-  mount?: HTMLElement;
+  root?: HTMLElement;
 }
 
 export interface AsyncComponentAttributes {

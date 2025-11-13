@@ -8,11 +8,17 @@ const Fragment = $fragment as unknown as FC;
 
 const jsx = (tag: string | FC, props: Record<string, unknown> = new NullProtoObject(), key?: string | number): VNode => {
   const vnode: VNode = [tag, props, $vnode];
+  const { root, abortSignal } = props;
   if (key !== undefined) {
     props.key = key;
   }
-  if (props.mount instanceof HTMLElement) {
-    render(new NullProtoObject() as any, vnode as JSX.Element, props.mount);
+  if (tag === "mount" && root instanceof HTMLElement) {
+    render(
+      new NullProtoObject() as any,
+      vnode as JSX.Element,
+      root,
+      abortSignal instanceof AbortSignal ? abortSignal : undefined,
+    );
   }
   return vnode;
 };
