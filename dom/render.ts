@@ -2,7 +2,6 @@ import type { ChildType, FC, VNode } from "../types/jsx.d.ts";
 import { customElements } from "../jsx.ts";
 import { applyStyle, cx, isFunction, isObject, isString, NullProtoObject } from "../runtime/utils.ts";
 import { $fragment, $html, $vnode } from "../symbols.ts";
-import { Certificate } from "node:crypto";
 
 interface Scope {
   [key: string]: unknown;
