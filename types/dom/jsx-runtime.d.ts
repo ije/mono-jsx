@@ -1,6 +1,4 @@
-import type { FC, VNode } from "./jsx.d.ts";
-import type { RenderOptions } from "./render.d.ts";
-import type * as Mono from "./mono.d.ts";
+import type { FC, VNode } from "../jsx.d.ts";
 
 export const html: JSX.Raw;
 export const JSX: typeof globalThis.JSX;
@@ -10,7 +8,7 @@ export { html as css, html as js, jsx as jsxDEV, jsx as jsxs };
 
 declare global {
   namespace JSX {
-    interface MonoElements extends Mono.Elements {}
-    interface HtmlCustomAttributes extends RenderOptions {}
+    interface MonoElements {}
+    interface HtmlCustomAttributes {}
   }
 }

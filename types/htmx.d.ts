@@ -785,7 +785,5 @@ interface HtmxAttributes extends HtmxUtils.HxOnMap {
 /** @ignore */
 declare namespace JSX {
   interface HtmxExtensions extends HtmxBuiltinExtensions {}
-
-  // typed-html
-  interface HtmlTag extends HtmxAttributes {}
+  interface CustomAttributes extends HtmxAttributes {}
 }

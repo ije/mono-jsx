@@ -1,22 +1,23 @@
-import type { ChildType, Session } from "./types/mono.d.ts";
-import type { FC, VNode } from "./types/jsx.d.ts";
+import type { Session } from "./types/mono.d.ts";
+import type { ChildType, FC, VNode } from "./types/jsx.d.ts";
 import type { MaybeModule, RenderOptions, SessionOptions } from "./types/render.d.ts";
+import { customElements } from "./jsx.ts";
 import { COMPONENT, CX, EVENT, FORM, ROUTER, SIGNALS, STYLE, SUSPENSE } from "./runtime/index.ts";
 import { COMPONENT_JS, CX_JS, EVENT_JS, FORM_JS, ROUTER_JS, SIGNALS_JS, STYLE_JS, SUSPENSE_JS } from "./runtime/index.ts";
 import { RENDER_ATTR, RENDER_SWITCH, RENDER_TOGGLE } from "./runtime/index.ts";
 import { RENDER_ATTR_JS, RENDER_SWITCH_JS, RENDER_TOGGLE_JS } from "./runtime/index.ts";
-import { cx, escapeHTML, IdGen, isObject, isString, NullProtoObj, styleToCSS, toHyphenCase } from "./runtime/utils.ts";
-import { $fragment, $html, $signal, $vnode } from "./symbols.ts";
+import { cx, escapeHTML, hashCode, IdGen, isObject, isString, NullProtoObject, styleToCSS, toHyphenCase } from "./runtime/utils.ts";
+import { $fragment, $html, $vnode } from "./symbols.ts";
 import { VERSION } from "./version.ts";
 
 interface RenderContext {
   write: (chunk: string) => void;
   suspenses: Array<Promise<string>>;
-  fc?: FCContext;
-  signals: SignalsContext;
+  fc?: FCScope;
   flags: Flags;
   mcs: IdGenManager<Signal>;
   mfs: IdGenManager<CallableFunction & { str?: string }>;
+  signals: Signals;
   extraJS: string[];
   context?: Record<string, unknown>;
   request?: Request;
@@ -26,17 +27,11 @@ interface RenderContext {
   svg?: boolean;
 }
 
-interface FCContext {
-  scopeId: number;
+interface FCScope {
+  id: number;
   signals: Record<symbol | string, unknown>;
-  slots: Array<ChildType> | undefined;
+  slots?: Array<ChildType>;
   refs: number;
-}
-
-interface SignalsContext {
-  app: Record<string, unknown>;
-  store: Map<string, unknown>;
-  effects: Array<string>;
 }
 
 interface Flags {
@@ -45,41 +40,30 @@ interface Flags {
   runtime: number;
 }
 
-interface Signal {
-  [$signal]: {
-    readonly scope: number;
-    readonly key: string | Compute;
-    readonly value: unknown;
-  };
+interface Signals {
+  app: Record<string, unknown>;
+  store: Map<string, unknown>;
+  effects: Array<string>;
 }
 
-interface Compute {
+export interface Compute {
   readonly compute: (() => unknown) | string;
   readonly deps: Set<string>;
 }
 
 const cdn = "https://raw.esm.sh"; // the cdn for loading htmx and its extensions
 const encoder = new TextEncoder();
-const customElements = new Map<string, FC>();
 const voidTags = new Set("area,base,br,col,embed,hr,img,input,keygen,link,meta,param,source,track,wbr".split(","));
 const cache = new Map<string, { html: string; expires?: number }>();
 const componentsMap = new IdGen<FC>();
 const subtle = crypto.subtle;
 const stringify = JSON.stringify;
 const isVNode = (v: unknown): v is VNode => Array.isArray(v) && v.length === 3 && v[2] === $vnode;
-const isSignal = (v: unknown): v is Signal => isObject(v) && !!(v as any)[$signal];
+const isSignal = (v: unknown): v is Signal => v instanceof Signal;
 const isFC = (v: unknown): v is FC => typeof v === "function" && v.name.charCodeAt(0) <= /*Z*/ 90;
-const hashCode = (s: string) => [...s].reduce((hash, c) => (Math.imul(31, hash) + c.charCodeAt(0)) | 0, 0);
-const escapeCSSText = (str: string): string => str.replace(/[<>]/g, (m) => m.charCodeAt(0) === 60 ? "&lt;" : "&gt;");
+const escapeCSSText = (str: string): string => str.replace(/[><]/g, (m) => m.charCodeAt(0) === 60 ? "&lt;" : "&gt;");
 const toAttrStringLit = (str: string) => '"' + escapeHTML(str) + '"';
 const toStr = <T = string | number>(v: T | undefined, str: (v: T) => string) => v !== undefined ? str(v) : "";
-
-class Ref {
-  constructor(
-    public scope: number,
-    public name: string,
-  ) {}
-}
 
 class IdGenManager<T> {
   #scopes = new Map<number, IdGen<T>>();
@@ -112,17 +96,23 @@ class IdGenManager<T> {
   }
 }
 
-/** The JSX namespace. */
-export const JSX = {
-  customElements: {
-    define(tagName: string, fc: FC) {
-      customElements.set(tagName, fc);
-    },
-  },
-};
+class Signal {
+  constructor(
+    public readonly scope: number,
+    public readonly key: string | Compute,
+    public readonly value: unknown,
+  ) {}
+}
+
+class Ref {
+  constructor(
+    public readonly scope: number,
+    public readonly name: string,
+  ) {}
+}
 
 /** Renders a `<html>` element to a `Response` object. */
-export function renderHtml(node: VNode, options: RenderOptions): Response {
+function renderToWebStream(root: VNode, options: RenderOptions): Response {
   const { routes, components } = options;
   const request: Request & { URL?: URL; params?: Record<string, string> } | undefined = options.request;
   const headers = new Headers();
@@ -236,7 +226,7 @@ export function renderHtml(node: VNode, options: RenderOptions): Response {
         Reflect.set(options, "routeFC", routeFC);
         try {
           write("<!DOCTYPE html>");
-          await render(node, options, write, (js) => write('<script data-mono-jsx="' + VERSION + '">' + js + "</script>"));
+          await render(root, options, write, (js) => write('<script data-mono-jsx="' + VERSION + '">' + js + "</script>"));
           if (options.htmx) {
             write(`<script src="${cdn}/htmx.org${options.htmx === true ? "" : escapeHTML("@" + options.htmx)}/dist/htmx.min.js"></script>`);
             for (const [name, version] of Object.entries(options)) {
@@ -264,7 +254,7 @@ async function render(
 ) {
   const { app, context, request, routeFC } = options;
   const suspenses: Promise<string>[] = [];
-  const signals: SignalsContext = {
+  const signals: Signals = {
     app: {},
     store: new Map(),
     effects: [],
@@ -281,7 +271,7 @@ async function render(
     mfs: new IdGenManager(),
     extraJS: [],
   };
-  signals.app = Object.assign(createThisScope(rc, 0), app);
+  signals.app = Object.assign(createThisProxy(rc, 0), app);
 
   // finalize creates runtime JS for client
   // it may be called recursively when thare are unresolved suspenses
@@ -342,7 +332,7 @@ async function render(
     }
     if (mcs.size > 0) {
       js += mcs.toJS((scope, seq, signal) => {
-        const { compute, deps } = signal[$signal].key as Compute;
+        const { compute, deps } = signal.key as Compute;
         return "$MC(" + scope + "," + seq + ",function(){return(" + String(compute) + ").call(this)},"
           + stringify([...deps.values()])
           + ");";
@@ -496,7 +486,7 @@ async function renderNode(rc: RenderContext, node: ChildType, stripSlotProp?: bo
             if (children !== undefined) {
               if (show === undefined && hidden !== undefined) {
                 if (isSignal(hidden)) {
-                  let { scope, key, value } = hidden[$signal];
+                  let { scope, key, value } = hidden;
                   if (typeof key === "string") {
                     key = {
                       compute: "()=>!this[" + stringify(key) + "]",
@@ -508,13 +498,13 @@ async function renderNode(rc: RenderContext, node: ChildType, stripSlotProp?: bo
                       deps: key.deps,
                     };
                   }
-                  show = Signal(scope, key, !value);
+                  show = new Signal(scope, key, !value);
                 } else {
                   show = !hidden;
                 }
               }
               if (isSignal(show)) {
-                const { value } = show[$signal];
+                const { value } = show;
                 let buf = renderSignal(rc, show, "toggle", false).slice(0, -1) + renderViewTransitionAttr(viewTransition) + ">";
                 if (!value) {
                   buf += "<template m-slot>";
@@ -535,19 +525,19 @@ async function renderNode(rc: RenderContext, node: ChildType, stripSlotProp?: bo
             const { value: valueProp, viewTransition, children } = props;
             if (children !== undefined) {
               let slots = Array.isArray(children) ? (isVNode(children) ? [children] : children) : [children];
+              let matchedSlot: [string, ChildType] | undefined;
+              let namedSlots: ChildType[] = [];
+              let unnamedSlots: ChildType[] = [];
               let signalHtml: string | undefined;
               let toSlotName: string;
               if (isSignal(valueProp)) {
-                const { value } = valueProp[$signal];
+                const { value } = valueProp;
                 signalHtml = renderSignal(rc, valueProp, "switch", false).slice(0, -1) + renderViewTransitionAttr(viewTransition) + ">";
                 rc.flags.runtime |= RENDER_SWITCH;
                 toSlotName = String(value);
               } else {
                 toSlotName = String(valueProp);
               }
-              let matchedSlot: [string, ChildType] | undefined;
-              let namedSlots: ChildType[] = new Array(slots.length);
-              let unnamedSlots: ChildType[] = new Array(slots.length);
               for (const slot of slots) {
                 if (!isVNode(slot) || !slot[1].slot) {
                   unnamedSlots.push(slot);
@@ -631,13 +621,21 @@ async function renderNode(rc: RenderContext, node: ChildType, stripSlotProp?: bo
 
           // `<router>` element
           case "router": {
-            const { children, viewTransition } = props;
-            const { routeFC } = rc;
-            write("<m-router" + (!routeFC ? " fallback" : "") + renderViewTransitionAttr(viewTransition) + ">");
+            let { routeFC } = rc;
+            let { children, viewTransition, ref } = props;
+            let buf = "";
+            let attrs = renderViewTransitionAttr(viewTransition);
+            if (ref !== undefined) {
+              attrs += renderAttr(rc, "ref", ref)[0];
+            }
+            if (!routeFC) {
+              attrs += " fallback";
+            }
+            write("<m-router" + attrs + ">");
             if (routeFC) {
               await renderFC(rc, routeFC instanceof Promise ? (await routeFC).default : routeFC, {}, true);
             }
-            let buf = "";
+            // render fallback (404) elements
             if (children) {
               if (routeFC) {
                 buf += "<template m-slot>";
@@ -740,12 +738,13 @@ async function renderNode(rc: RenderContext, node: ChildType, stripSlotProp?: bo
               }
               let buffer = "<" + tag;
               let attrModifiers = "";
-              let noChildren = props.children === undefined;
-              let isSvgSelfClosingElement = rc.svg && noChildren;
+              let isSingleEl = props.children === undefined;
+              let isSvgSelfClosingElement = rc.svg && isSingleEl;
               for (let [propName, propValue] of Object.entries(props)) {
                 switch (propName) {
                   case "children":
-                    // ignore `children` property
+                  case "mount":
+                    // ignore `children` and `mount` properties
                     break;
                   case "route":
                     if (tag === "form") {
@@ -772,9 +771,7 @@ async function renderNode(rc: RenderContext, node: ChildType, stripSlotProp?: bo
                 if (attrModifiers) {
                   write(attrModifiers);
                 }
-                if (props.innerHTML) {
-                  write(props.innerHTML);
-                } else if (!noChildren) {
+                if (!isSingleEl) {
                   await renderChildren(tag === "svg" ? { ...rc, svg: true } : rc, props.children);
                 }
                 if (!isSvgSelfClosingElement) {
@@ -787,8 +784,8 @@ async function renderNode(rc: RenderContext, node: ChildType, stripSlotProp?: bo
           }
         }
       } else if (Array.isArray(node)) {
-        if (node.length > 0) {
-          await renderChildren(rc, node);
+        for (const child of node) {
+          await renderNode(rc, child);
         }
       }
       break;
@@ -805,177 +802,15 @@ async function renderChildren(rc: RenderContext, children: ChildType | ChildType
   }
 }
 
-function renderAttr(
-  rc: RenderContext,
-  attrName: string,
-  attrValue: unknown,
-  stripSlotProp?: boolean,
-): [attr: string, addonHtml: string, signalValue: Signal | undefined, binding: boolean] {
-  let attr = "";
-  let addonHtml = "";
-  let signalValue: Signal | undefined;
-  let binding = false;
-  let scopeId = rc.fc?.scopeId;
-  if (isObject(attrValue)) {
-    let signal: Signal | undefined;
-    if (isSignal(attrValue)) {
-      signal = attrValue;
-    } else {
-      if (scopeId) {
-        const deps = new Set<string>();
-        const patches = [] as string[];
-        const staticProps = traverseProps(attrValue, (path, value) => {
-          const { scope, key } = value[$signal];
-          if (isString(key)) {
-            patches.push([
-              (scope !== scopeId ? "$signals(" + scope + ")" : "this") + "[" + stringify(key) + "]",
-              ...path,
-            ].join(","));
-            deps.add(scope + ":" + key);
-          } else {
-            patches.push(["(" + String(key.compute) + ")(),", ...path].join(","));
-            for (const dep of key.deps) {
-              deps.add(dep);
-            }
-          }
-        });
-        if (patches.length > 0) {
-          const compute = "()=>$patch(" + stringify(staticProps) + ",[" + patches.join("],[") + "])";
-          signal = Signal(scopeId, { compute, deps }, staticProps);
-        }
-      }
-    }
-    if (signal) {
-      if (attrName === "class") {
-        rc.flags.runtime |= CX;
-      } else if (attrName === "style") {
-        rc.flags.runtime |= STYLE;
-      }
-      signalValue = signal;
-      attrValue = signal[$signal].value;
-    }
-  }
-  switch (attrName) {
-    case "class":
-      attr = " class=" + toAttrStringLit(cx(attrValue));
-      break;
-    case "style":
-      if (isString(attrValue)) {
-        attr = ' style="' + escapeCSSText(attrValue) + '"';
-      } else if (isObject(attrValue) && !Array.isArray(attrValue)) {
-        const { inline, css } = styleToCSS(attrValue);
-        if (css) {
-          const id = hashCode((inline ?? "") + css.join("")).toString(36);
-          addonHtml += '<style data-mono-jsx-css="' + id + '">'
-            + (inline ? "[data-css-" + id + "]{" + escapeCSSText(inline) + "}" : "")
-            + escapeCSSText(css.map(v => v === null ? "[data-css-" + id + "]" : v).join(""))
-            + "</style>";
-          attr = " data-css-" + id;
-        } else if (inline) {
-          attr = " style=" + toAttrStringLit(inline);
-        }
-      }
-      break;
-    case "props":
-      if (isObject(attrValue) && !Array.isArray(attrValue)) {
-        attr = ' props="base64,' + btoa(stringify(attrValue)) + '"';
-      }
-      break;
-    case "ref":
-      if (typeof attrValue === "function") {
-        const signals = rc.fc?.signals;
-        if (!signals) {
-          console.error("[mono-jsx] Use `ref` outside of a component function");
-        } else {
-          const refId = rc.fc!.refs++;
-          const effects = signals[Symbol.for("effects")] as string[];
-          effects.push("()=>(" + String(attrValue) + ')(this.refs["' + refId + '"])');
-          attr = " data-ref=" + toAttrStringLit(rc.fc!.scopeId + ":" + refId);
-        }
-      } else if (attrValue instanceof Ref) {
-        attr = " data-ref=" + toAttrStringLit(attrValue.scope + ":" + attrValue.name);
-      }
-      break;
-    case "action":
-      if (typeof attrValue === "function") {
-        const scopeId = rc.fc?.scopeId;
-        attr = ' onsubmit="$onsubmit(event,$MF_'
-          + (scopeId ?? 0) + "_"
-          + rc.mfs.gen(attrValue, scopeId) + toStr(scopeId, (i) => "," + i)
-          + ')"';
-      } else if (isString(attrValue)) {
-        attr = " action=" + toAttrStringLit(attrValue);
-      }
-      break;
-    case "slot":
-      if (!stripSlotProp && isString(attrValue)) {
-        attr = " slot=" + toAttrStringLit(attrValue);
-      }
-      break;
-    case "$checked":
-    case "$value":
-      if (!(attrValue === false || attrValue === null || attrValue === undefined)) {
-        attr = " " + attrName.slice(1);
-        if (attrValue !== true) {
-          attr += "=" + toAttrStringLit(String(attrValue));
-        }
-      }
-      if (signalValue) {
-        const { key } = signalValue[$signal];
-        if (isString(key)) {
-          const fn = () => {}; // todo: use cached fn by the key to reduce the code size
-          fn.str = "e=>this[" + toAttrStringLit(key) + "]=e.target." + attrName.slice(1);
-          attr += ' oninput="$emit(event,$MF_'
-            + (scopeId ?? 0) + "_"
-            + rc.mfs.gen(fn, scopeId)
-            + toStr(scopeId, (i) => "," + i)
-            + ')"';
-        }
-        binding = true;
-      }
-      break;
-    case "viewTransition":
-      if (attrValue === true || attrValue === "") {
-        attr = " data-vt";
-      } else if (isString(attrValue)) {
-        attr = " data-vt=" + toAttrStringLit(attrValue);
-      }
-      break;
-    default:
-      if (attrName.startsWith("on") && typeof attrValue === "function") {
-        attr = " " + escapeHTML(attrName.toLowerCase()) + '="$emit(event,$MF_'
-          + (scopeId ?? 0) + "_"
-          + rc.mfs.gen(attrValue, scopeId)
-          + toStr(scopeId, (i) => "," + i)
-          + ')"';
-      } else if (attrValue === false || attrValue === null || attrValue === undefined) {
-        // skip false, null or undefined attributes
-      } else {
-        attr = " " + escapeHTML(attrName);
-        if (attrValue !== true) {
-          attr += "=" + toAttrStringLit(String(attrValue));
-        }
-      }
-  }
-  return [attr, addonHtml, signalValue, binding];
-}
-
-function renderViewTransitionAttr(viewTransition?: string | boolean): string {
-  if (viewTransition === true || viewTransition === "") {
-    return " vt";
-  }
-  return isString(viewTransition) ? " style=" + toAttrStringLit("view-transition-name:" + viewTransition) + " vt" : "";
-}
-
 async function renderFC(rc: RenderContext, fcFn: FC, props: JSX.IntrinsicAttributes, eager?: boolean) {
   const { write } = rc;
   const { children } = props;
   const scopeId = ++rc.flags.scope;
-  const signals = createThisScope(rc, scopeId);
+  const signals = createThisProxy(rc, scopeId);
   const slots: ChildType[] | undefined = children !== undefined
     ? (Array.isArray(children) ? (isVNode(children) ? [children as ChildType] : children) : [children])
     : undefined;
-  const fc: FCContext = { scopeId, signals, slots, refs: 0 };
+  const fc: FCScope = { id: scopeId, signals, slots, refs: 0 };
   try {
     const v = fcFn.call(signals, props);
     if (isObject(v) && !isVNode(v)) {
@@ -1056,13 +891,175 @@ async function renderFC(rc: RenderContext, fcFn: FC, props: JSX.IntrinsicAttribu
   }
 }
 
+function renderAttr(
+  rc: RenderContext,
+  attrName: string,
+  attrValue: unknown,
+  stripSlotProp?: boolean,
+): [attr: string, addonHtml: string, signalValue: Signal | undefined, binding: boolean] {
+  let attr = "";
+  let addonHtml = "";
+  let signalValue: Signal | undefined;
+  let binding = false;
+  let scopeId = rc.fc?.id;
+  if (isObject(attrValue)) {
+    let signal: Signal | undefined;
+    if (isSignal(attrValue)) {
+      signal = attrValue;
+    } else {
+      if (scopeId) {
+        const deps = new Set<string>();
+        const patches = [] as string[];
+        const staticProps = traverseProps(attrValue, (path, value) => {
+          const { scope, key } = value;
+          if (isString(key)) {
+            patches.push([
+              (scope !== scopeId ? "$signals(" + scope + ")" : "this") + "[" + stringify(key) + "]",
+              ...path,
+            ].join(","));
+            deps.add(scope + ":" + key);
+          } else {
+            patches.push(["(" + String(key.compute) + ")(),", ...path].join(","));
+            for (const dep of key.deps) {
+              deps.add(dep);
+            }
+          }
+        });
+        if (patches.length > 0) {
+          const compute = "()=>$patch(" + stringify(staticProps) + ",[" + patches.join("],[") + "])";
+          signal = new Signal(scopeId, { compute, deps }, staticProps);
+        }
+      }
+    }
+    if (signal) {
+      if (attrName === "class") {
+        rc.flags.runtime |= CX;
+      } else if (attrName === "style") {
+        rc.flags.runtime |= STYLE;
+      }
+      signalValue = signal;
+      attrValue = signal.value;
+    }
+  }
+  switch (attrName) {
+    case "class":
+      attr = " class=" + toAttrStringLit(cx(attrValue));
+      break;
+    case "style":
+      if (isString(attrValue)) {
+        attr = ' style="' + escapeCSSText(attrValue) + '"';
+      } else if (isObject(attrValue) && !Array.isArray(attrValue)) {
+        const { inline, css } = styleToCSS(attrValue);
+        if (css) {
+          const id = hashCode((inline ?? "") + css.join("")).toString(36);
+          addonHtml += '<style data-mono-jsx-css="' + id + '">'
+            + (inline ? "[data-css-" + id + "]{" + escapeCSSText(inline) + "}" : "")
+            + escapeCSSText(css.map(v => v === null ? "[data-css-" + id + "]" : v).join(""))
+            + "</style>";
+          attr = " data-css-" + id;
+        } else if (inline) {
+          attr = " style=" + toAttrStringLit(inline);
+        }
+      }
+      break;
+    case "props":
+      if (isObject(attrValue) && !Array.isArray(attrValue)) {
+        attr = ' props="base64,' + btoa(stringify(attrValue)) + '"';
+      }
+      break;
+    case "ref":
+      if (typeof attrValue === "function") {
+        const signals = rc.fc?.signals;
+        if (!signals) {
+          console.error("[mono-jsx] Use `ref` outside of a component function");
+        } else {
+          const refId = rc.fc!.refs++;
+          const effects = signals[Symbol.for("effects")] as string[];
+          effects.push("()=>(" + String(attrValue) + ')(this.refs["' + refId + '"])');
+          attr = " data-ref=" + toAttrStringLit(rc.fc!.id + ":" + refId);
+        }
+      } else if (attrValue instanceof Ref) {
+        attr = " data-ref=" + toAttrStringLit(attrValue.scope + ":" + attrValue.name);
+      }
+      break;
+    case "action":
+      if (typeof attrValue === "function") {
+        const scopeId = rc.fc?.id;
+        attr = ' onsubmit="$onsubmit(event,$MF_'
+          + (scopeId ?? 0) + "_"
+          + rc.mfs.gen(attrValue, scopeId) + toStr(scopeId, (i) => "," + i)
+          + ')"';
+      } else if (isString(attrValue)) {
+        attr = " action=" + toAttrStringLit(attrValue);
+      }
+      break;
+    case "slot":
+      if (!stripSlotProp && isString(attrValue)) {
+        attr = " slot=" + toAttrStringLit(attrValue);
+      }
+      break;
+    case "$checked":
+    case "$value":
+      if (!(attrValue === false || attrValue === null || attrValue === undefined)) {
+        attr = " " + attrName.slice(1);
+        if (attrValue !== true) {
+          attr += "=" + toAttrStringLit(String(attrValue));
+        }
+      }
+      if (signalValue) {
+        const { key } = signalValue;
+        if (isString(key)) {
+          const fn = () => {}; // todo: use cached fn by the key to reduce the code size
+          fn.str = "e=>this[" + toAttrStringLit(key) + "]=e.target." + attrName.slice(1);
+          attr += ' oninput="$emit(event,$MF_'
+            + (scopeId ?? 0) + "_"
+            + rc.mfs.gen(fn, scopeId)
+            + toStr(scopeId, (i) => "," + i)
+            + ')"';
+        }
+        binding = true;
+      }
+      break;
+    case "viewTransition":
+      if (attrValue === true || attrValue === "") {
+        attr = " data-vt";
+      } else if (isString(attrValue)) {
+        attr = " data-vt=" + toAttrStringLit(attrValue);
+      }
+      break;
+    default:
+      if (attrName.startsWith("on") && typeof attrValue === "function") {
+        attr = " " + escapeHTML(attrName.toLowerCase()) + '="$emit(event,$MF_'
+          + (scopeId ?? 0) + "_"
+          + rc.mfs.gen(attrValue, scopeId)
+          + toStr(scopeId, (i) => "," + i)
+          + ')"';
+      } else if (attrValue === false || attrValue === null || attrValue === undefined) {
+        // skip false, null or undefined attributes
+      } else {
+        attr = " " + escapeHTML(attrName);
+        if (attrValue !== true) {
+          attr += "=" + toAttrStringLit(String(attrValue));
+        }
+      }
+  }
+  return [attr, addonHtml, signalValue, binding];
+}
+
+function renderViewTransitionAttr(viewTransition?: string | boolean): string {
+  if (viewTransition === true || viewTransition === "") {
+    return " vt";
+  }
+  return isString(viewTransition) ? " style=" + toAttrStringLit("view-transition-name:" + viewTransition) + " vt" : "";
+}
+
 function renderSignal(
   rc: RenderContext,
   signal: Signal,
   mode?: "toggle" | "switch" | "list" | "html" | [string],
   close?: boolean,
 ) {
-  const { scope, key, value } = signal[$signal];
+  const { scope, key, value } = signal;
   let buffer = "<m-signal";
   if (mode) {
     if (Array.isArray(mode)) {
@@ -1074,7 +1071,7 @@ function renderSignal(
   if (isString(key)) {
     buffer += " key=" + toAttrStringLit(key);
   } else {
-    buffer += ' computed="' + rc.mcs.gen(signal, rc.fc?.scopeId) + '"';
+    buffer += ' computed="' + rc.mcs.gen(signal, rc.fc?.id) + '"';
   }
   buffer += ">";
   if (!mode || mode === "html") {
@@ -1098,49 +1095,14 @@ function renderSignal(
 
 let collectDep: ((scopeId: number, key: string) => void) | undefined;
 
-function Signal(
-  scope: number,
-  key: string | Compute,
-  value: unknown,
-): Signal {
-  const signal = { scope, key, value };
-  return new Proxy(new NullProtoObj(), {
-    get(_target, prop) {
-      if (prop === $signal) {
-        return signal;
-      }
-      if (isObject(value)) {
-        return Reflect.get(value, prop, value);
-      }
-      const v = (value as any)[prop];
-      if (typeof v === "function") {
-        return v.bind(value);
-      }
-      return v;
-    },
-    set(_target, prop, newValue) {
-      if (isObject(value)) {
-        return Reflect.set(value, prop, newValue, value);
-      }
-      return false;
-    },
-  }) as Signal;
-}
-
-function createThisScope(
-  rc: RenderContext,
-  scopeId: number,
-): Record<string, unknown> {
+function createThisProxy(rc: RenderContext, scopeId: number): Record<string, unknown> {
   const { context, request, routeForm, session } = rc;
-  const store = new NullProtoObj() as Record<string | symbol, unknown>;
+  const store = new NullProtoObject() as Record<string | symbol, unknown>;
   const signals = new Map<string, Signal>();
   const effects = [] as string[];
-  const refs = new Proxy(Object.create(null), {
+  const refs = new Proxy(new NullProtoObject(), {
     get(_, key) {
       return new Ref(scopeId, key as string);
-    },
-    set() {
-      throw new Error("[mono-jsx] The `refs` object is read-only at SSR time.");
     },
   });
   const computed = (compute: () => unknown): unknown => {
@@ -1148,7 +1110,7 @@ function createThisScope(
     collectDep = (scopeId, key) => deps.add(scopeId + ":" + key);
     const value = compute.call(thisProxy);
     collectDep = undefined;
-    return Signal(scopeId, { compute, deps }, value);
+    return new Signal(scopeId, { compute, deps }, value);
   };
   const markEffect = (effect: CallableFunction) => {
     effects.push(String(effect));
@@ -1172,6 +1134,8 @@ function createThisScope(
   const thisProxy = new Proxy(store, {
     get(target, key, receiver) {
       switch (key) {
+        case "init":
+          return (data: Record<string, unknown>) => Object.assign(store, data);
         case "app":
           if (scopeId === 0) {
             return null;
@@ -1210,12 +1174,12 @@ function createThisScope(
           }
           // fallthrough
         default: {
+          if (!Reflect.has(target, key)) {
+            Reflect.set(target, key, undefined, receiver);
+          }
           const value = Reflect.get(target, key, receiver);
           if (typeof key === "symbol" || isSignal(value)) {
             return value;
-          }
-          if (value === undefined && !Reflect.has(target, key)) {
-            Reflect.set(target, key, undefined, receiver);
           }
           if (collectDep) {
             collectDep(scopeId, key);
@@ -1223,7 +1187,7 @@ function createThisScope(
           }
           let signal = signals.get(key);
           if (!signal) {
-            signal = Signal(scopeId, key, value);
+            signal = new Signal(scopeId, key, value);
             signals.set(key, signal);
           }
           return signal;
@@ -1311,13 +1275,13 @@ function traverseProps(
   path: string[] = [],
 ): typeof obj {
   const isArray = Array.isArray(obj);
-  const copy: any = isArray ? new Array(obj.length) : new NullProtoObj();
+  const copy: any = isArray ? new Array(obj.length) : new NullProtoObject();
   for (const [k, value] of Object.entries(obj)) {
     const newPath = path.concat(isArray ? k : stringify(k));
     const key = isArray ? Number(k) : k;
     if (isObject(value)) {
       if (isSignal(value)) {
-        copy[key] = value[$signal].value; // use the value of the signal
+        copy[key] = value.value; // use the value of the signal
         callback(newPath, value);
       } else {
         copy[key] = traverseProps(value, callback, newPath);
@@ -1329,4 +1293,4 @@ function traverseProps(
   return copy;
 }
 
-export { cache, isSignal };
+export { cache, isSignal, renderToWebStream };

@@ -5,10 +5,13 @@ declare global {
 
 const regexpCssBareUnitProps = /acit|ex(?:s|g|n|p|$)|rph|grid|ows|mnc|ntw|ine[ch]|zoo|^ord|itera/i; // copied https://github.com/preactjs/preact
 const regexpHtmlSafe = /["'&<>]/;
+const cssIds = new Set<number>();
 
 export const isString = (v: unknown): v is string => typeof v === "string";
 export const isObject = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null;
+export const isFunction = (v: unknown): v is Function => typeof v === "function";
 export const toHyphenCase = (k: string) => k.replace(/[a-z][A-Z]/g, (m) => m.charAt(0) + "-" + m.charAt(1).toLowerCase());
+export const hashCode = (s: string) => [...s].reduce((hash, c) => (Math.imul(31, hash) + c.charCodeAt(0)) | 0, 0);
 
 export class IdGen<T> extends Map<T, number> {
   #seq = 0;
@@ -42,7 +45,7 @@ export const cx = (className: unknown): string => {
 export const styleToCSS = (style: Record<string, unknown>): { inline?: string; css?: Array<string | null> } => {
   const inline: [string, string | number][] = [];
   const css: Array<string | null> = [];
-  const ret: ReturnType<typeof styleToCSS> = new NullProtoObj();
+  const ret: ReturnType<typeof styleToCSS> = new NullProtoObject();
   for (const [k, v] of Object.entries(style)) {
     switch (k.charCodeAt(0)) {
       case /* ':' */ 58:
@@ -77,12 +80,17 @@ export const styleToCSS = (style: Record<string, unknown>): { inline?: string; c
 export const applyStyle = (el: Element, style: Record<string, unknown>): void => {
   const { inline, css } = styleToCSS(style);
   if (css) {
-    const propPrefix = "data-css-";
-    const selector = "[" + propPrefix + (Date.now() + Math.random()).toString(36).replace(".", "") + "]";
-    document.head.appendChild(document.createElement("style")).textContent = (inline ? selector + "{" + inline + "}" : "")
-      + css.map(v => v === null ? selector : v).join("");
-    el.getAttributeNames().forEach((name) => name.startsWith(propPrefix) && el.removeAttribute(name));
-    el.setAttribute(selector.slice(1, -1), "");
+    const prefix = "data-css-";
+    const id = hashCode((inline ?? "") + css.join(""));
+    const attrName = prefix + id.toString(36);
+    const selector = "[" + attrName + "]";
+    if (!cssIds.has(id)) {
+      cssIds.add(id);
+      document.head.appendChild(document.createElement("style")).textContent = (inline ? selector + "{" + inline + "}" : "")
+        + css.map(v => v === null ? selector : v).join("");
+    }
+    el.getAttributeNames().forEach(name => name.startsWith(prefix) && el.removeAttribute(name));
+    el.setAttribute(attrName, "");
   } else if (inline) {
     el.setAttribute("style", inline);
   }
@@ -106,10 +114,10 @@ export const renderStyle = (style: unknown): string => {
 // Fastest way for creating null-prototype objects in JavaScript
 // copyied from https://github.com/h3js/rou3/blob/main/src/_utils.ts
 // by @pi0
-export const NullProtoObj = /* @__PURE__ */ (() => {
-  function e() {}
-  e.prototype = Object.freeze(Object.create(null));
-  return e;
+export const NullProtoObject = /* @__PURE__ */ (() => {
+  function NPO() {}
+  NPO.prototype = Object.freeze(Object.create(null));
+  return NPO;
 })() as unknown as { new(): Record<string, any> };
 
 /**
@@ -166,4 +174,14 @@ export const escapeHTML = (str: string): string => {
   }
 
   return lastIndex !== index ? html + str.slice(lastIndex, index) : html;
+};
+
+/**
+ * Escapes special characters and HTML entities in a given html string.
+ * Use `document.createElement("div").textContent = text` instead of `escapeHTML` in browser.
+ */
+export const domEscapeHTML = (text: string): string => {
+  const div = document.createElement("div");
+  div.textContent = text;
+  return div.innerHTML;
 };

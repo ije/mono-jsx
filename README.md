@@ -924,7 +924,7 @@ function App(this: Refs<FC, { component: ComponentElement }>) {
     this.refs.component.props = {};
 
     const timer = setInterval(() => {
-       // re-render the component
+      // re-render the component
       this.refs.component.refresh();
     }, 1000);
     return () => clearInterval(timer); // cleanup
