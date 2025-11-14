@@ -354,3 +354,52 @@ Deno.test("[dom] `<toggle>` component", sanitizeFalse, async () => {
 
   await page.close();
 });
+
+Deno.test("[dom] async component", sanitizeFalse, async () => {
+  const testUrl = addTestPage(`
+    const Blah = () => Promise.resolve(<h2>Building User Interfaces.</h2>);
+    const Sleep = async ({ ms }: { ms: number }) => {
+      await new Promise((resolve) => setTimeout(resolve, ms));
+      return <slot />;
+    };
+    function App() {
+      return <div>
+        <Sleep ms={100} placeholder={<p>Waiting...</p>}>
+          <h1>Welcome to mono-jsx!</h1>
+          <Blah />
+        </Sleep>
+      </div>
+    }
+    <mount root={document.body}>
+      <App />
+    </mount>
+  `);
+
+  const page = await browser.newPage();
+  await page.goto(testUrl);
+
+  const div = await page.$("body > div");
+  assert(div);
+  assertEquals(await div.evaluate((el: HTMLElement) => el.childElementCount), 1);
+
+  let p = await page.$("body > div > p");
+  assert(p);
+  assertEquals(await p.evaluate((el: HTMLElement) => el.textContent), "Waiting...");
+
+  await new Promise((resolve) => setTimeout(resolve, 100));
+
+  p = await page.$("body > div > p");
+  assert(!p);
+
+  assertEquals(await div.evaluate((el: HTMLElement) => el.childElementCount), 2);
+
+  const h1 = await page.$("body > div > h1");
+  assert(h1);
+  assertEquals(await h1.evaluate((el: HTMLElement) => el.textContent), "Welcome to mono-jsx!");
+
+  const h2 = await page.$("body > div > h2");
+  assert(h2);
+  assertEquals(await h2.evaluate((el: HTMLElement) => el.textContent), "Building User Interfaces.");
+
+  await page.close();
+});

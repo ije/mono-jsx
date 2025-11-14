@@ -2,12 +2,13 @@ import type { ChildType, FC, VNode } from "../types/jsx.d.ts";
 import { customElements } from "../jsx.ts";
 import { applyStyle, cx, isFunction, isObject, isString, NullProtoObject } from "../runtime/utils.ts";
 import { $fragment, $html, $vnode } from "../symbols.ts";
+import { Certificate } from "node:crypto";
 
 interface Scope {
   [key: string]: unknown;
   readonly [$slots]: ChildType[] | undefined;
-  readonly [$postcall]: () => void;
   readonly [$watch]: (key: string, effect: () => void) => void;
+  readonly [$postbind]: () => void;
 }
 
 class Signal {
@@ -18,11 +19,15 @@ class Signal {
   reactive(effect: (value: unknown) => void) {
     const update = () => effect(this.scope[this.key]);
     update();
-    this.scope[$watch](this.key, update);
+    this.watch(update);
+  }
+  watch(callback: () => void) {
+    this.scope[$watch](this.key, callback);
   }
 }
 
-let depC: Set<Signal> | undefined;
+// for reactive dependencies tracking
+let $depMark: Set<Signal> | undefined;
 
 class Compute {
   constructor(
@@ -30,18 +35,13 @@ class Compute {
     public readonly compute: () => unknown,
   ) {}
   reactive(effect: (value: unknown) => void) {
-    let deps: Set<Signal> | undefined;
-    let update = () => {
-      if (!deps) {
-        // start collecting dependencies
-        depC = deps = new Set<Signal>();
-      }
-      effect(this.compute.call(this.scope));
-      // stop collecting dependencies
-      depC = undefined;
-    };
+    const update = () => effect(this.compute.call(this.scope));
+    // start collecting dependencies
+    $depMark = new Set<Signal>();
     update();
-    deps?.forEach(({ scope, key }) => scope[$watch](key, update));
+    $depMark.forEach((dep) => dep.watch(update));
+    // stop collecting dependencies
+    $depMark = undefined;
   }
 }
 
@@ -61,7 +61,7 @@ class InsertAt {
 }
 
 const $slots = Symbol();
-const $postcall = Symbol();
+const $postbind = Symbol();
 const $watch = Symbol();
 const isVNode = (v: unknown): v is VNode => Array.isArray(v) && v.length === 3 && v[2] === $vnode;
 const isReactive = (v: unknown): v is Signal | Compute => v instanceof Signal || v instanceof Compute;
@@ -164,7 +164,7 @@ const render = (scope: Scope, node: ChildType, root: HTMLElement | DocumentFragm
                 let insertAt = new InsertAt(root);
                 let ac: AbortController | undefined;
                 valueProp.reactive(value => {
-                  const slots = filterSlots(children, value as any);
+                  const slots = children.filter((v: unknown) => isVNode(v) && v[1].slot === String(value));
                   ac?.abort();
                   if (slots.length > 0) {
                     ac = new AbortController();
@@ -172,7 +172,12 @@ const render = (scope: Scope, node: ChildType, root: HTMLElement | DocumentFragm
                   }
                 });
               } else {
-                renderChildren(scope, filterSlots(children, valueProp), root, abortSignal);
+                renderChildren(
+                  scope,
+                  children.filter((v: unknown) => isVNode(v) && v[1].slot === String(valueProp)),
+                  root,
+                  abortSignal,
+                );
               }
             }
             break;
@@ -312,44 +317,42 @@ const renderChildren = (
 };
 
 const renderFC = (fc: FC, props: Record<string, unknown>, root: HTMLElement | DocumentFragment, abortSignal?: AbortSignal) => {
-  const thisProxy = createThisProxy(props.children as ChildType[] | undefined, abortSignal) as unknown as Scope;
-  const v = fc.call(thisProxy, props);
-  thisProxy[$postcall]();
-  if (isObject(v) && !isVNode(v)) {
-    if (v instanceof Promise) {
-      let insertAt = new InsertAt(root);
-      let placeholder: ChildNode[] | undefined;
-      if (isVNode(props.placeholder)) {
-        placeholder = [...renderToFragment(thisProxy, props.placeholder as ChildType, abortSignal).childNodes];
-        root.append(...placeholder);
-      }
-      v.then((node) => insertAt.insert(renderToFragment(thisProxy, node as ChildType, abortSignal))).catch((err) => {
-        if (isFunction(props.catch)) {
-          const v = props.catch(err);
-          if (isVNode(v)) {
-            insertAt.insert(renderToFragment(thisProxy, v as ChildType, abortSignal));
-          }
-        } else {
-          console.error(err);
-        }
-      }).finally(() => {
-        // remove placeholder elements
-        placeholder?.forEach(node => node.remove());
-      });
-    } else if (Symbol.asyncIterator in v) {
-      // todo: render async generator components
-      // (async () => {
-      //   for await (const node of v) {
-      //     render(thisProxy, node as ChildType, root, abortSignal);
-      //   }
-      // })();
-    } else if (Symbol.iterator in v) {
-      for (const node of v) {
-        render(thisProxy, node as ChildType, root, abortSignal);
-      }
+  const scope = createScope(props.children as ChildType[] | undefined, abortSignal) as unknown as Scope;
+  const v = fc.call(scope, props);
+  if (v instanceof Promise) {
+    let placeholder: ChildNode[] | undefined;
+    if (isVNode(props.placeholder)) {
+      placeholder = [...renderToFragment(scope, props.placeholder as ChildType, abortSignal).childNodes];
     }
+    if (!placeholder?.length) {
+      placeholder = [createTextNode("")];
+    }
+    root.append(...placeholder);
+    v.then((nodes) => {
+      scope[$postbind]();
+      placeholder[0].replaceWith(...renderToFragment(scope, nodes as ChildType, abortSignal).childNodes);
+    }).catch((err) => {
+      if (isFunction(props.catch)) {
+        const v = props.catch(err);
+        if (isVNode(v)) {
+          placeholder[0].replaceWith(...renderToFragment(scope, v as ChildType, abortSignal).childNodes);
+        }
+      } else {
+        console.error(err);
+      }
+    }).finally(() => {
+      // remove placeholder elements
+      placeholder.forEach(node => node.remove());
+    });
   } else {
-    render(thisProxy, v as ChildType, root, abortSignal);
+    scope[$postbind]();
+    if (isObject(v) && !isVNode(v) && Symbol.iterator in v) {
+      for (const node of v) {
+        render(scope, node as ChildType, root, abortSignal);
+      }
+    } else {
+      render(scope, v as ChildType, root, abortSignal);
+    }
   }
 };
 
@@ -359,67 +362,81 @@ const renderToFragment = (scope: Scope, node: ChildType | ChildType[], aboutSign
   return fragment;
 };
 
-const filterSlots = (slots: ChildType[], name: any) => {
-  switch (typeof name) {
-    case "string":
-    case "number":
-    case "boolean":
-      return slots.filter((v) => isVNode(v) && v[1].slot === name);
-    default:
-      return [];
-  }
-};
-
-const createThisProxy = (slots: ChildType[] | undefined, abortSignal?: AbortSignal) => {
+const createScope = (slots: ChildType[] | undefined, abortSignal?: AbortSignal): Scope => {
+  let isBound = false;
   let watchHandlers = new Map<string, Set<() => void>>();
-  let called = false;
-  onAbort(abortSignal, () => watchHandlers.clear());
-  return new Proxy(new NullProtoObject(), {
-    get(target, key, reciver) {
+  let signals = new Map<string, Signal>();
+  let getSignal = (key: string) => {
+    let signal = signals.get(key);
+    if (!signal) {
+      signal = new Signal(scope, key);
+      signals.set(key, signal);
+    }
+    return signal;
+  };
+  let scope = new Proxy(new NullProtoObject() as Scope, {
+    get(target, key, receiver) {
       switch (key) {
         case $slots:
           return slots;
-        case $postcall:
-          return () => {
-            called = true;
-          };
         case $watch:
           return (key: string, effect: () => void) => {
-            let effects = watchHandlers.get(key);
-            if (!effects) {
-              effects = new Set();
-              watchHandlers.set(key, effects);
+            let handlers = watchHandlers.get(key);
+            if (!handlers) {
+              handlers = new Set();
+              watchHandlers.set(key, handlers);
             }
-            effects.add(effect);
+            handlers.add(effect);
+          };
+        case $postbind:
+          return () => {
+            isBound = true;
           };
         case "init":
           return ((args: Record<string, unknown>) => Object.assign(target, args));
         case "$":
         case "compute":
-          return (fn: () => unknown) => new Compute(reciver, fn);
+          return (fn: () => unknown) => new Compute(receiver, fn);
         case "effect":
-          return (fn: () => (() => void) | void) => {
+          return (callback: () => (() => void) | void) => {
+            // start collecting dependencies
+            $depMark = new Set<Signal>();
+            let cleanup = callback.call(receiver);
+            $depMark.forEach((dep) =>
+              dep.watch(() => {
+                cleanup?.();
+                cleanup = callback.call(receiver);
+              })
+            );
+            onAbort(abortSignal, () => cleanup?.());
+            // stop collecting dependencies
+            $depMark = undefined;
           };
         default:
-          if (called || depC) {
-            if (depC && isString(key)) {
-              depC.add(new Signal(reciver, key));
+          if (isBound || $depMark) {
+            if ($depMark && isString(key)) {
+              $depMark.add(getSignal(key));
             }
-            return Reflect.get(target, key);
+            return Reflect.get(target, key, receiver);
           }
           if (isString(key)) {
-            return new Signal(reciver, String(key));
+            return getSignal(key);
           }
       }
     },
-    set(target, key, value) {
-      const ok = Reflect.set(target, key, value);
+    set(target, key, value, receiver) {
+      const ok = Reflect.set(target, key, value, receiver);
       if (ok && isString(key)) {
         watchHandlers.get(key)?.forEach((effect) => effect());
       }
       return ok;
     },
   });
+  onAbort(abortSignal, () => {
+    watchHandlers.clear();
+    signals.clear();
+  });
+  return scope;
 };
 
-export { isReactive, render };
+export { createScope, isReactive, render };
