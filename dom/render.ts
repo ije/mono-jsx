@@ -23,6 +23,7 @@ class Signal {
   watch(callback: () => void) {
     this.scope[$watch](this.key, callback);
   }
+  map() {}
 }
 
 // for reactive dependencies tracking
@@ -42,17 +43,15 @@ class Compute {
     // stop collecting dependencies
     $depMark = undefined;
   }
+  map() {}
 }
 
-class InsertAt {
+class InsertMark {
   #root: HTMLElement | DocumentFragment;
   #index: number;
-  constructor(
-    root: HTMLElement | DocumentFragment,
-    at?: number,
-  ) {
+  constructor(root: HTMLElement | DocumentFragment) {
     this.#root = root;
-    this.#index = at ?? root.childNodes.length;
+    this.#index = root.childNodes.length;
   }
   insert(node: Node) {
     this.#root.insertBefore(node, this.#root.childNodes[this.#index]);
@@ -65,235 +64,227 @@ const $watch = Symbol();
 const isVNode = (v: unknown): v is VNode => Array.isArray(v) && v.length === 3 && v[2] === $vnode;
 const isReactive = (v: unknown): v is Signal | Compute => v instanceof Signal || v instanceof Compute;
 const createTextNode = (text: string) => document.createTextNode(text);
-const createDocumentFragment = () => document.createDocumentFragment();
 const onAbort = (signal: AbortSignal | undefined, callback: () => void) => signal?.addEventListener("abort", callback);
 
-const render = (scope: Scope, node: ChildType, root: HTMLElement | DocumentFragment, abortSignal?: AbortSignal) => {
-  switch (typeof node) {
+const render = (scope: Scope, child: ChildType, root: HTMLElement | DocumentFragment, abortSignal?: AbortSignal) => {
+  switch (typeof child) {
     case "number":
     case "bigint":
     case "string": {
-      const textNode = createTextNode(String(node));
+      const textNode = createTextNode(String(child));
       root.appendChild(textNode);
       onAbort(abortSignal, () => textNode.remove());
       break;
     }
     case "object":
-      if (node === null) {
-        // skip null
-      } else if (isReactive(node)) {
-        const textNode = createTextNode("");
-        node.reactive(value => {
-          textNode.textContent = String(value);
-        });
-        root.appendChild(textNode);
-        onAbort(abortSignal, () => textNode.remove());
-      } else if (isVNode(node)) {
-        const [tag, props] = node;
-        switch (tag) {
-          // fragment element
-          case "mount":
-          case $fragment: {
-            const { children, root: rootProp } = props;
-            const rootEl = rootProp instanceof HTMLElement ? rootProp : root;
-            if (children !== undefined) {
-              renderChildren(scope, children, rootEl, abortSignal);
-            }
-            break;
-          }
-
-          // XSS!
-          case $html: {
-            const { innerHTML } = props;
-            if (isReactive(innerHTML)) {
-              // TODO: render signal
-            } else if (isString(innerHTML)) {
-              // root.insertAdjacentHTML("beforeend", innerHTML);
-            }
-            break;
-          }
-
-          // `<slot>` element
-          case "slot": {
-            const slots = scope[$slots];
-            if (slots) {
-              renderChildren(scope, slots, root, abortSignal);
-            }
-            break;
-          }
-
-          // `<toggle>` element
-          case "toggle": {
-            // todo: support viewTransition
-            let { show, hidden, children } = props;
-            if (children !== undefined) {
-              if (show === undefined && hidden !== undefined) {
-                if (hidden instanceof Signal) {
-                  show = new Compute(scope, () => !scope[hidden.key]);
-                } else if (hidden instanceof Compute) {
-                  show = new Compute(scope, () => !hidden.compute());
-                } else {
-                  show = !hidden;
-                }
+      if (child !== null) {
+        if (isReactive(child)) {
+          const textNode = createTextNode("");
+          child.reactive(value => {
+            textNode.textContent = String(value);
+          });
+          root.appendChild(textNode);
+          onAbort(abortSignal, () => textNode.remove());
+        } else if (isVNode(child)) {
+          const [tag, props] = child;
+          switch (tag) {
+            // fragment element
+            case "mount":
+            case $fragment: {
+              const { children, root: rootProp } = props;
+              const rootEl = rootProp instanceof HTMLElement ? rootProp : root;
+              if (children !== undefined) {
+                renderChildren(scope, children, rootEl, abortSignal);
               }
-              if (isReactive(show)) {
-                let insertAt = new InsertAt(root);
-                let ac: AbortController | undefined;
-                show.reactive(value => {
-                  if (value) {
-                    ac = new AbortController();
-                    insertAt.insert(renderToFragment(scope, children, ac.signal));
-                  } else {
-                    ac?.abort();
-                  }
-                });
-              } else if (show) {
-                renderChildren(scope, children, root, abortSignal);
-              }
-            }
-            break;
-          }
-
-          // `<switch>` element
-          case "switch": {
-            // todo: support viewTransition
-            const { value: valueProp, children } = props;
-            if (children !== undefined) {
-              if (isReactive(valueProp)) {
-                let insertAt = new InsertAt(root);
-                let ac: AbortController | undefined;
-                valueProp.reactive(value => {
-                  const slots = children.filter((v: unknown) => isVNode(v) && v[1].slot === String(value));
-                  ac?.abort();
-                  if (slots.length > 0) {
-                    ac = new AbortController();
-                    insertAt.insert(renderToFragment(scope, slots, ac.signal));
-                  }
-                });
-              } else {
-                renderChildren(
-                  scope,
-                  children.filter((v: unknown) => isVNode(v) && v[1].slot === String(valueProp)),
-                  root,
-                  abortSignal,
-                );
-              }
-            }
-            break;
-          }
-
-          // `<list>` element
-          case "list": {
-            const { children } = props;
-            if (isFunction(children)) {
-              // todo: render list
-            }
-            break;
-          }
-
-          default: {
-            // function component
-            if (typeof tag === "function") {
-              renderFC(tag as FC, props, root, abortSignal);
               break;
             }
 
-            // regular html element
-            if (isString(tag)) {
-              if (customElements.has(tag)) {
-                renderFC(customElements.get(tag)!, props, root, abortSignal);
+            // XSS!
+            case $html: {
+              const { innerHTML } = props;
+              if (isReactive(innerHTML)) {
+                // TODO: render signal
+              } else if (isString(innerHTML)) {
+                // root.insertAdjacentHTML("beforeend", innerHTML);
+              }
+              break;
+            }
+
+            // `<slot>` element
+            case "slot": {
+              const slots = scope[$slots];
+              if (slots) {
+                renderChildren(scope, slots, root, abortSignal);
+              }
+              break;
+            }
+
+            // `<toggle>` element
+            case "toggle": {
+              // todo: support viewTransition
+              let { show, hidden, children } = props;
+              if (children !== undefined) {
+                if (show === undefined && hidden !== undefined) {
+                  if (hidden instanceof Signal) {
+                    show = new Compute(scope, () => !scope[hidden.key]);
+                  } else if (hidden instanceof Compute) {
+                    show = new Compute(scope, () => !hidden.compute());
+                  } else {
+                    show = !hidden;
+                  }
+                }
+                if (isReactive(show)) {
+                  let mark = new InsertMark(root);
+                  let ac: AbortController | undefined;
+                  show.reactive(value => {
+                    if (value) {
+                      ac = new AbortController();
+                      mark.insert(renderToFragment(scope, children, ac.signal));
+                    } else {
+                      ac?.abort();
+                    }
+                  });
+                  onAbort(abortSignal, () => ac?.abort());
+                } else if (show) {
+                  renderChildren(scope, children, root, abortSignal);
+                }
+              }
+              break;
+            }
+
+            // `<switch>` element
+            case "switch": {
+              // todo: support viewTransition
+              const { value: valueProp, children } = props;
+              if (children !== undefined) {
+                if (isReactive(valueProp)) {
+                  let mark = new InsertMark(root);
+                  let ac: AbortController | undefined;
+                  valueProp.reactive(value => {
+                    const slots = children.filter((v: unknown) => isVNode(v) && v[1].slot === String(value));
+                    ac?.abort();
+                    if (slots.length > 0) {
+                      ac = new AbortController();
+                      mark.insert(renderToFragment(scope, slots, ac.signal));
+                    }
+                  });
+                  onAbort(abortSignal, () => ac?.abort());
+                } else {
+                  renderChildren(
+                    scope,
+                    children.filter((v: unknown) => isVNode(v) && v[1].slot === String(valueProp)),
+                    root,
+                    abortSignal,
+                  );
+                }
+              }
+              break;
+            }
+
+            default: {
+              // function component
+              if (typeof tag === "function") {
+                renderFC(tag as FC, props, root, abortSignal);
                 break;
               }
 
-              const { root: rootProp, children, ...attrs } = props;
-              const el = document.createElement(tag);
-              for (const [key, value] of Object.entries(attrs)) {
-                switch (key) {
-                  case "class": {
-                    const updateClassName = (value: unknown) => {
-                      el.className = cx(value);
-                    };
-                    if (isReactive(value)) {
-                      value.reactive(updateClassName);
-                    } else {
-                      updateClassName(value);
-                    }
-                    break;
-                  }
-                  case "style": {
-                    const updateStyle = (value: unknown) => {
-                      if (isObject(value)) {
-                        applyStyle(el, value);
-                      } else if (isString(value)) {
-                        el.style.cssText = value;
-                      }
-                    };
-                    if (isReactive(value)) {
-                      value.reactive(updateStyle);
-                    } else {
-                      updateStyle(value);
-                    }
-                    break;
-                  }
-                  case "ref":
-                    if (isFunction(value)) {
-                      const ret = value(el);
-                      if (isFunction(ret)) {
-                        onAbort(abortSignal, ret);
-                      }
-                    } else {
-                      // todo: this.refs
-                    }
-                    break;
-                  case "slot":
-                    // todo: render slot attribute if necessary
-                    break;
-                  case "$checked":
-                  case "$value":
-                    break;
-                  case "viewTransition": {
-                    // const updateViewTransitionName = (value: unknown) => {
-                    //   el.style.viewTransitionName = String(value);
-                    // };
-                    // if (isReactive(value)) {
-                    //   value.reactive(updateViewTransitionName);
-                    // } else {
-                    //   updateViewTransitionName(value);
-                    // }
-                    break;
-                  }
-                  case "action":
-                    if (isFunction(value) && tag === "form") {
-                      el.addEventListener("submit", (evt) => {
-                        evt.preventDefault();
-                        value(new FormData(evt.target as HTMLFormElement), evt);
-                      });
-                    } else if (isString(value)) {
-                      el.setAttribute(key, value);
-                    }
-                    break;
-                  default:
-                    if (key.startsWith("on") && isFunction(value)) {
-                      el.addEventListener(key.slice(2).toLowerCase(), value);
-                    } else if (isReactive(value)) {
-                      value.reactive(value => el.setAttribute(key, String(value)));
-                    } else {
-                      el.setAttribute(key, String(value));
-                    }
-                    break;
+              // regular html element
+              if (isString(tag)) {
+                if (customElements.has(tag)) {
+                  renderFC(customElements.get(tag)!, props, root, abortSignal);
+                  break;
                 }
-              }
-              (rootProp instanceof HTMLElement ? rootProp : root).appendChild(el);
-              onAbort(abortSignal, () => el.remove());
-              if (children !== undefined) {
-                renderChildren(scope, children, el, abortSignal);
+
+                const { root: rootProp, children, ...attrs } = props;
+                const el = document.createElement(tag);
+                for (const [key, value] of Object.entries(attrs)) {
+                  switch (key) {
+                    case "class": {
+                      const updateClassName = (value: unknown) => {
+                        el.className = cx(value);
+                      };
+                      if (isReactive(value)) {
+                        value.reactive(updateClassName);
+                      } else {
+                        updateClassName(value);
+                      }
+                      break;
+                    }
+                    case "style": {
+                      const updateStyle = (value: unknown) => {
+                        if (isObject(value)) {
+                          applyStyle(el, value);
+                        } else if (isString(value)) {
+                          el.style.cssText = value;
+                        }
+                      };
+                      if (isReactive(value)) {
+                        value.reactive(updateStyle);
+                      } else {
+                        updateStyle(value);
+                      }
+                      break;
+                    }
+                    case "ref":
+                      if (isFunction(value)) {
+                        const ret = value(el);
+                        if (isFunction(ret)) {
+                          onAbort(abortSignal, ret);
+                        }
+                      } else {
+                        // todo: this.refs
+                      }
+                      break;
+                    case "slot":
+                      // todo: render slot attribute if necessary
+                      break;
+                    case "$checked":
+                    case "$value":
+                      break;
+                    case "viewTransition": {
+                      // const updateViewTransitionName = (value: unknown) => {
+                      //   el.style.viewTransitionName = String(value);
+                      // };
+                      // if (isReactive(value)) {
+                      //   value.reactive(updateViewTransitionName);
+                      // } else {
+                      //   updateViewTransitionName(value);
+                      // }
+                      break;
+                    }
+                    case "action":
+                      if (isFunction(value) && tag === "form") {
+                        el.addEventListener("submit", (evt) => {
+                          evt.preventDefault();
+                          value(new FormData(evt.target as HTMLFormElement), evt);
+                        });
+                      } else if (isString(value)) {
+                        el.setAttribute(key, value);
+                      }
+                      break;
+                    default:
+                      if (key.startsWith("on") && isFunction(value)) {
+                        el.addEventListener(key.slice(2).toLowerCase(), value);
+                      } else if (isReactive(value)) {
+                        value.reactive(value => el.setAttribute(key, String(value)));
+                      } else {
+                        el.setAttribute(key, String(value));
+                      }
+                      break;
+                  }
+                }
+                (rootProp instanceof HTMLElement ? rootProp : root).appendChild(el);
+                onAbort(abortSignal, () => el.remove());
+                if (children !== undefined) {
+                  renderChildren(scope, children, el, abortSignal);
+                }
               }
             }
           }
-        }
-      } else if (Array.isArray(node)) {
-        for (const child of node) {
-          render(scope, child, root, abortSignal);
+        } else {
+          const textNode = createTextNode(String(child));
+          root.appendChild(textNode);
+          onAbort(abortSignal, () => textNode.remove());
         }
       }
       break;
@@ -356,7 +347,7 @@ const renderFC = (fc: FC, props: Record<string, unknown>, root: HTMLElement | Do
 };
 
 const renderToFragment = (scope: Scope, node: ChildType | ChildType[], aboutSignal?: AbortSignal) => {
-  const fragment = createDocumentFragment();
+  const fragment = document.createDocumentFragment();
   renderChildren(scope, node, fragment, aboutSignal);
   return fragment;
 };
