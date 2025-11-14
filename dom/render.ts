@@ -68,14 +68,9 @@ const onAbort = (signal: AbortSignal | undefined, callback: () => void) => signa
 
 const render = (scope: Scope, child: ChildType, root: HTMLElement | DocumentFragment, abortSignal?: AbortSignal) => {
   switch (typeof child) {
-    case "number":
-    case "bigint":
-    case "string": {
-      const textNode = createTextNode(String(child));
-      root.appendChild(textNode);
-      onAbort(abortSignal, () => textNode.remove());
-      break;
-    }
+    case "undefined":
+    case "boolean":
+      return;
     case "object":
       if (child !== null) {
         if (isReactive(child)) {
@@ -85,7 +80,9 @@ const render = (scope: Scope, child: ChildType, root: HTMLElement | DocumentFrag
           });
           root.appendChild(textNode);
           onAbort(abortSignal, () => textNode.remove());
-        } else if (isVNode(child)) {
+          return;
+        }
+        if (isVNode(child)) {
           const [tag, props] = child;
           switch (tag) {
             // fragment element
@@ -281,14 +278,15 @@ const render = (scope: Scope, child: ChildType, root: HTMLElement | DocumentFrag
               }
             }
           }
-        } else {
-          const textNode = createTextNode(String(child));
-          root.appendChild(textNode);
-          onAbort(abortSignal, () => textNode.remove());
+          return;
         }
       }
-      break;
   }
+
+  // render to text node
+  const textNode = createTextNode(String(child));
+  root.appendChild(textNode);
+  onAbort(abortSignal, () => textNode.remove());
 };
 
 const renderChildren = (
