@@ -355,6 +355,145 @@ Deno.test("[dom] `<toggle>` component", sanitizeFalse, async () => {
   await page.close();
 });
 
+Deno.test("[dom] list rendering", sanitizeFalse, async (t) => {
+  await t.step("basic", async () => {
+    const testUrl = addTestPage(`
+      function Todos(props: { todos: string[] }) {
+        return <ul>
+          {props.todos.map((todo) => <li>{todo}</li>)}
+        </ul>
+      }
+      <mount root={document.body}>
+        <Todos todos={["Buy groceries", "Walk the dog", "Do laundry"]} />
+      </mount>
+    `);
+    const page = await browser.newPage();
+    await page.goto(testUrl);
+
+    const ul = await page.$("body > ul");
+    assert(ul);
+
+    assertEquals(await ul.evaluate(el => el.childNodes.length), 3);
+    assertEquals(await ul.evaluate(el => Array.from(el.childNodes).map(node => node.textContent)), [
+      "Buy groceries",
+      "Walk the dog",
+      "Do laundry",
+    ]);
+
+    await page.close();
+  });
+
+  await t.step("reactive list", async () => {
+    const testUrl = addTestPage(`
+      function Todos(this: FC<{ todos: string[] }>) {
+        this.init({ todos: ["Buy groceries", "Walk the dog", "Do laundry"] });
+        return <>
+          <ul>
+            {this.todos.map((todo) => <li>{todo}</li>)}
+          </ul>
+          <button onClick={() => this.todos = [...this.todos, "Todo #" + (this.todos.length + 1)]}>Add todo</button>
+        </>
+      }
+      <mount root={document.body}>
+        <Todos />
+      </mount>
+    `);
+    const page = await browser.newPage();
+    await page.goto(testUrl);
+
+    const ul = await page.$("body > ul");
+    assert(ul);
+
+    assertEquals(await ul.evaluate(el => el.childNodes.length), 3);
+    assertEquals(await ul.evaluate(el => Array.from(el.childNodes).map(node => node.textContent)), [
+      "Buy groceries",
+      "Walk the dog",
+      "Do laundry",
+    ]);
+
+    const button = await page.$("body > button");
+    assert(button);
+
+    for (let i = 0; i < 3; i++) {
+      await button.click();
+      assertEquals(await ul.evaluate(el => el.childNodes.length), 3 + i + 1);
+      assertEquals(await ul.evaluate(el => Array.from(el.childNodes).map(node => node.textContent)), [
+        "Buy groceries",
+        "Walk the dog",
+        "Do laundry",
+        ...Array.from({ length: i + 1 }).map((_, i) => `Todo #${i + 4}`),
+      ]);
+    }
+
+    await page.close();
+  });
+
+  await t.step("delete item", async () => {
+    const testUrl = addTestPage(`
+      function Todos(this: FC<{ todos: string[] }>) {
+        this.init({ todos: ["Buy groceries", "Walk the dog", "Do laundry"] });
+        return <>
+          <ul>
+            {this.todos.map((todo, index) => <li>
+              <span>{index + 1}: {todo}</span>
+              <button onClick={() => this.todos = this.todos.filter(t => t !== todo)}>Delete</button>
+            </li>)}
+          </ul>
+          <button onClick={() => this.todos = [...this.todos, "Todo #" + (this.todos.length + 1)]}>Add todo</button>
+        </>
+      }
+      <mount root={document.body}>
+        <Todos />
+      </mount>
+    `);
+    const page = await browser.newPage();
+    await page.goto(testUrl);
+
+    const ul = await page.$("body > ul");
+    assert(ul);
+
+    assertEquals(await ul.evaluate(el => el.childNodes.length), 3);
+    assertEquals(await ul.evaluate(el => Array.from(el.childNodes).map(node => node.childNodes[0].textContent)), [
+      "1: Buy groceries",
+      "2: Walk the dog",
+      "3: Do laundry",
+    ]);
+
+    const button = await page.$("body > button");
+    assert(button);
+
+    await button.click();
+    assertEquals(await ul.evaluate(el => el.childNodes.length), 4);
+    assertEquals(await ul.evaluate(el => Array.from(el.childNodes).map(node => node.childNodes[0].textContent)), [
+      "1: Buy groceries",
+      "2: Walk the dog",
+      "3: Do laundry",
+      "4: Todo #4",
+    ]);
+
+    const button0 = await page.$("body > ul > li:nth-child(1) > button");
+    assert(button0);
+    await button0.click();
+    assertEquals(await ul.evaluate(el => el.childNodes.length), 3);
+    assertEquals(await ul.evaluate(el => Array.from(el.childNodes).map(node => node.childNodes[0].textContent)), [
+      "1: Walk the dog",
+      "2: Do laundry",
+      "3: Todo #4",
+    ]);
+
+    const button2 = await page.$("body > ul > li:nth-child(2) > button");
+    assert(button2);
+    await button2.click();
+    assertEquals(await ul.evaluate(el => el.childNodes.length), 2);
+    assertEquals(await ul.evaluate(el => Array.from(el.childNodes).map(node => node.childNodes[0].textContent)), [
+      "1: Walk the dog",
+      "2: Todo #4",
+    ]);
+
+    await page.close();
+  });
+});
+
 Deno.test("[dom] async component", sanitizeFalse, async () => {
   const testUrl = addTestPage(`
     const Blah = () => Promise.resolve(<h2>Building User Interfaces.</h2>);

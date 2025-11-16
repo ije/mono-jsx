@@ -3,47 +3,59 @@ import { customElements } from "../jsx.ts";
 import { applyStyle, cx, isFunction, isObject, isString, NullProtoObject } from "../runtime/utils.ts";
 import { $fragment, $html, $vnode } from "../symbols.ts";
 
-interface Scope {
+interface IScope {
   [key: string]: unknown;
   readonly [$slots]: ChildType[] | undefined;
   readonly [$watch]: (key: string, effect: () => void) => void;
   readonly [$postbind]: () => void;
 }
 
-class Signal {
+interface IReactive<T = unknown> {
+  reactive(effect: (value: T) => void): void;
+}
+
+class Signal implements IReactive {
   constructor(
-    public readonly scope: Scope,
+    public readonly scope: IScope,
     public readonly key: string,
   ) {}
+  watch(callback: () => void) {
+    this.scope[$watch](this.key, callback);
+  }
   reactive(effect: (value: unknown) => void) {
     const update = () => effect(this.scope[this.key]);
     update();
     this.watch(update);
   }
-  watch(callback: () => void) {
-    this.scope[$watch](this.key, callback);
+  map(callback: (value: unknown, index: number) => JSX.Element) {
+    return new ReactiveList(this, callback);
   }
-  map() {}
 }
 
-// for reactive dependencies tracking
-let $depMark: Set<Signal> | undefined;
-
-class Compute {
+class Compute implements IReactive {
   constructor(
-    public readonly scope: Scope,
+    public readonly scope: IScope,
     public readonly compute: () => unknown,
   ) {}
   reactive(effect: (value: unknown) => void) {
     const update = () => effect(this.compute.call(this.scope));
     // start collecting dependencies
-    $depMark = new Set<Signal>();
+    $depsMark = new Set<Signal>();
     update();
-    $depMark.forEach((dep) => dep.watch(update));
+    $depsMark.forEach((dep) => dep.watch(update));
     // stop collecting dependencies
-    $depMark = undefined;
+    $depsMark = undefined;
   }
-  map() {}
+  map(callback: (value: unknown, index: number) => JSX.Element) {
+    return new ReactiveList(this, callback);
+  }
+}
+
+class ReactiveList {
+  constructor(
+    public readonly reactive: IReactive,
+    public readonly callback: (value: unknown, index: number) => JSX.Element,
+  ) {}
 }
 
 class InsertMark {
@@ -53,28 +65,72 @@ class InsertMark {
     this.#root = root;
     this.#index = root.childNodes.length;
   }
-  insert(node: Node) {
-    this.#root.insertBefore(node, this.#root.childNodes[this.#index]);
+  insert(...nodes: Node[]) {
+    if (nodes.length === 1) {
+      this.#root.insertBefore(nodes[0], this.#root.childNodes[this.#index]);
+    } else {
+      const tmp = createTextNode();
+      this.#root.insertBefore(tmp, this.#root.childNodes[this.#index]);
+      tmp.replaceWith(...nodes);
+    }
   }
 }
 
 const $slots = Symbol();
-const $postbind = Symbol();
 const $watch = Symbol();
+const $postbind = Symbol();
 const isVNode = (v: unknown): v is VNode => Array.isArray(v) && v.length === 3 && v[2] === $vnode;
 const isReactive = (v: unknown): v is Signal | Compute => v instanceof Signal || v instanceof Compute;
-const createTextNode = (text: string) => document.createTextNode(text);
+const createTextNode = (text = "") => document.createTextNode(text);
 const onAbort = (signal: AbortSignal | undefined, callback: () => void) => signal?.addEventListener("abort", callback);
 
-const render = (scope: Scope, child: ChildType, root: HTMLElement | DocumentFragment, abortSignal?: AbortSignal) => {
+const render = (scope: IScope, child: ChildType, root: HTMLElement | DocumentFragment, abortSignal?: AbortSignal) => {
   switch (typeof child) {
-    case "undefined":
     case "boolean":
+    case "undefined":
       return;
     case "object":
       if (child !== null) {
+        if (child instanceof ReactiveList) {
+          let { reactive, callback } = child;
+          let insertMark = new InsertMark(root);
+          let list = new Map<unknown, Array<[AbortController, Array<ChildNode>, number]>>();
+          let cleanup = () => {
+            list.forEach((items) => items.forEach(([ac]) => ac.abort()));
+            list.clear();
+          };
+          reactive.reactive(arr => {
+            if (!Array.isArray(arr)) {
+              throw new TypeError("map is not a function");
+            }
+            let nodes: ChildNode[] = [];
+            let newList: typeof list = new Map();
+            arr.forEach((item, index) => {
+              let render = list.get(item)?.shift();
+              if (callback.length >= 2 && render && render[2] !== index) {
+                render[0].abort();
+                render = undefined;
+              }
+              if (!render) {
+                const ac = new AbortController();
+                render = [ac, [...renderToFragment(scope, callback(item, index), ac.signal).childNodes], index];
+              }
+              nodes.push(...render[1]);
+              if (newList.has(item)) {
+                newList.get(item)!.push(render);
+              } else {
+                newList.set(item, [render]);
+              }
+            });
+            cleanup();
+            insertMark.insert(...nodes);
+            list = newList;
+          });
+          onAbort(abortSignal, cleanup);
+          return;
+        }
         if (isReactive(child)) {
-          const textNode = createTextNode("");
+          const textNode = createTextNode();
           child.reactive(value => {
             textNode.textContent = String(value);
           });
@@ -290,7 +346,7 @@ const render = (scope: Scope, child: ChildType, root: HTMLElement | DocumentFrag
 };
 
 const renderChildren = (
-  scope: Scope,
+  scope: IScope,
   children: ChildType | ChildType[],
   root: HTMLElement | DocumentFragment,
   aboutSignal?: AbortSignal,
@@ -305,7 +361,7 @@ const renderChildren = (
 };
 
 const renderFC = (fc: FC, props: Record<string, unknown>, root: HTMLElement | DocumentFragment, abortSignal?: AbortSignal) => {
-  const scope = createScope(props.children as ChildType[] | undefined, abortSignal) as unknown as Scope;
+  const scope = createScope(props.children as ChildType[] | undefined, abortSignal) as unknown as IScope;
   const v = fc.call(scope, props);
   if (v instanceof Promise) {
     let placeholder: ChildNode[] | undefined;
@@ -313,7 +369,7 @@ const renderFC = (fc: FC, props: Record<string, unknown>, root: HTMLElement | Do
       placeholder = [...renderToFragment(scope, props.placeholder as ChildType, abortSignal).childNodes];
     }
     if (!placeholder?.length) {
-      placeholder = [createTextNode("")];
+      placeholder = [createTextNode()];
     }
     root.append(...placeholder);
     v.then((nodes) => {
@@ -344,13 +400,16 @@ const renderFC = (fc: FC, props: Record<string, unknown>, root: HTMLElement | Do
   }
 };
 
-const renderToFragment = (scope: Scope, node: ChildType | ChildType[], aboutSignal?: AbortSignal) => {
+const renderToFragment = (scope: IScope, node: ChildType | ChildType[], aboutSignal?: AbortSignal) => {
   const fragment = document.createDocumentFragment();
   renderChildren(scope, node, fragment, aboutSignal);
   return fragment;
 };
 
-const createScope = (slots: ChildType[] | undefined, abortSignal?: AbortSignal): Scope => {
+// for reactive dependencies tracking
+let $depsMark: Set<Signal> | undefined;
+
+const createScope = (slots: ChildType[] | undefined, abortSignal?: AbortSignal): IScope => {
   let isBound = false;
   let watchHandlers = new Map<string, Set<() => void>>();
   let signals = new Map<string, Signal>();
@@ -362,7 +421,7 @@ const createScope = (slots: ChildType[] | undefined, abortSignal?: AbortSignal):
     }
     return signal;
   };
-  let scope = new Proxy(new NullProtoObject() as Scope, {
+  let scope = new Proxy(new NullProtoObject() as IScope, {
     get(target, key, receiver) {
       switch (key) {
         case $slots:
@@ -388,9 +447,9 @@ const createScope = (slots: ChildType[] | undefined, abortSignal?: AbortSignal):
         case "effect":
           return (callback: () => (() => void) | void) => {
             // start collecting dependencies
-            $depMark = new Set<Signal>();
+            $depsMark = new Set<Signal>();
             let cleanup = callback.call(receiver);
-            $depMark.forEach((dep) =>
+            $depsMark.forEach((dep) =>
               dep.watch(() => {
                 cleanup?.();
                 cleanup = callback.call(receiver);
@@ -398,12 +457,12 @@ const createScope = (slots: ChildType[] | undefined, abortSignal?: AbortSignal):
             );
             onAbort(abortSignal, () => cleanup?.());
             // stop collecting dependencies
-            $depMark = undefined;
+            $depsMark = undefined;
           };
         default:
-          if (isBound || $depMark) {
-            if ($depMark && isString(key)) {
-              $depMark.add(getSignal(key));
+          if (isBound || $depsMark) {
+            if ($depsMark && isString(key)) {
+              $depsMark.add(getSignal(key));
             }
             return Reflect.get(target, key, receiver);
           }
