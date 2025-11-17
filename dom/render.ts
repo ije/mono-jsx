@@ -175,33 +175,23 @@ const render = (scope: IScope, child: ChildType, root: HTMLElement | DocumentFra
               break;
             }
 
-            // `<toggle>` element
-            case "toggle": {
+            // `<if>` element
+            case "if": {
               // todo: support viewTransition
-              let { show, hidden, children } = props;
+              let { value: valueProp, children } = props;
               if (children !== undefined) {
-                if (show === undefined && hidden !== undefined) {
-                  if (hidden instanceof Signal) {
-                    show = new Compute(scope, () => !scope[hidden.key]);
-                  } else if (hidden instanceof Compute) {
-                    show = new Compute(scope, () => !hidden.compute());
-                  } else {
-                    show = !hidden;
-                  }
-                }
-                if (isReactive(show)) {
+                if (isReactive(valueProp)) {
                   let mark = new InsertMark(root);
                   let ac: AbortController | undefined;
-                  show.reactive(value => {
+                  valueProp.reactive(value => {
+                    ac?.abort();
                     if (value) {
                       ac = new AbortController();
                       mark.insert(renderToFragment(scope, children, ac.signal));
-                    } else {
-                      ac?.abort();
                     }
                   });
                   onAbort(abortSignal, () => ac?.abort());
-                } else if (show) {
+                } else if (valueProp) {
                   renderChildren(scope, children, root, abortSignal);
                 }
               }
@@ -491,8 +481,9 @@ const createScope = (slots: ChildType[] | undefined, abortSignal?: AbortSignal):
       }
     },
     set(target, key, value, receiver) {
+      const prev = Reflect.get(target, key, receiver);
       const ok = Reflect.set(target, key, value, receiver);
-      if (ok && isString(key)) {
+      if (ok && isString(key) && prev !== value) {
         watchHandlers.get(key)?.forEach((effect) => effect());
       }
       return ok;
