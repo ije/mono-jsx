@@ -3,7 +3,6 @@
 > [!WARNING]
 > This project is currently under active development. The API may change at any time. Use at your own risk. Please report any issues or feature requests on the issues page.
 
-
 `mono-jsx/dom` is the **Client-Side Rendering** mode of `mono-jsx`. It uses browser-specific APIs to render the UI.
 
 ## Installation
@@ -55,7 +54,7 @@ function App() {
 
 ## Build
 
-`mono-jsx/dom` uses JSX to describe the UI which is not supported by Browser. You need to compile your app to JavaScript before serving it to the browser. We suggest using bun with mono-jsx to build your app:
+`mono-jsx/dom` uses JSX to describe the UI which is not supported by browsers. You need to compile your app to JavaScript before serving it to the browser. We suggest using bun with mono-jsx to build your app:
 
 ```ts
 // server.ts
@@ -72,6 +71,8 @@ export default {
 }
 ```
 
+In `index.html`, you need use `<script type="module">` to load the `app.tsx` file without the build step.
+
 ```html
 <!-- index.html -->
 <html>
@@ -79,11 +80,9 @@ export default {
     <title>My App</title>
     <script type="module" src="./app.tsx"></script>
   </head>
-  <body>
-  </body>
+  <body></body>
 </html>
 ```
-
 
 ```tsx
 // app.tsx
