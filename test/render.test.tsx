@@ -655,7 +655,7 @@ Deno.test("[ssr] catch error", async () => {
   );
 });
 
-Deno.test("[ssr] signals", async () => {
+Deno.test("[ssr] use signals", async () => {
   function Foo(this: FC<{ foo: string }>) {
     return <span>{this.foo}</span>;
   }
@@ -975,6 +975,32 @@ Deno.test("[ssr] computed signals", async () => {
       `$MS("1:color","blue");`,
       `$MS("0:themeColor","black");`,
       `$MC(1,0,function(){return(()=>$patch({"color":"blue","backgroundColor":"black"},[this["color"],"color"],[$signals(0)["themeColor"],"backgroundColor"])).call(this)},["1:color","0:themeColor"]);`,
+      `</script>`,
+    ].join(""),
+  );
+});
+
+Deno.test("[ssr] this.init", async () => {
+  function Foo(this: FC<{ foo: string }>) {
+    this.init({ foo: "bar" });
+    return <span>{this.foo}</span>;
+  }
+
+  assertEquals(
+    await renderToString(<Foo />),
+    [
+      `<!DOCTYPE html>`,
+      `<html lang="en"><body>`,
+      `<span>`,
+      `<m-signal scope="1" key="foo">bar</m-signal>`,
+      `</span>`,
+      `</body></html>`,
+      `<script data-mono-jsx="${VERSION}">`,
+      `(()=>{`,
+      SIGNALS_JS,
+      `})();`,
+      `/* --- */`,
+      `$MS("1:foo","bar");`,
       `</script>`,
     ].join(""),
   );

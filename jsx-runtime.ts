@@ -1,25 +1,32 @@
+import type { Elements } from "./types/mono.d.ts";
 import type { FC, VNode } from "./types/jsx.d.ts";
-import { isSignal, JSX, renderHtml } from "./render.ts";
-import { escapeHTML, isString, NullProtoObj } from "./runtime/utils.ts";
+import type { RenderOptions } from "./types/render.d.ts";
+import { JSX } from "./jsx.ts";
+import { isSignal, renderToWebStream } from "./render.ts";
+import { escapeHTML, isString, NullProtoObject } from "./runtime/utils.ts";
 import { $fragment, $html, $setup, $vnode } from "./symbols.ts";
+
+declare global {
+  namespace JSX {
+    interface BuiltinElements extends Elements {}
+    interface HtmlCustomAttributes extends RenderOptions {}
+  }
+}
 
 export const Fragment = $fragment as unknown as FC;
 
-export const jsx = (tag: string | FC, props: Record<string, unknown> = new NullProtoObj(), key?: string | number): VNode => {
-  const vnode = new Array(3).fill(null);
-  vnode[0] = tag;
-  vnode[1] = props;
-  vnode[2] = $vnode;
+export const jsx = (tag: string | FC, props: Record<string, unknown> = new NullProtoObject(), key?: string | number): VNode => {
+  const vnode: VNode = [tag, props, $vnode];
   if (key !== undefined) {
     props.key = key;
   }
-  // if the tag name is `html`, render it to a `Response` object
   if (tag === "html") {
     if (props.request as unknown === $setup) {
-      // if the request is a 'setup' request, return the props as a VNode
+      // if the request is a 'setup' request, return the props
+      // this is used for `buildRoutes` function
       return props as unknown as VNode;
     }
-    const renderOptions = new NullProtoObj();
+    const renderOptions = new NullProtoObject();
     const optionsKeys = new Set(["app", "context", "components", "routes", "request", "session", "status", "headers", "htmx"]);
     for (const [key, value] of Object.entries(props)) {
       if (optionsKeys.has(key) || key.startsWith("htmx-ext-")) {
@@ -27,22 +34,25 @@ export const jsx = (tag: string | FC, props: Record<string, unknown> = new NullP
         delete props[key];
       }
     }
-    return renderHtml(vnode as unknown as VNode, renderOptions) as unknown as VNode;
+    // if the tag name is `html`, render it to a `Response` object
+    return renderToWebStream(vnode as unknown as VNode, renderOptions) as unknown as VNode;
   } else if (tag === "static") {
     // track the stack of the static element to identify the caller
     props.$stack = new Error().stack?.split("at ", 3)[2]?.trim();
   }
-  return vnode as unknown as VNode;
+  return vnode;
 };
 
 export const jsxEscape = (value: unknown): string => {
-  if (value === null || value === undefined || typeof value === "boolean") {
-    return "";
+  switch (typeof value) {
+    case "bigint":
+    case "number":
+      return String(value);
+    case "string":
+      return escapeHTML(value);
+    default:
+      return "";
   }
-  if (typeof value === "number" || typeof value === "bigint") {
-    return String(value);
-  }
-  return escapeHTML(String(value));
 };
 
 export const html = (template: string | TemplateStringsArray, ...values: unknown[]): VNode => [

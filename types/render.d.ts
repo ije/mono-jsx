@@ -1,3 +1,5 @@
+/// <reference path="./htmx.d.ts" />
+
 import type { FC } from "./jsx.d.ts";
 
 export type MaybeModule<T> = T | Promise<{ default: T }>;

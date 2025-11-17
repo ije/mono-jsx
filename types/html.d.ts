@@ -1,9 +1,95 @@
 /// <reference lib="dom" />
-/// <reference path="./htmx.d.ts" />
 
 import type * as Aria from "./aria.d.ts";
-import type * as Mono from "./mono.d.ts";
-import type { RenderOptions } from "./render.d.ts";
+import type * as CSS from "./css.d.ts";
+import type * as Mono from "./jsx.d.ts";
+
+type D9 = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9;
+type D100 = 0 | D9 | `${D9}${0 | D9}` | 100;
+
+export interface BaseCSSProperties extends CSS.Properties<string | number> {
+  /**
+   * The field-sizing CSS property enables you to control the sizing behavior of elements that are given a default preferred size, such as form control elements. This property enables you to override the default sizing behavior, allowing form controls to adjust in size to fit their contents.
+   * @see https://developer.mozilla.org/docs/Web/CSS/field-sizing
+   */
+  fieldSizing?: "fixed" | "content";
+  /**
+   * The view-transition-class CSS property provides the selected elements with an identifying class (a <custom-ident>), providing an additional method of styling the view transitions for those elements.
+   * @see https://developer.mozilla.org/docs/Web/CSS/view-transition-class
+   */
+  viewTransitionClass?: string;
+  /**
+   * The view-transition-name CSS property specifies the view transition snapshot that selected elements will participate in, which enables an element to be animated separately from the rest of the page during a view transition.
+   * @see https://developer.mozilla.org/docs/Web/CSS/view-transition-name
+   */
+  viewTransitionName?: string;
+}
+
+export interface AtRuleCSSProperties {
+  [key: `@container${" " | "("}${string}`]: BaseCSSProperties;
+  [key: `@media${" " | "("}${string}`]: BaseCSSProperties;
+  [key: `@supports${" " | "("}${string}`]: BaseCSSProperties;
+  [key: `@keyframes ${string}`]: {
+    [key in "from" | "to" | `${D100}%`]?: BaseCSSProperties;
+  };
+  "@view-transition"?: {
+    /**
+     * Specifies the effect this at-rule will have on the document's view transition behavior.
+     */
+    navigation?: "auto" | "none";
+  };
+}
+
+export interface PseudoCSSProperties {
+  ":active"?: BaseCSSProperties;
+  ":link"?: BaseCSSProperties;
+  ":visited"?: BaseCSSProperties;
+  ":checked"?: BaseCSSProperties;
+  ":disabled"?: BaseCSSProperties;
+  ":enable"?: BaseCSSProperties;
+  ":empty"?: BaseCSSProperties;
+  ":first"?: BaseCSSProperties;
+  ":first-child"?: BaseCSSProperties;
+  ":first-of-type"?: BaseCSSProperties;
+  ":focus"?: BaseCSSProperties;
+  ":focus-visible"?: BaseCSSProperties;
+  ":focus-within"?: BaseCSSProperties;
+  ":fullscreen"?: BaseCSSProperties;
+  ":hover"?: BaseCSSProperties;
+  ":in-range"?: BaseCSSProperties;
+  ":out-of-range"?: BaseCSSProperties;
+  ":indeterminate"?: BaseCSSProperties;
+  ":invalid"?: BaseCSSProperties;
+  ":last-child"?: BaseCSSProperties;
+  ":last-of-type"?: BaseCSSProperties;
+  ":only-child"?: BaseCSSProperties;
+  ":only-of-type"?: BaseCSSProperties;
+  ":optional"?: BaseCSSProperties;
+  "::after"?: BaseCSSProperties;
+  "::backdrop"?: BaseCSSProperties;
+  "::before"?: BaseCSSProperties;
+  "::first-letter"?: BaseCSSProperties;
+  "::first-line"?: BaseCSSProperties;
+  "::placeholder"?: BaseCSSProperties;
+  "::selection"?: BaseCSSProperties;
+  "::view-transition"?: BaseCSSProperties;
+  [key: `:has(${string})`]: BaseCSSProperties;
+  [key: `:is(${string})`]: BaseCSSProperties;
+  [key: `:lang(${string})`]: BaseCSSProperties;
+  [key: `:not(${string})`]: BaseCSSProperties;
+  [key: `:nth-child(${string})`]: BaseCSSProperties;
+  [key: `:nth-last-child(${string})`]: BaseCSSProperties;
+  [key: `:nth-of-type(${string})`]: BaseCSSProperties;
+  [key: `::view-transition-group(${string})`]: BaseCSSProperties;
+  [key: `::view-transition-image-pair(${string})`]: BaseCSSProperties;
+  [key: `::view-transition-new(${string})`]: BaseCSSProperties;
+  [key: `::view-transition-old(${string})`]: BaseCSSProperties;
+}
+
+export interface CSSProperties extends BaseCSSProperties, AtRuleCSSProperties, PseudoCSSProperties {
+  [key: `--${string}`]: string | number;
+  [key: `&${" " | "." | "[" | ">"}${string}`]: CSSProperties;
+}
 
 export namespace HTML {
   type HTMLClass = string | boolean | undefined | null | Record<string, unknown>;
@@ -43,7 +129,7 @@ export namespace HTML {
     | "week";
 
   /** Global HTML attributes from https://developer.mozilla.org/en-US/docs/Web/HTML/Global_attributes */
-  interface GlobalAttributes<T extends EventTarget> extends EventAttributes<T>, Aria.Attributes, Mono.BaseAttributes, JSX.HtmlTag {
+  interface GlobalAttributes<T extends EventTarget> extends EventAttributes<T>, Aria.Attributes, Mono.BaseAttributes, JSX.CustomAttributes {
     /**
      * A reference to the element.
      * @mono-jsx
@@ -54,7 +140,7 @@ export namespace HTML {
     /** Contains a space-separated list of the classes of the element. Classes are used by CSS and JavaScript to select and access specific elements. */
     class?: HTMLClass | HTMLClass[];
     /** Contains [CSS](https://developer.mozilla.org/en-US/docs/Web/CSS) styling declarations to be applied to the element. */
-    style?: string | Mono.CSSProperties;
+    style?: string | CSSProperties;
     /** An enumerated attribute indicating that the element is not yet, or is no longer, relevant. For example, it can be used to hide elements of the page that can't be used until the login process has been completed. The browser won't render such elements. This attribute must not be used to hide content that could legitimately be shown. */
     hidden?: boolean | "hidden" | "until-found";
     /** An enumerated attribute indicating whether the element can be dragged, using the Drag and Drop API. */
@@ -114,7 +200,7 @@ export namespace HTML {
     viewTransition?: string | boolean;
   }
 
-  interface HtmlAttributes<T extends EventTarget> extends GlobalAttributes<T>, RenderOptions {}
+  interface HtmlAttributes<T extends EventTarget> extends GlobalAttributes<T>, JSX.HtmlCustomAttributes {}
 
   interface AnchorAttributes<T extends EventTarget> extends GlobalAttributes<T> {
     download?: string | true;
