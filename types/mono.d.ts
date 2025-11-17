@@ -209,19 +209,6 @@ export interface Session {
 
 declare global {
   /**
-   * Creates XSS-unsafed HTML content.
-   */
-  var html: JSX.Raw;
-  /**
-   * An alias to `html`.
-   */
-  var css: JSX.Raw;
-  /**
-   * An alias to `html`.
-   */
-  var js: JSX.Raw;
-
-  /**
    *  Defines the Signals/Context/Refs types.
    */
   type FC<Signals = {}, AppSignals = {}, Context = {}, Refs = {}, AppRefs = {}> = {
@@ -295,7 +282,7 @@ declare global {
      * **The effect function is only called on client side.**
      */
     readonly effect: (fn: () => (() => void) | void) => void;
-  } & Omit<Signals, "app" | "context" | "request" | "session" | "form" | "refs" | "computed" | "$" | "effect">;
+  } & Omit<Signals, "init" | "app" | "context" | "request" | "session" | "form" | "refs" | "computed" | "$" | "effect">;
 
   /**
    * Defines the `context` type.

@@ -8,7 +8,7 @@ import { $fragment, $html, $setup, $vnode } from "./symbols.ts";
 
 declare global {
   namespace JSX {
-    interface MonoElements extends Elements {}
+    interface BuiltinElements extends Elements {}
     interface HtmlCustomAttributes extends RenderOptions {}
   }
 }

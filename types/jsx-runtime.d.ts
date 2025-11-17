@@ -6,11 +6,15 @@ export const html: JSX.Raw;
 export const JSX: typeof globalThis.JSX;
 export const Fragment: (props: {}) => VNode;
 export const jsx: (tag: string | FC, props: Record<string, unknown>, key?: string | number) => VNode;
+
+// aliases
 export { html as css, html as js, jsx as jsxDEV, jsx as jsxs };
 
 declare global {
   namespace JSX {
-    interface MonoElements extends Mono.Elements {}
+    // extends built-in JSX elements
+    interface BuiltinElements extends Mono.Elements {}
+    // extends the `<html>` element attributes
     interface HtmlCustomAttributes extends RenderOptions {}
   }
 }

@@ -5,7 +5,14 @@ export type MaybeArray<T> = T | T[];
 export type MaybePromiseOrGenerator<T> = T | Promise<T> | Generator<T> | AsyncGenerator<T>;
 
 export interface BaseAttributes {
+  /**
+   * The children of the element.
+   */
   children?: MaybeArray<ChildType>;
+  /**
+   * The key of the element.
+   * @deprecated The prop `key` is ignored in mono-jsx.
+   */
   key?: string | number;
   /**
    * The `slot` attribute assigns a slot in a [shadow DOM](https://developer.mozilla.org/en-US/docs/Web/API/Web_components/Using_shadow_DOM) shadow tree to an element: An element with a `slot` attribute is assigned to the slot created by the `<slot>` element whose name attribute's value matches that slot attribute's value.
@@ -54,15 +61,36 @@ declare global {
     type Raw = (template: string | TemplateStringsArray, ...values: unknown[]) => Element;
     interface CustomAttributes {}
     interface HtmlCustomAttributes {}
-    interface MonoElements {}
+    interface BuiltinElements {}
     interface CustomElements {}
     interface Element extends VNode, Response {}
     interface IntrinsicAttributes extends BaseAttributes, AsyncComponentAttributes {}
-    interface IntrinsicElements extends HTML.Elements, HTML.SVGElements, HTML.CustomElements, JSX.MonoElements {}
+    interface IntrinsicElements extends HTML.Elements, HTML.SVGElements, HTML.CustomElements, JSX.BuiltinElements {}
   }
+
+  /**
+   * The JSX global object.
+   * @mono-jsx
+   */
   var JSX: {
     customElements: {
       define: (tagName: string, fc: FC<any>) => void;
     };
   };
+
+  /**
+   * Creates XSS-unsafed HTML content.
+   * @mono-jsx
+   */
+  var html: JSX.Raw;
+  /**
+   * An alias to `html`.
+   * @mono-jsx
+   */
+  var css: JSX.Raw;
+  /**
+   * An alias to `html`.
+   * @mono-jsx
+   */
+  var js: JSX.Raw;
 }
