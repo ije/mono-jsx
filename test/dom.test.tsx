@@ -289,7 +289,7 @@ Deno.test("[dom] signals", sanitizeFalse, async (t) => {
 
 Deno.test("[dom] ref", sanitizeFalse, async () => {
   const testUrl = addTestPage(`
-      function App(this: FC<{}, { button: HTMLElement }>) {
+      function App(this: FC<{}, { h1?: HTMLHeadingElement }>) {
         this.effect(() => {
           this.refs.h1!.textContent = "Hello, world!";
         });
