@@ -287,6 +287,28 @@ Deno.test("[dom] signals", sanitizeFalse, async (t) => {
   });
 });
 
+Deno.test("[dom] ref", sanitizeFalse, async () => {
+  const testUrl = addTestPage(`
+      function App(this: FC<{}, { button: HTMLElement }>) {
+        this.effect(() => {
+          this.refs.h1!.textContent = "Hello, world!";
+        });
+        return <h1 ref={this.refs.h1} />
+      }
+      <mount root={document.body}>
+        <App />
+      </mount>
+    `);
+  const page = await browser.newPage();
+  await page.goto(testUrl);
+
+  const h1 = await page.$("body > h1");
+  assert(h1);
+  assertEquals(await h1.evaluate((el) => el.textContent), "Hello, world!");
+
+  await page.close();
+});
+
 Deno.test("[dom] `<if>` component", sanitizeFalse, async () => {
   const testUrl = addTestPage(`
     function App(this: FC<{ show: boolean }>) {

@@ -61,6 +61,13 @@ class ReactiveList {
   ) {}
 }
 
+class Ref {
+  constructor(
+    public readonly refs: Record<string, HTMLElement>,
+    public readonly name: string,
+  ) {}
+}
+
 class InsertMark {
   #root: HTMLElement | DocumentFragment;
   #index: number;
@@ -277,8 +284,8 @@ const render = (scope: IScope, child: ChildType, root: HTMLElement | DocumentFra
                         if (isFunction(ret)) {
                           onAbort(abortSignal, ret);
                         }
-                      } else {
-                        // todo: this.refs
+                      } else if (attrValue instanceof Ref) {
+                        attrValue.refs[attrValue.name] = el;
                       }
                       break;
                     case "slot":
@@ -430,6 +437,14 @@ const createScope = (slots: ChildType[] | undefined, abortSignal?: AbortSignal):
     }
     return signal;
   };
+  let refs = new Proxy(new NullProtoObject(), {
+    get(target, key: string) {
+      if (isBound || $depsMark) {
+        return target[key];
+      }
+      return new Ref(target, key);
+    },
+  });
   let scope = new Proxy(new NullProtoObject() as IScope, {
     get(target, key, receiver) {
       switch (key) {
@@ -455,38 +470,44 @@ const createScope = (slots: ChildType[] | undefined, abortSignal?: AbortSignal):
           return (fn: () => unknown) => new Compute(receiver, fn);
         case "effect":
           return (callback: () => (() => void) | void) => {
-            // start collecting dependencies
-            $depsMark = new Set<Signal>();
-            let cleanup = callback.call(receiver);
-            $depsMark.forEach((dep) =>
-              dep.watch(() => {
-                cleanup?.();
-                cleanup = callback.call(receiver);
-              })
-            );
-            onAbort(abortSignal, () => cleanup?.());
-            // stop collecting dependencies
-            $depsMark = undefined;
+            queueMicrotask(() => {
+              // start collecting dependencies
+              $depsMark = new Set<Signal>();
+              let cleanup = callback.call(receiver);
+              $depsMark.forEach((dep) =>
+                dep.watch(() => {
+                  cleanup?.();
+                  cleanup = callback.call(receiver);
+                })
+              );
+              onAbort(abortSignal, () => cleanup?.());
+              // stop collecting dependencies
+              $depsMark = undefined;
+            });
           };
+        case "refs":
+          return refs;
         default:
           if (isBound || $depsMark) {
             if ($depsMark && isString(key)) {
               $depsMark.add(getSignal(key));
             }
-            return Reflect.get(target, key, receiver);
+            return target[key as string];
           }
           if (isString(key)) {
             return getSignal(key);
           }
       }
     },
-    set(target, key, value, receiver) {
-      const prev = Reflect.get(target, key, receiver);
-      const ok = Reflect.set(target, key, value, receiver);
-      if (ok && isString(key) && prev !== value) {
-        watchHandlers.get(key)?.forEach((effect) => effect());
+    set(target, key, value) {
+      if (isString(key)) {
+        const prev = target[key];
+        if (prev !== value) {
+          target[key] = value;
+          watchHandlers.get(key)?.forEach((effect) => effect());
+        }
       }
-      return ok;
+      return true;
     },
   });
   onAbort(abortSignal, () => {
