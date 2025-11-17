@@ -222,6 +222,69 @@ Deno.test("[dom] signals", sanitizeFalse, async (t) => {
 
     await page.close();
   });
+
+  await t.step("async signals", async () => {
+    const testUrl = addTestPage(`
+      async function App(this: FC<{ count: number }>) {
+        this.init({ count: await Promise.resolve(1) });
+        return <div>
+          <button onClick={() => this.count++}>{this.count}</button>
+        </div>;
+      }
+      <mount root={document.body}>
+        <App />
+      </mount>
+    `);
+    const page = await browser.newPage();
+    await page.goto(testUrl);
+
+    const button = await page.$("body > div > button");
+    assert(button);
+    assertEquals(await button.evaluate((el) => el.textContent), "1");
+    await button.click();
+    assertEquals(await button.evaluate((el) => el.textContent), "2");
+    await button.click();
+
+    await page.close();
+  });
+
+  await t.step("async signals as props", async () => {
+    const testUrl = addTestPage(`
+      function App(this: FC<{ input: string }>) {
+        this.init({ input: '' });
+        return <>
+          <p>{this.input}</p>
+          <input $value={this.input} />
+          <button onClick={() => this.input = ''}>Reset</button>
+        </>;
+      }
+      <mount root={document.body}>
+        <App />
+      </mount>
+    `);
+    const page = await browser.newPage();
+    await page.goto(testUrl);
+
+    const p = await page.$("body > p");
+    assert(p);
+    assertEquals(await p.evaluate((el) => el.textContent), "");
+
+    const input = await page.$("body > input");
+    assert(input);
+    assertEquals(await input.evaluate((el) => el.value), "");
+
+    const button = await page.$("body > button");
+    assert(button);
+
+    await input.type("Hello, world!", {});
+    assertEquals(await p.evaluate((el) => el.textContent), "Hello, world!");
+
+    await button.click();
+    assertEquals(await p.evaluate((el) => el.textContent), "");
+    assertEquals(await input.evaluate((el) => el.value), "");
+
+    await page.close();
+  });
 });
 
 Deno.test("[dom] `<toggle>` component", sanitizeFalse, async (t) => {

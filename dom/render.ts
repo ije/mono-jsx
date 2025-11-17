@@ -19,6 +19,9 @@ class Signal implements IReactive {
     public readonly scope: IScope,
     public readonly key: string,
   ) {}
+  set(value: unknown) {
+    this.scope[this.key] = value;
+  }
   watch(callback: () => void) {
     this.scope[$watch](this.key, callback);
   }
@@ -250,16 +253,16 @@ const render = (scope: IScope, child: ChildType, root: HTMLElement | DocumentFra
 
                 const { root: rootProp, children, ...attrs } = props;
                 const el = document.createElement(tag);
-                for (const [key, value] of Object.entries(attrs)) {
-                  switch (key) {
+                for (const [attrName, attrValue] of Object.entries(attrs)) {
+                  switch (attrName) {
                     case "class": {
                       const updateClassName = (value: unknown) => {
                         el.className = cx(value);
                       };
-                      if (isReactive(value)) {
-                        value.reactive(updateClassName);
+                      if (isReactive(attrValue)) {
+                        attrValue.reactive(updateClassName);
                       } else {
-                        updateClassName(value);
+                        updateClassName(attrValue);
                       }
                       break;
                     }
@@ -271,16 +274,16 @@ const render = (scope: IScope, child: ChildType, root: HTMLElement | DocumentFra
                           el.style.cssText = value;
                         }
                       };
-                      if (isReactive(value)) {
-                        value.reactive(updateStyle);
+                      if (isReactive(attrValue)) {
+                        attrValue.reactive(updateStyle);
                       } else {
-                        updateStyle(value);
+                        updateStyle(attrValue);
                       }
                       break;
                     }
                     case "ref":
-                      if (isFunction(value)) {
-                        const ret = value(el);
+                      if (isFunction(attrValue)) {
+                        const ret = attrValue(el);
                         if (isFunction(ret)) {
                           onAbort(abortSignal, ret);
                         }
@@ -293,6 +296,22 @@ const render = (scope: IScope, child: ChildType, root: HTMLElement | DocumentFra
                       break;
                     case "$checked":
                     case "$value":
+                      if (attrValue instanceof Signal) {
+                        const name = attrName.slice(1);
+                        const isValue = name.charAt(0) === "v";
+                        attrValue.reactive(value => {
+                          (el as any)[name] = isValue ? String(value) : !!value;
+                        });
+                        el.addEventListener("input", () => attrValue.set((el as any)[name]));
+                        // queueMicrotask(() =>
+                        //   (el as HTMLInputElement).form?.addEventListener(
+                        //     "reset",
+                        //     () => attrValue.set(isValue ? "" : false),
+                        //   )
+                        // );
+                      } else {
+                        throw new TypeError("not a signal");
+                      }
                       break;
                     case "viewTransition": {
                       // const updateViewTransitionName = (value: unknown) => {
@@ -306,22 +325,22 @@ const render = (scope: IScope, child: ChildType, root: HTMLElement | DocumentFra
                       break;
                     }
                     case "action":
-                      if (isFunction(value) && tag === "form") {
+                      if (isFunction(attrValue) && tag === "form") {
                         el.addEventListener("submit", (evt) => {
                           evt.preventDefault();
-                          value(new FormData(evt.target as HTMLFormElement), evt);
+                          attrValue(new FormData(evt.target as HTMLFormElement), evt);
                         });
-                      } else if (isString(value)) {
-                        el.setAttribute(key, value);
+                      } else if (isString(attrValue)) {
+                        el.setAttribute(attrName, attrValue);
                       }
                       break;
                     default:
-                      if (key.startsWith("on") && isFunction(value)) {
-                        el.addEventListener(key.slice(2).toLowerCase(), value);
-                      } else if (isReactive(value)) {
-                        value.reactive(value => el.setAttribute(key, String(value)));
+                      if (attrName.startsWith("on") && isFunction(attrValue)) {
+                        el.addEventListener(attrName.slice(2).toLowerCase(), attrValue);
+                      } else if (isReactive(attrValue)) {
+                        attrValue.reactive(value => el.setAttribute(attrName, String(value)));
                       } else {
-                        el.setAttribute(key, String(value));
+                        el.setAttribute(attrName, String(attrValue));
                       }
                       break;
                   }
