@@ -39,8 +39,10 @@
     "prepublishOnly": "deno task build"
   },
   "files": [
-    "*.mjs",
-    "./types/"
+    "./*.mjs",
+    "./dom/*.mjs",
+    "./types/*.d.ts",
+    "./types/dom/*.d.ts"
   ],
   "license": "MIT",
   "repository": {
