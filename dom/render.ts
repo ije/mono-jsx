@@ -93,6 +93,14 @@ const isVNode = (v: unknown): v is VNode => Array.isArray(v) && v.length === 3 &
 const isReactive = (v: unknown): v is Signal | Compute => v instanceof Signal || v instanceof Compute;
 const createTextNode = (text = "") => document.createTextNode(text);
 const onAbort = (signal: AbortSignal | undefined, callback: () => void) => signal?.addEventListener("abort", callback);
+const setAttribute = (el: Element, name: string, value: unknown) => {
+  const type = typeof value;
+  if (type === "boolean") {
+    el.toggleAttribute(name, value as boolean);
+  } else if (type === "number" || type === "string") {
+    el.setAttribute(name, String(value));
+  }
+};
 
 const render = (scope: IScope, child: ChildType, root: HTMLElement | DocumentFragment, abortSignal?: AbortSignal) => {
   switch (typeof child) {
@@ -327,17 +335,17 @@ const render = (scope: IScope, child: ChildType, root: HTMLElement | DocumentFra
                           evt.preventDefault();
                           attrValue(new FormData(evt.target as HTMLFormElement), evt);
                         });
-                      } else if (isString(attrValue)) {
-                        el.setAttribute(attrName, attrValue);
+                      } else {
+                        setAttribute(el, attrName, attrValue);
                       }
                       break;
                     default:
                       if (attrName.startsWith("on") && isFunction(attrValue)) {
                         el.addEventListener(attrName.slice(2).toLowerCase(), attrValue);
                       } else if (isReactive(attrValue)) {
-                        attrValue.reactive(value => el.setAttribute(attrName, String(value)));
+                        attrValue.reactive(value => setAttribute(el, attrName, value));
                       } else {
-                        el.setAttribute(attrName, String(attrValue));
+                        setAttribute(el, attrName, attrValue);
                       }
                       break;
                   }
