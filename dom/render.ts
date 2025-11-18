@@ -88,6 +88,14 @@ class InsertMark {
       tmp?.replaceWith(...nodes);
     }
   }
+  insertHTML(html: string) {
+    let temp = createElement("template") as HTMLTemplateElement;
+    let childNodes: ChildNode[];
+    temp.innerHTML = html;
+    childNodes = [...temp.content.childNodes];
+    this.insert(...childNodes);
+    return () => childNodes.forEach(node => node.remove());
+  }
 }
 
 const $get = Symbol();
@@ -97,6 +105,7 @@ const $slots = Symbol();
 const isVNode = (v: unknown): v is VNode => Array.isArray(v) && v.length === 3 && v[2] === $vnode;
 const isReactive = (v: unknown): v is Signal | Compute => v instanceof Signal || v instanceof Compute;
 const createTextNode = (text = "") => document.createTextNode(text);
+const createElement = (tag: string) => document.createElement(tag);
 const onAbort = (signal: AbortSignal | undefined, callback: () => void) => signal?.addEventListener("abort", callback);
 const setAttribute = (el: Element, name: string, value: unknown) => {
   const type = typeof value;
@@ -177,10 +186,16 @@ const render = (scope: IScope, child: ChildType, root: HTMLElement | DocumentFra
             // XSS!
             case $html: {
               const { innerHTML } = props;
+              const mark = new InsertMark(root);
               if (isReactive(innerHTML)) {
-                // TODO: render signal
-              } else if (isString(innerHTML)) {
-                // root.insertAdjacentHTML("beforeend", innerHTML);
+                let cleanup: (() => void) | undefined;
+                innerHTML.reactive(html => {
+                  cleanup?.();
+                  cleanup = mark.insertHTML(html as string);
+                });
+                onAbort(abortSignal, () => cleanup?.());
+              } else {
+                onAbort(abortSignal, mark.insertHTML(innerHTML));
               }
               break;
             }
@@ -262,7 +277,7 @@ const render = (scope: IScope, child: ChildType, root: HTMLElement | DocumentFra
                 }
 
                 const { portal, children, ...attrs } = props;
-                const el = document.createElement(tag);
+                const el = createElement(tag);
                 for (const [attrName, attrValue] of Object.entries(attrs)) {
                   switch (attrName) {
                     case "class": {

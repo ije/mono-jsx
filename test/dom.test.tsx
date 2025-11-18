@@ -66,15 +66,15 @@ Deno.test.beforeAll(() => {
   });
 
   // console.log(addTestPage(`
-  //   async function App() {
-  //     await new Promise((resolve) => setTimeout(resolve, 1000));
-  //     return <div>Hello, world!</div>;
+  //   function App(this: FC<{ html: string }>) {
+  //     this.init({ html: "" });
+  //     return (
+  //       <div>
+  //         <h1>Welcome to mono-jsx!</h1>
+  //       </div>
+  //     )
   //   }
-  //   <mount root={document.body}>
-  //     <p>---</p>
-  //     <App placeholder={<p>Loading...</p>} />
-  //     <p>---</p>
-  //   </mount>
+  //   document.body.mount(<App />);
   // `));
   // await new Promise(() => {});
 });
@@ -571,4 +571,63 @@ Deno.test("[dom] async component", sanitizeFalse, async () => {
   assertEquals(await h2.evaluate((el: HTMLElement) => el.textContent), "Building User Interfaces.");
 
   await page.close();
+});
+
+Deno.test("[dom] XSS", sanitizeFalse, async (t) => {
+  await t.step("static html", async () => {
+    const testUrl = addTestPage(`
+    function App() {
+      return <div>
+        {html\`<h1>Welcome to mono-jsx!</h1>\`}
+      </div>
+    }
+    document.body.mount(<App />);
+  `);
+    const page = await browser.newPage();
+    await page.goto(testUrl);
+
+    const h1 = await page.$("body > div > h1");
+    assert(h1);
+    assertEquals(await h1.evaluate((el: HTMLElement) => el.textContent), "Welcome to mono-jsx!");
+
+    await page.close();
+  });
+
+  await t.step("dynamic html", async () => {
+    const testUrl = addTestPage(`
+      function App(this: FC<{ html: string }>) {
+        this.init({ html: "" });
+        return <div>
+          {html(this.html)}
+          <button onClick={() => {
+            if (this.html === "") {
+              this.html = "<h1>Welcome to mono-jsx!</h1>";
+            } else {
+              this.html = "";
+            }
+          }}>Click me</button>
+        </div>
+      }
+      document.body.mount(<App />);
+    `);
+    const page = await browser.newPage();
+    await page.goto(testUrl);
+
+    const button = await page.$("body > div > button");
+    assert(button);
+
+    let h1 = await page.$("body > div > h1");
+    assert(!h1);
+
+    await button.click();
+    h1 = await page.$("body > div > h1");
+    assert(h1);
+    assertEquals(await h1.evaluate((el: HTMLElement) => el.textContent), "Welcome to mono-jsx!");
+
+    await button.click();
+    h1 = await page.$("body > div > h1");
+    assert(!h1);
+
+    await page.close();
+  });
 });
