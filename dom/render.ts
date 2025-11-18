@@ -5,9 +5,10 @@ import { $fragment, $html, $vnode } from "../symbols.ts";
 
 interface IScope {
   [key: string]: unknown;
-  readonly [$slots]: ChildType[] | undefined;
+  readonly [$get]: (key: string) => unknown;
   readonly [$watch]: (key: string, effect: () => void) => void;
   readonly [$postbind]: () => void;
+  readonly [$slots]: ChildType[] | undefined;
 }
 
 interface IReactive<T = unknown> {
@@ -19,19 +20,22 @@ class Signal implements IReactive {
     public readonly scope: IScope,
     public readonly key: string,
   ) {}
-  set(value: unknown) {
+  get value() {
+    return this.scope[$get](this.key);
+  }
+  set value(value: unknown) {
     this.scope[this.key] = value;
   }
-  watch(callback: () => void) {
-    this.scope[$watch](this.key, callback);
-  }
   reactive(effect: (value: unknown) => void) {
-    const update = () => effect(this.scope[this.key]);
+    const update = () => effect(this.value);
     update();
     this.watch(update);
   }
   map(callback: (value: unknown, index: number) => JSX.Element) {
     return new ReactiveList(this, callback);
+  }
+  watch(callback: () => void) {
+    this.scope[$watch](this.key, callback);
   }
 }
 
@@ -76,19 +80,20 @@ class InsertMark {
     this.#index = root.childNodes.length;
   }
   insert(...nodes: Node[]) {
-    if (nodes.length === 1) {
-      this.#root.insertBefore(nodes[0], this.#root.childNodes[this.#index]);
-    } else {
-      const tmp = createTextNode();
-      this.#root.insertBefore(tmp, this.#root.childNodes[this.#index]);
-      tmp.replaceWith(...nodes);
+    let argsN = nodes.length;
+    let tmp: Text | undefined;
+    if (argsN) {
+      if (argsN > 1) tmp = createTextNode();
+      this.#root.insertBefore(tmp ?? nodes[0], this.#root.childNodes[this.#index]);
+      tmp?.replaceWith(...nodes);
     }
   }
 }
 
-const $slots = Symbol();
+const $get = Symbol();
 const $watch = Symbol();
 const $postbind = Symbol();
+const $slots = Symbol();
 const isVNode = (v: unknown): v is VNode => Array.isArray(v) && v.length === 3 && v[2] === $vnode;
 const isReactive = (v: unknown): v is Signal | Compute => v instanceof Signal || v instanceof Compute;
 const createTextNode = (text = "") => document.createTextNode(text);
@@ -160,7 +165,6 @@ const render = (scope: IScope, child: ChildType, root: HTMLElement | DocumentFra
           const [tag, props] = child;
           switch (tag) {
             // fragment element
-            case "mount":
             case $fragment: {
               const { children, root: rootProp } = props;
               const rootEl = rootProp instanceof HTMLElement ? rootProp : root;
@@ -251,6 +255,7 @@ const render = (scope: IScope, child: ChildType, root: HTMLElement | DocumentFra
 
               // regular html element
               if (isString(tag)) {
+                // custom element
                 if (customElements.has(tag)) {
                   renderFC(customElements.get(tag)!, props, root, abortSignal);
                   break;
@@ -307,7 +312,7 @@ const render = (scope: IScope, child: ChildType, root: HTMLElement | DocumentFra
                         attrValue.reactive(value => {
                           (el as any)[name] = isValue ? String(value) : !!value;
                         });
-                        el.addEventListener("input", () => attrValue.set((el as any)[name]));
+                        el.addEventListener("input", () => attrValue.value = (el as any)[name]);
                         // queueMicrotask(() =>
                         //   (el as HTMLInputElement).form?.addEventListener(
                         //     "reset",
@@ -437,14 +442,6 @@ const createScope = (slots: ChildType[] | undefined, abortSignal?: AbortSignal):
   let isBound = false;
   let watchHandlers = new Map<string, Set<() => void>>();
   let signals = new Map<string, Signal>();
-  let getSignal = (key: string) => {
-    let signal = signals.get(key);
-    if (!signal) {
-      signal = new Signal(scope, key);
-      signals.set(key, signal);
-    }
-    return signal;
-  };
   let refs = new Proxy(new NullProtoObject(), {
     get(target, key: string) {
       if (isBound || $depsMark) {
@@ -456,8 +453,8 @@ const createScope = (slots: ChildType[] | undefined, abortSignal?: AbortSignal):
   let scope = new Proxy(new NullProtoObject() as IScope, {
     get(target, key, receiver) {
       switch (key) {
-        case $slots:
-          return slots;
+        case $get:
+          return (key: string) => target[key];
         case $watch:
           return (key: string, effect: () => void) => {
             let handlers = watchHandlers.get(key);
@@ -468,9 +465,9 @@ const createScope = (slots: ChildType[] | undefined, abortSignal?: AbortSignal):
             handlers.add(effect);
           };
         case $postbind:
-          return () => {
-            isBound = true;
-          };
+          return () => isBound = true;
+        case $slots:
+          return slots;
         case "init":
           return ((args: Record<string, unknown>) => Object.assign(target, args));
         case "$":
@@ -518,6 +515,7 @@ const createScope = (slots: ChildType[] | undefined, abortSignal?: AbortSignal):
       return true;
     },
   });
+  let getSignal = (key: string) => signals.get(key) ?? signals.set(key, new Signal(scope, key)).get(key)!;
   onAbort(abortSignal, () => {
     watchHandlers.clear();
     signals.clear();
