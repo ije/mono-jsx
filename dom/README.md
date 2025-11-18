@@ -18,6 +18,9 @@ To use `mono-jsx/dom`, add the following configuration to your `tsconfig.json`:
 ```jsonc
 {
   "compilerOptions": {
+    "lib": ["dom", "esnext"],
+    "module": "esnext",
+    "moduleResolution": "bundler",
     "jsx": "react-jsx",
     "jsxImportSource": "mono-jsx/dom"
   }
@@ -33,9 +36,7 @@ function App() {
   return <div>Hello, world!</div>;
 }
 
-<mount root={document.body}>
-  <App />
-</mount>
+document.body.mount(<App />);
 ```
 
 You can also use the `@jsxImportSource` pragma directive to use `mono-jsx/dom` as your JSX runtime:
@@ -47,9 +48,7 @@ function App() {
   return <div>Hello, world!</div>;
 }
 
-<mount root={document.body}>
-  <App />
-</mount>
+document.body.mount(<App />);
 ```
 
 ## Build
@@ -90,7 +89,5 @@ function App() {
   return <div>Hello, world!</div>;
 }
 
-<mount root={document.body}>
-  <App />
-</mount>
+document.body.mount(<App />);
 ```
