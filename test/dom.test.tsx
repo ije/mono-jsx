@@ -92,11 +92,7 @@ Deno.test("[dom] mount", sanitizeFalse, async () => {
     }
 
     const ac = new AbortController();
-
-    <mount root={document.body} abortSignal={ac.signal}>
-      <App />
-      <button onClick={() => ac.abort()}>Unmount</button>
-    </mount>
+    document.body.mount(<><App /><button onClick={() => ac.abort()}>Unmount</button></>, ac.signal);
   `);
   const page = await browser.newPage();
   await page.goto(testUrl);
@@ -126,9 +122,7 @@ Deno.test("[dom] signals", sanitizeFalse, async (t) => {
           <button onClick={() => this.count++}>{this.count}</button>
         </div>;
       }
-      <mount root={document.body}>
-        <App />
-      </mount>
+      document.body.mount(<App />);
     `);
     const page = await browser.newPage();
     await page.goto(testUrl);
@@ -151,9 +145,7 @@ Deno.test("[dom] signals", sanitizeFalse, async (t) => {
           <button onClick={() => this.count++}>{this.$(() => 2*this.count)}</button>
         </div>;
       }
-      <mount root={document.body}>
-        <App />
-      </mount>
+      document.body.mount(<App />);
     `);
     const page = await browser.newPage();
     await page.goto(testUrl);
@@ -180,9 +172,7 @@ Deno.test("[dom] signals", sanitizeFalse, async (t) => {
           <button onClick={() => this.count++}>Click me</button>
         </div>;
       }
-      <mount root={document.body}>
-        <App />
-      </mount>
+      document.body.mount(<App />);
     `);
     const page = await browser.newPage();
     await page.goto(testUrl);
@@ -206,9 +196,7 @@ Deno.test("[dom] signals", sanitizeFalse, async (t) => {
         this.title = "Hello, world!";
         return <div title={this.title} onClick={() => this.title = "Hello, mono-jsx!"}>{this.title}</div>;
       }
-      <mount root={document.body}>
-        <App />
-      </mount>
+      document.body.mount(<App />);
     `);
     const page = await browser.newPage();
     await page.goto(testUrl);
@@ -231,9 +219,7 @@ Deno.test("[dom] signals", sanitizeFalse, async (t) => {
           <button onClick={() => this.count++}>{this.count}</button>
         </div>;
       }
-      <mount root={document.body}>
-        <App />
-      </mount>
+      document.body.mount(<App />);
     `);
     const page = await browser.newPage();
     await page.goto(testUrl);
@@ -258,9 +244,7 @@ Deno.test("[dom] signals", sanitizeFalse, async (t) => {
           <button onClick={() => this.input = ''}>Reset</button>
         </>;
       }
-      <mount root={document.body}>
-        <App />
-      </mount>
+      document.body.mount(<App />);
     `);
     const page = await browser.newPage();
     await page.goto(testUrl);
@@ -295,9 +279,7 @@ Deno.test("[dom] ref", sanitizeFalse, async () => {
         });
         return <h1 ref={this.refs.h1} />
       }
-      <mount root={document.body}>
-        <App />
-      </mount>
+      document.body.mount(<App />);
     `);
   const page = await browser.newPage();
   await page.goto(testUrl);
@@ -320,9 +302,7 @@ Deno.test("[dom] `<if>` component", sanitizeFalse, async () => {
         <button onClick={() => this.show = !this.show}>{this.$(() => this.show ? "Show" : "Hide")}</button>
       </div>;
     }
-    <mount root={document.body}>
-      <App />
-    </mount>
+    document.body.mount(<App />);
   `);
   const page = await browser.newPage();
   await page.goto(testUrl);
@@ -367,9 +347,7 @@ Deno.test("[dom] `<toggle>` component", sanitizeFalse, async () => {
 
       </div>;
     }
-    <mount root={document.body}>
-      <App />
-    </mount>
+    document.body.mount(<App />);
   `);
   const page = await browser.newPage();
   await page.goto(testUrl);
@@ -412,9 +390,7 @@ Deno.test("[dom] list rendering", sanitizeFalse, async (t) => {
           {props.todos.map((todo) => <li>{todo}</li>)}
         </ul>
       }
-      <mount root={document.body}>
-        <Todos todos={["Buy groceries", "Walk the dog", "Do laundry"]} />
-      </mount>
+      document.body.mount(<Todos todos={["Buy groceries", "Walk the dog", "Do laundry"]} />);
     `);
     const page = await browser.newPage();
     await page.goto(testUrl);
@@ -443,9 +419,7 @@ Deno.test("[dom] list rendering", sanitizeFalse, async (t) => {
           <button onClick={() => this.todos = [...this.todos, "Todo #" + (this.todos.length + 1)]}>Add todo</button>
         </>
       }
-      <mount root={document.body}>
-        <Todos />
-      </mount>
+      document.body.mount(<Todos />);
     `);
     const page = await browser.newPage();
     await page.goto(testUrl);
@@ -483,9 +457,7 @@ Deno.test("[dom] list rendering", sanitizeFalse, async (t) => {
           <button onClick={() => this.todos = [...this.todos, "Call Sophie"]}>Add todo</button>
         </>
       }
-      <mount root={document.body}>
-        <Todos />
-      </mount>
+      document.body.mount(<Todos />);
     `);
     const page = await browser.newPage();
     await page.goto(testUrl);
@@ -569,9 +541,7 @@ Deno.test("[dom] async component", sanitizeFalse, async () => {
         </Sleep>
       </div>
     }
-    <mount root={document.body}>
-      <App />
-    </mount>
+    document.body.mount(<App />);
   `);
 
   const page = await browser.newPage();

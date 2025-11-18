@@ -14,4 +14,7 @@ declare global {
     // extends built-in JSX elements
     interface BuiltinElements extends Mono.Elements {}
   }
+  interface HTMLElement {
+    mount(node: VNode, aboutSignal?: AbortSignal): void;
+  }
 }

@@ -8,17 +8,8 @@ const Fragment = $fragment as unknown as FC;
 
 const jsx = (tag: string | FC, props: Record<string, unknown> = new NullProtoObject(), key?: string | number): VNode => {
   const vnode: VNode = [tag, props, $vnode];
-  const { root, abortSignal } = props;
   if (key !== undefined) {
     props.key = key;
-  }
-  if (tag === "mount" && root instanceof HTMLElement) {
-    render(
-      new NullProtoObject() as any,
-      vnode as JSX.Element,
-      root,
-      abortSignal instanceof AbortSignal ? abortSignal : undefined,
-    );
   }
   return vnode;
 };
@@ -42,6 +33,11 @@ const html = (template: string | TemplateStringsArray, ...values: unknown[]): VN
   },
   $vnode,
 ];
+
+// inject mount method to HTMLElement prototype
+HTMLElement.prototype.mount = function(node: VNode, aboutSignal?: AbortSignal) {
+  render(new NullProtoObject() as any, node as JSX.Element, this, aboutSignal);
+};
 
 // inject global variables
 Object.assign(globalThis, {

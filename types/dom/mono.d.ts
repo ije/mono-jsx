@@ -2,17 +2,6 @@ import type { BaseAttributes } from "../jsx.d.ts";
 
 export interface Elements {
   /**
-   * A built-in element of mono-jsx that mounts the children to the DOM.
-   * @mono-jsx
-   */
-  mount: BaseAttributes & {
-    /**
-     * The root element to mount the children to.
-     */
-    root: HTMLElement;
-  };
-
-  /**
    * A built-in element of mono-jsx that toggles the visibility of its children.
    * @mono-jsx
    */
