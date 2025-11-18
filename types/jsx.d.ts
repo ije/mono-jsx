@@ -19,9 +19,10 @@ export interface BaseAttributes {
    */
   slot?: string;
   /**
-   * The `root` attribute is used to mount the component to the DOM.
+   * The `portal` attribute is used to mount the component to a specified DOM element.
+   * @mono-jsx
    */
-  root?: HTMLElement;
+  portal?: HTMLElement;
 }
 
 export interface AsyncComponentAttributes {

@@ -256,7 +256,7 @@ const render = (scope: IScope, child: ChildType, root: HTMLElement | DocumentFra
                   break;
                 }
 
-                const { root: rootProp, children, ...attrs } = props;
+                const { portal, children, ...attrs } = props;
                 const el = document.createElement(tag);
                 for (const [attrName, attrValue] of Object.entries(attrs)) {
                   switch (attrName) {
@@ -350,7 +350,7 @@ const render = (scope: IScope, child: ChildType, root: HTMLElement | DocumentFra
                       break;
                   }
                 }
-                (rootProp instanceof HTMLElement ? rootProp : root).appendChild(el);
+                (portal instanceof HTMLElement ? portal : root).appendChild(el);
                 onAbort(abortSignal, () => el.remove());
                 if (children !== undefined) {
                   renderChildren(scope, children, el, abortSignal);
