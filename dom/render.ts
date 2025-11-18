@@ -276,6 +276,7 @@ const render = (scope: IScope, child: ChildType, root: HTMLElement | DocumentFra
                       }
                       break;
                     }
+
                     case "style": {
                       const updateStyle = (value: unknown) => {
                         if (isObject(value)) {
@@ -291,6 +292,7 @@ const render = (scope: IScope, child: ChildType, root: HTMLElement | DocumentFra
                       }
                       break;
                     }
+
                     case "ref":
                       if (isFunction(attrValue)) {
                         const ret = attrValue(el);
@@ -301,9 +303,11 @@ const render = (scope: IScope, child: ChildType, root: HTMLElement | DocumentFra
                         attrValue.refs[attrValue.name] = el;
                       }
                       break;
+
                     case "slot":
                       // todo: render slot attribute if necessary
                       break;
+
                     case "$checked":
                     case "$value":
                       if (attrValue instanceof Signal) {
@@ -323,7 +327,8 @@ const render = (scope: IScope, child: ChildType, root: HTMLElement | DocumentFra
                         throw new TypeError("not a signal");
                       }
                       break;
-                    case "viewTransition": {
+
+                    case "viewTransition":
                       // const updateViewTransitionName = (value: unknown) => {
                       //   el.style.viewTransitionName = String(value);
                       // };
@@ -333,7 +338,7 @@ const render = (scope: IScope, child: ChildType, root: HTMLElement | DocumentFra
                       //   updateViewTransitionName(value);
                       // }
                       break;
-                    }
+
                     case "action":
                       if (isFunction(attrValue) && tag === "form") {
                         el.addEventListener("submit", (evt) => {
@@ -344,6 +349,7 @@ const render = (scope: IScope, child: ChildType, root: HTMLElement | DocumentFra
                         setAttribute(el, attrName, attrValue);
                       }
                       break;
+
                     default:
                       if (attrName.startsWith("on") && isFunction(attrValue)) {
                         el.addEventListener(attrName.slice(2).toLowerCase(), attrValue);
@@ -355,8 +361,8 @@ const render = (scope: IScope, child: ChildType, root: HTMLElement | DocumentFra
                       break;
                   }
                 }
-                (portal instanceof HTMLElement ? portal : root).appendChild(el);
                 onAbort(abortSignal, () => el.remove());
+                (portal instanceof HTMLElement ? portal : root).appendChild(el);
                 if (children !== undefined) {
                   renderChildren(scope, children, el, abortSignal);
                 }
