@@ -45,6 +45,10 @@ declare global {
      */
     readonly init: (data: Signals) => void;
     /**
+     * Creates a new signals object.
+     */
+    readonly create: <T extends {}>(data: T) => Omit<T, "effect">;
+    /**
      * The `refs` object stores variables in clide side.
      *
      * **⚠ This is a client-side only API.**

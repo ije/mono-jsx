@@ -6,7 +6,18 @@ import { COMPONENT, CX, EVENT, FORM, ROUTER, SIGNALS, STYLE, SUSPENSE } from "./
 import { COMPONENT_JS, CX_JS, EVENT_JS, FORM_JS, ROUTER_JS, SIGNALS_JS, STYLE_JS, SUSPENSE_JS } from "./runtime/index.ts";
 import { RENDER_ATTR, RENDER_SWITCH, RENDER_TOGGLE } from "./runtime/index.ts";
 import { RENDER_ATTR_JS, RENDER_SWITCH_JS, RENDER_TOGGLE_JS } from "./runtime/index.ts";
-import { cx, escapeHTML, hashCode, IdGen, isObject, isString, NullProtoObject, styleToCSS, toHyphenCase } from "./runtime/utils.ts";
+import {
+  cx,
+  escapeHTML,
+  hashCode,
+  IdGen,
+  isFunction,
+  isObject,
+  isString,
+  NullProtoObject,
+  styleToCSS,
+  toHyphenCase,
+} from "./runtime/utils.ts";
 import { $fragment, $html, $vnode } from "./symbols.ts";
 import { VERSION } from "./version.ts";
 
@@ -60,7 +71,7 @@ const subtle = crypto.subtle;
 const stringify = JSON.stringify;
 const isVNode = (v: unknown): v is VNode => Array.isArray(v) && v.length === 3 && v[2] === $vnode;
 const isSignal = (v: unknown): v is Signal => v instanceof Signal;
-const isFC = (v: unknown): v is FC => typeof v === "function" && v.name.charCodeAt(0) <= /*Z*/ 90;
+const isFC = (v: unknown): v is FC => isFunction(v) && v.name.charCodeAt(0) <= /*Z*/ 90;
 const escapeCSSText = (str: string): string => str.replace(/[><]/g, (m) => m.charCodeAt(0) === 60 ? "&lt;" : "&gt;");
 const toAttrStringLit = (str: string) => '"' + escapeHTML(str) + '"';
 const toStr = <T = string | number>(v: T | undefined, str: (v: T) => string) => v !== undefined ? str(v) : "";
@@ -409,7 +420,7 @@ async function render(
   }
   if (componentMode) {
     const [tag, props] = node as VNode;
-    if (typeof tag === "function") {
+    if (isFunction(tag)) {
       await renderFC(rc, tag, props, true);
       await finalize();
       return;
@@ -724,7 +735,7 @@ async function renderNode(rc: RenderContext, node: ChildType, stripSlotProp?: bo
 
           default: {
             // function component
-            if (typeof tag === "function") {
+            if (isFunction(tag)) {
               await renderFC(rc, tag as FC, props);
               break;
             }
@@ -968,7 +979,7 @@ function renderAttr(
       }
       break;
     case "ref":
-      if (typeof attrValue === "function") {
+      if (isFunction(attrValue)) {
         const signals = rc.fc?.signals;
         if (!signals) {
           console.error("[mono-jsx] Use `ref` outside of a component function");
@@ -983,7 +994,7 @@ function renderAttr(
       }
       break;
     case "action":
-      if (typeof attrValue === "function") {
+      if (isFunction(attrValue)) {
         const scopeId = rc.fc?.id;
         attr = ' onsubmit="$onsubmit(event,$MF_'
           + (scopeId ?? 0) + "_"
@@ -1028,7 +1039,7 @@ function renderAttr(
       }
       break;
     default:
-      if (attrName.startsWith("on") && typeof attrValue === "function") {
+      if (attrName.startsWith("on") && isFunction(attrValue)) {
         attr = " " + escapeHTML(attrName.toLowerCase()) + '="$emit(event,$MF_'
           + (scopeId ?? 0) + "_"
           + rc.mfs.gen(attrValue, scopeId)
@@ -1131,11 +1142,22 @@ function createThisProxy(rc: RenderContext, scopeId: number): Record<string, unk
       signals.store.set(scopeId + ":" + key, value);
     }
   };
+
   const thisProxy = new Proxy(store, {
     get(target, key, receiver) {
       switch (key) {
         case "init":
-          return (data: Record<string, unknown>) => Object.assign(store, data);
+          return (init: Record<string, unknown>) => {
+            Object.assign(target, init);
+          };
+        case "create":
+          return ({ effect, ...init }: Record<string, unknown>) => {
+            Object.assign(target, init);
+            if (isFunction(effect)) {
+              receiver.effect(effect);
+            }
+            return receiver;
+          };
         case "app":
           if (scopeId === 0) {
             return null;

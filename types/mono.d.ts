@@ -217,6 +217,10 @@ declare global {
      */
     readonly init: (data: Signals) => void;
     /**
+     * Creates a new signals object.
+     */
+    readonly create: <T extends {}>(data: T) => Omit<T, "effect">;
+    /**
      * The global signals shared across the application.
      */
     readonly app: {

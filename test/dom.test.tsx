@@ -51,7 +51,7 @@ const browser = await puppeteer.launch({
 const ac = new AbortController();
 const sanitizeFalse = { sanitizeResources: false, sanitizeOps: false };
 
-Deno.test.beforeAll(() => {
+Deno.test.beforeAll(async () => {
   Deno.serve({ port: 8688, onListen: () => {}, signal: ac.signal }, async (request) => {
     const url = new URL(request.url);
     if (url.pathname === "/mono-jsx/dom/jsx-runtime") {
@@ -65,18 +65,37 @@ Deno.test.beforeAll(() => {
     return new Response("Not Found", { status: 404 });
   });
 
-  // console.log(addTestPage(`
-  //   function App(this: FC<{ html: string }>) {
-  //     this.init({ html: "" });
-  //     return (
-  //       <div>
-  //         <h1>Welcome to mono-jsx!</h1>
-  //       </div>
-  //     )
-  //   }
-  //   document.body.mount(<App />);
-  // `));
-  // await new Promise(() => {});
+  const DEBUG = false;
+  if (DEBUG) {
+    console.log(addTestPage(`
+      function App(this: FC) {
+        const win = this.create({
+          width: window.innerWidth,
+          height: window.innerHeight,
+          fmt() {
+            return this.width + "x" +this.height;
+          },
+          effect() {
+            window.addEventListener("resize", () => {
+              this.width = window.innerWidth;
+              this.height = window.innerHeight;
+            });
+          },
+        });
+        this.effect(() => {
+          console.log("window size:", win.fmt());
+        });
+        return (
+          <>
+            <h1>Welcome to mono-jsx!</h1>
+            <p>Window size: {win.width}x{win.height}</p>
+          </>
+        );
+      }
+      document.body.mount(<App />);
+    `));
+    await new Promise(() => {});
+  }
 });
 
 Deno.test.afterAll(async () => {
@@ -411,50 +430,23 @@ Deno.test("[dom] list rendering", sanitizeFalse, async (t) => {
   await t.step("reactive list", async () => {
     const testUrl = addTestPage(`
       function Todos(this: FC<{ todos: string[] }>) {
-        this.init({ todos: [] });
+        const todos = this.create({
+          items: ["Buy groceries", "Walk the dog", "Do laundry"],
+          add(content: string) {
+            this.items = [...this.items, content]
+          },
+          delete(todo: string) {
+            this.items = this.items.filter(t => t !== todo)
+          }
+        });
         return <>
           <ul>
-            {this.todos.map((todo) => <li>{todo}</li>)}
-          </ul>
-          <button onClick={() => this.todos = [...this.todos, "Todo #" + (this.todos.length + 1)]}>Add todo</button>
-        </>
-      }
-      document.body.mount(<Todos />);
-    `);
-    const page = await browser.newPage();
-    await page.goto(testUrl);
-
-    const ul = await page.$("body > ul");
-    assert(ul);
-
-    assertEquals(await ul.evaluate(el => el.childNodes.length), 0);
-
-    const button = await page.$("body > button");
-    assert(button);
-
-    for (let i = 0; i < 3; i++) {
-      await button.click();
-      assertEquals(await ul.evaluate(el => el.childNodes.length), i + 1);
-      assertEquals(await ul.evaluate(el => Array.from(el.childNodes).map(node => node.textContent)), [
-        ...Array.from({ length: i + 1 }).map((_, i) => `Todo #${i + 1}`),
-      ]);
-    }
-
-    await page.close();
-  });
-
-  await t.step("delete item", async () => {
-    const testUrl = addTestPage(`
-      function Todos(this: FC<{ todos: string[] }>) {
-        this.init({ todos: ["Buy groceries", "Walk the dog", "Do laundry"] });
-        return <>
-          <ul>
-            {this.todos.map((todo, index) => <li>
+            {todos.items.map((todo, index) => <li>
               <span>{index + 1}: {todo}</span>
-              <button onClick={() => this.todos = this.todos.filter(t => t !== todo)}>Delete</button>
+              <button onClick={() => todos.delete(todo)}>Delete</button>
             </li>)}
           </ul>
-          <button onClick={() => this.todos = [...this.todos, "Call Sophie"]}>Add todo</button>
+          <button onClick={() => todos.add("Call Mom")}>Add todo</button>
         </>
       }
       document.body.mount(<Todos />);
@@ -481,7 +473,7 @@ Deno.test("[dom] list rendering", sanitizeFalse, async (t) => {
       "1: Buy groceries",
       "2: Walk the dog",
       "3: Do laundry",
-      "4: Call Sophie",
+      "4: Call Mom",
     ]);
 
     await button.click();
@@ -490,8 +482,8 @@ Deno.test("[dom] list rendering", sanitizeFalse, async (t) => {
       "1: Buy groceries",
       "2: Walk the dog",
       "3: Do laundry",
-      "4: Call Sophie",
-      "5: Call Sophie",
+      "4: Call Mom",
+      "5: Call Mom",
     ]);
 
     const button0 = await page.$("body > ul > li:nth-child(1) > button");
@@ -501,8 +493,8 @@ Deno.test("[dom] list rendering", sanitizeFalse, async (t) => {
     assertEquals(await ul.evaluate(el => Array.from(el.childNodes).map(node => node.childNodes[0].textContent)), [
       "1: Walk the dog",
       "2: Do laundry",
-      "3: Call Sophie",
-      "4: Call Sophie",
+      "3: Call Mom",
+      "4: Call Mom",
     ]);
 
     const button2 = await page.$("body > ul > li:nth-child(2) > button");
@@ -511,8 +503,8 @@ Deno.test("[dom] list rendering", sanitizeFalse, async (t) => {
     assertEquals(await ul.evaluate(el => el.childNodes.length), 3);
     assertEquals(await ul.evaluate(el => Array.from(el.childNodes).map(node => node.childNodes[0].textContent)), [
       "1: Walk the dog",
-      "2: Call Sophie",
-      "3: Call Sophie",
+      "2: Call Mom",
+      "3: Call Mom",
     ]);
 
     const button3 = await page.$("body > ul > li:nth-child(3) > button");

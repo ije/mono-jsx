@@ -16,18 +16,20 @@ interface IReactive<T = unknown> {
 }
 
 class Signal implements IReactive {
-  constructor(
-    public readonly scope: IScope,
-    public readonly key: string,
-  ) {}
-  get value() {
-    return this.scope[$get](this.key);
+  #scope: IScope;
+  #key: string;
+  constructor(scope: IScope, key: string) {
+    this.#scope = scope;
+    this.#key = key;
   }
-  set value(value: unknown) {
-    this.scope[this.key] = value;
+  get() {
+    return this.#scope[$get](this.#key);
+  }
+  set(value: unknown) {
+    this.#scope[this.#key] = value;
   }
   reactive(effect: (value: unknown) => void) {
-    const update = () => effect(this.value);
+    const update = () => effect(this.get());
     update();
     this.watch(update);
   }
@@ -35,17 +37,25 @@ class Signal implements IReactive {
     return new ReactiveList(this, callback);
   }
   watch(callback: () => void) {
-    this.scope[$watch](this.key, callback);
+    this.#scope[$watch](this.#key, callback);
+  }
+  toString() {
+    return String(this.get());
   }
 }
 
 class Compute implements IReactive {
+  #scope: IScope;
+  #compute: () => unknown;
   constructor(
-    public readonly scope: IScope,
-    public readonly compute: () => unknown,
-  ) {}
+    scope: IScope,
+    compute: () => unknown,
+  ) {
+    this.#scope = scope;
+    this.#compute = compute;
+  }
   reactive(effect: (value: unknown) => void) {
-    const update = () => effect(this.compute.call(this.scope));
+    const update = () => effect(this.#compute.call(this.#scope));
     // start collecting dependencies
     $depsMark = new Set<Signal>();
     update();
@@ -331,7 +341,7 @@ const render = (scope: IScope, child: ChildType, root: HTMLElement | DocumentFra
                         attrValue.reactive(value => {
                           (el as any)[name] = isValue ? String(value) : !!value;
                         });
-                        el.addEventListener("input", () => attrValue.value = (el as any)[name]);
+                        el.addEventListener("input", () => attrValue.set((el as any)[name]));
                         // queueMicrotask(() =>
                         //   (el as HTMLInputElement).form?.addEventListener(
                         //     "reset",
@@ -339,7 +349,7 @@ const render = (scope: IScope, child: ChildType, root: HTMLElement | DocumentFra
                         //   )
                         // );
                       } else {
-                        throw new TypeError("not a signal");
+                        setAttribute(el, attrName.slice(1), attrValue);
                       }
                       break;
 
@@ -490,7 +500,17 @@ const createScope = (slots: ChildType[] | undefined, abortSignal?: AbortSignal):
         case $slots:
           return slots;
         case "init":
-          return ((args: Record<string, unknown>) => Object.assign(target, args));
+          return (init: Record<string, unknown>) => {
+            Object.assign(target, init);
+          };
+        case "create":
+          return ({ effect, ...init }: Record<string, unknown>) => {
+            Object.assign(target, init);
+            if (isFunction(effect)) {
+              receiver.effect(effect);
+            }
+            return receiver;
+          };
         case "$":
         case "compute":
           return (fn: () => unknown) => new Compute(receiver, fn);
@@ -515,10 +535,11 @@ const createScope = (slots: ChildType[] | undefined, abortSignal?: AbortSignal):
           return refs;
         default:
           if (isBound || $depsMark) {
-            if ($depsMark && isString(key)) {
+            const value = Reflect.get(target, key as string, receiver);
+            if ($depsMark && isString(key) && !isFunction(value)) {
               $depsMark.add(getSignal(key));
             }
-            return target[key as string];
+            return value;
           }
           if (isString(key)) {
             return getSignal(key);
