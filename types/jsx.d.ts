@@ -42,12 +42,12 @@ export interface AsyncComponentAttributes {
 }
 
 export type VNode = readonly [
-  tag: string | symbol | FC<any>,
+  tag: string | symbol | ComponentType<any>,
   props: Record<string, any>,
   $vnode: symbol,
 ];
 
-export interface FC<P = {}> {
+export interface ComponentType<P = {}> {
   (props: P): MaybePromiseOrGenerator<VNode | string | null>;
   rendering?: string;
 }
@@ -58,7 +58,7 @@ declare global {
       | {
         [K in keyof IntrinsicElements]: P extends IntrinsicElements[K] ? K : never;
       }[keyof IntrinsicElements]
-      | FC<P>;
+      | ComponentType<P>;
     type Raw = (template: string | TemplateStringsArray, ...values: unknown[]) => Element;
     interface CustomAttributes {}
     interface HtmlCustomAttributes {}
@@ -69,13 +69,62 @@ declare global {
     interface IntrinsicElements extends HTML.Elements, HTML.SVGElements, HTML.CustomElements, JSX.BuiltinElements {}
   }
 
+  interface FCExtension<AppSignals = {}, AppRefs = {}, Context = {}> {}
+
+  /**
+   *  Defines the Signals/Context/Refs types.
+   */
+  type FC<Signals = {}, Refs = {}, AppSignals = {}, AppRefs = {}, Context = {}> =
+    & {
+      /**
+       * Initializes the signals.
+       */
+      readonly init: (initValue: Signals) => void;
+      /**
+       * The `refs` object stores variables in clide side.
+       *
+       * **⚠ This is a client-side only API.**
+       */
+      readonly refs: Refs;
+      /**
+       * Creates a computed signal.
+       */
+      readonly computed: <T = unknown>(fn: () => T) => T;
+      /**
+       * A shortcut for `this.computed(fn)`.
+       */
+      readonly $: FC["computed"];
+      /**
+       * Creates a side effect.
+       * **The effect function is only called on client side.**
+       */
+      readonly effect: (fn: () => (() => void) | void) => void;
+    }
+    & FCExtension<AppSignals, AppRefs, Context>
+    & Omit<Omit<Signals, "init" | "refs" | "computed" | "$" | "effect">, keyof FCExtension>;
+
+  /**
+   * Defines the `this.app` type.
+   */
+  type App<T, A = {}, RR = {}> = T extends FC<infer S, infer R, infer _, infer _, infer C> ? FC<S, R, A, RR, C> : never;
+
+  /**
+   * Defines the `this.context` type.
+   */
+  type Context<T, C = {}> = T extends FC<infer S, infer R, infer A, infer RR> ? FC<S, R, A, RR, C> : never;
+
+  /**
+   *  Defines the `this.refs` type.
+   */
+  type Refs<T, R = {}, RR = {}> = T extends FC<infer S, infer _, infer A, infer _, infer C> ? FC<S, R, A, RR, C> : never;
+
   /**
    * The JSX global object.
    * @mono-jsx
    */
   var JSX: {
     customElements: {
-      define: (tagName: string, fc: FC<any>) => void;
+      define: (tagName: string, fc: ComponentType<any>) => void;
     };
   };
 

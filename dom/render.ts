@@ -1,4 +1,4 @@
-import type { ChildType, FC, VNode } from "../types/jsx.d.ts";
+import type { ChildType, ComponentType, VNode } from "../types/jsx.d.ts";
 import { customElements } from "../jsx.ts";
 import { applyStyle, cx, isFunction, isObject, isString, NullPrototypeObject } from "../runtime/utils.ts";
 import { $fragment, $html, $vnode } from "../symbols.ts";
@@ -81,7 +81,7 @@ class ReactiveList {
 
 class Ref {
   constructor(
-    public readonly refs: Record<string, HTMLElement>,
+    public readonly refs: Map<string, HTMLElement>,
     public readonly name: string,
   ) {}
 }
@@ -278,7 +278,7 @@ const render = (scope: IScope, child: ChildType, root: HTMLElement | DocumentFra
             default: {
               // function component
               if (typeof tag === "function") {
-                renderFC(tag as FC, props, root, abortSignal);
+                renderFC(tag as ComponentType, props, root, abortSignal);
                 break;
               }
 
@@ -329,7 +329,7 @@ const render = (scope: IScope, child: ChildType, root: HTMLElement | DocumentFra
                           onAbort(abortSignal, ret);
                         }
                       } else if (attrValue instanceof Ref) {
-                        attrValue.refs[attrValue.name] = el;
+                        attrValue.refs.set(attrValue.name, el);
                       }
                       break;
 
@@ -424,7 +424,7 @@ const renderChildren = (
   }
 };
 
-const renderFC = (fc: FC, props: Record<string, unknown>, root: HTMLElement | DocumentFragment, abortSignal?: AbortSignal) => {
+const renderFC = (fc: ComponentType, props: Record<string, unknown>, root: HTMLElement | DocumentFragment, abortSignal?: AbortSignal) => {
   const scope = createScope(props.children as ChildType[] | undefined, abortSignal) as unknown as IScope;
   const v = fc.call(scope, props);
   if (v instanceof Promise) {
@@ -476,13 +476,14 @@ let $depsMark: Set<Signal> | undefined;
 const createScope = (slots: ChildType[] | undefined, abortSignal?: AbortSignal): IScope => {
   let isBound = false;
   let watchHandlers = new Map<string, Set<() => void>>();
+  let refElements = new Map<string, HTMLElement>();
   let signals = new Map<string, Signal>();
   let refs = new Proxy(new NullPrototypeObject(), {
-    get(target, key: string) {
+    get(_, key: string) {
       if (isBound || $depsMark) {
-        return target[key];
+        return refElements.get(key);
       }
-      return new Ref(target, key);
+      return new Ref(refElements, key);
     },
   });
   let scope = new Proxy(new NullPrototypeObject() as IScope, {
@@ -581,6 +582,7 @@ const createScope = (slots: ChildType[] | undefined, abortSignal?: AbortSignal):
   let getSignal = (key: string) => signals.get(key) ?? signals.set(key, new Signal(scope, key)).get(key)!;
   onAbort(abortSignal, () => {
     watchHandlers.clear();
+    refElements.clear();
     signals.clear();
   });
   return scope;

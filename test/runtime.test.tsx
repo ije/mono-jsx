@@ -318,13 +318,13 @@ Deno.test("[runtime] signals(boolean)", sanitizeFalse, async () => {
 });
 
 Deno.test("[runtime] app signals", sanitizeFalse, async () => {
-  function Display(this: FC<{}, { count: number }>, props: { bold?: boolean }) {
+  function Display(this: App<FC, { count: number }>, props: { bold?: boolean }) {
     if (props.bold) {
       return <strong>{this.app.count}</strong>;
     }
     return <span>{this.app.count}</span>;
   }
-  function Control(this: FC<{}, { count: number }>) {
+  function Control(this: App<FC, { count: number }>) {
     return (
       <>
         <button type="button" onClick={() => this.app.count--} />
@@ -371,7 +371,7 @@ Deno.test("[runtime] app signals", sanitizeFalse, async () => {
 });
 
 Deno.test("[runtime] computed signals", sanitizeFalse, async () => {
-  function FooBar(this: FC<{ count: number }, { count: number }>) {
+  function FooBar(this: App<FC<{ count: number }>, { count: number }>) {
     this.count = 0;
     return (
       <div>
@@ -496,7 +496,7 @@ Deno.test("[runtime] computed nesting style", sanitizeFalse, async () => {
 });
 
 Deno.test("[runtime] effect", sanitizeFalse, async () => {
-  function Effect(this: FC<{ count: number }, { themeColor: string }>) {
+  function Effect(this: App<FC<{ count: number }>, { themeColor: string }>) {
     this.count = 0;
 
     this.effect(() => {
@@ -529,7 +529,7 @@ Deno.test("[runtime] effect", sanitizeFalse, async () => {
     );
   }
 
-  function App(this: FC<{ show: boolean }, { themeColor: string }>) {
+  function App(this: App<FC<{ show: boolean }>, { themeColor: string }>) {
     this.show = true;
     return (
       <>

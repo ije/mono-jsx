@@ -1,6 +1,6 @@
 /// <reference path="./htmx.d.ts" />
 
-import type { FC } from "./jsx.d.ts";
+import type { ComponentType } from "./jsx.d.ts";
 
 export type MaybeModule<T> = T | Promise<{ default: T }>;
 
@@ -79,11 +79,11 @@ export interface RenderOptions extends Partial<HtmxExts> {
   /**
    * Components to be rendered by the `<lazy>` element.
    */
-  components?: Record<string, MaybeModule<FC<any>>>;
+  components?: Record<string, MaybeModule<ComponentType<any>>>;
   /**
    * Routes to be used by the `<router>` element.
    */
-  routes?: Record<string, MaybeModule<FC<any>>>;
+  routes?: Record<string, MaybeModule<ComponentType<any>>>;
   /**
    * Current `Request` object to be passed to components.
    */

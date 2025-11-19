@@ -800,14 +800,14 @@ Deno.test("[ssr] pass signal via prop", async () => {
 });
 
 Deno.test("[ssr] app signals", async () => {
-  function Header(this: FC<{}, { title: string }>) {
+  function Header(this: App<FC, { title: string }>) {
     return (
       <header>
         <h1>{this.app.title}</h1>
       </header>
     );
   }
-  function Main(this: FC<{}, { title: string }>) {
+  function Main(this: App<FC, { title: string }>) {
     return (
       <main>
         <form
@@ -818,7 +818,7 @@ Deno.test("[ssr] app signals", async () => {
       </main>
     );
   }
-  function Footer(this: FC<{}, { title: string }>) {
+  function Footer(this: App<FC, { title: string }>) {
     return (
       <footer>
         <p>(c)2025 {this.app.title}</p>
@@ -866,7 +866,7 @@ Deno.test("[ssr] app signals", async () => {
 });
 
 Deno.test("[ssr] computed signals", async () => {
-  function FooBar(this: FC<{ foo: string; bar: string }, { themeColor: string; tailing: string }>) {
+  function FooBar(this: App<FC<{ foo: string; bar: string }>, { themeColor: string; tailing: string }>) {
     this.foo = "foo";
     this.bar = "bar";
     const className = this.computed(() => [this.foo, this.bar]);
@@ -912,7 +912,7 @@ Deno.test("[ssr] computed signals", async () => {
     ].join(""),
   );
 
-  function ComputedClassName(this: FC<{ color: string }, { themeColor: string }>) {
+  function ComputedClassName(this: App<FC<{ color: string }>, { themeColor: string }>) {
     this.color = "blue";
     return (
       <div
@@ -944,7 +944,7 @@ Deno.test("[ssr] computed signals", async () => {
     ].join(""),
   );
 
-  function ComputedStyle(this: FC<{ color: string }, { themeColor: string }>) {
+  function ComputedStyle(this: App<FC<{ color: string }>, { themeColor: string }>) {
     this.color = "blue";
     return (
       <div

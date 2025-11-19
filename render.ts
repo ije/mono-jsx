@@ -1,5 +1,5 @@
 import type { Session } from "./types/mono.d.ts";
-import type { ChildType, FC, VNode } from "./types/jsx.d.ts";
+import type { ChildType, ComponentType, VNode } from "./types/jsx.d.ts";
 import type { MaybeModule, RenderOptions, SessionOptions } from "./types/render.d.ts";
 import { customElements } from "./jsx.ts";
 import { COMPONENT, CX, EVENT, FORM, ROUTER, SIGNALS, STYLE, SUSPENSE } from "./runtime/index.ts";
@@ -33,7 +33,7 @@ interface RenderContext {
   context?: Record<string, unknown>;
   request?: Request;
   session?: Session;
-  routeFC?: MaybeModule<FC<any>>;
+  routeFC?: MaybeModule<ComponentType<any>>;
   routeForm?: FormData;
   svg?: boolean;
 }
@@ -66,12 +66,12 @@ const cdn = "https://raw.esm.sh"; // the cdn for loading htmx and its extensions
 const encoder = new TextEncoder();
 const voidTags = new Set("area,base,br,col,embed,hr,img,input,keygen,link,meta,param,source,track,wbr".split(","));
 const cache = new Map<string, { html: string; expires?: number }>();
-const componentsMap = new IdGen<FC>();
+const componentsMap = new IdGen<ComponentType>();
 const subtle = crypto.subtle;
 const stringify = JSON.stringify;
 const isVNode = (v: unknown): v is VNode => Array.isArray(v) && v.length === 3 && v[2] === $vnode;
 const isSignal = (v: unknown): v is Signal => v instanceof Signal;
-const isFC = (v: unknown): v is FC => isFunction(v) && v.name.charCodeAt(0) <= /*Z*/ 90;
+const isFC = (v: unknown): v is ComponentType => isFunction(v) && v.name.charCodeAt(0) <= /*Z*/ 90;
 const escapeCSSText = (str: string): string => str.replace(/[><]/g, (m) => m.charCodeAt(0) === 60 ? "&lt;" : "&gt;");
 const toAttrStringLit = (str: string) => '"' + escapeHTML(str) + '"';
 const toStr = <T = string | number>(v: T | undefined, str: (v: T) => string) => v !== undefined ? str(v) : "";
@@ -131,7 +131,7 @@ function renderToWebStream(root: VNode, options: RenderOptions): Response {
   const compHeader = reqHeaders?.get("x-component");
 
   let status = options.status;
-  let routeFC: MaybeModule<FC<any>> | undefined = request ? Reflect.get(request, "x-route") : undefined;
+  let routeFC: MaybeModule<ComponentType<any>> | undefined = request ? Reflect.get(request, "x-route") : undefined;
   let routeForm: Promise<FormData> | undefined;
   let component = compHeader
     ? (compHeader.startsWith("@comp_") ? componentsMap.getById(Number(compHeader.slice(6))) : components?.[compHeader])
@@ -257,7 +257,7 @@ function renderToWebStream(root: VNode, options: RenderOptions): Response {
 
 async function render(
   node: VNode,
-  options: RenderOptions & { routeFC?: FC<any> },
+  options: RenderOptions & { routeFC?: ComponentType<any> },
   write: (chunk: string) => void,
   writeJS: (chunk: string) => void,
   componentMode?: boolean,
@@ -736,7 +736,7 @@ async function renderNode(rc: RenderContext, node: ChildType, stripSlotProp?: bo
           default: {
             // function component
             if (isFunction(tag)) {
-              await renderFC(rc, tag as FC, props);
+              await renderFC(rc, tag as ComponentType, props);
               break;
             }
 
@@ -813,7 +813,7 @@ async function renderChildren(rc: RenderContext, children: ChildType | ChildType
   }
 }
 
-async function renderFC(rc: RenderContext, fcFn: FC, props: JSX.IntrinsicAttributes, eager?: boolean) {
+async function renderFC(rc: RenderContext, fcFn: ComponentType, props: JSX.IntrinsicAttributes, eager?: boolean) {
   const { write } = rc;
   const { children } = props;
   const scopeId = ++rc.flags.scope;

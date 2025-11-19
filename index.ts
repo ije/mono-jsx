@@ -1,4 +1,4 @@
-import type { FC } from "./types/jsx.d.ts";
+import type { ComponentType } from "./types/jsx.d.ts";
 import type { RenderOptions } from "./types/render.d.ts";
 
 type ServerHandler = (req: Request) => Response;
@@ -16,7 +16,7 @@ export function buildRoutes(handler: ServerHandler): Record<string, ServerHandle
  * @deprecated Use `buildRoutes` instead.
  */
 export function monoRoutes(
-  routes: Record<string, FC<any> | Promise<{ default: FC<any> }>>,
+  routes: Record<string, ComponentType<any> | Promise<{ default: ComponentType<any> }>>,
   handler: ServerHandler,
 ): Record<string, ServerHandler> {
   const handlers: Record<string, ServerHandler> = {};

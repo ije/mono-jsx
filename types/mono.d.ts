@@ -1,4 +1,4 @@
-import type { AsyncComponentAttributes, BaseAttributes } from "./jsx.d.ts";
+import type { AsyncComponentAttributes, BaseAttributes, ComponentType } from "./jsx.d.ts";
 
 export type WithParams<T> = T & { params?: Record<string, string> };
 
@@ -53,7 +53,7 @@ export interface Elements {
     /**
      * The component to render.
      */
-    is?: import("./jsx.d.ts").FC<any>;
+    is?: ComponentType<any>;
     /**
      * The element to render.
      */
@@ -208,14 +208,7 @@ export interface Session {
 }
 
 declare global {
-  /**
-   *  Defines the Signals/Context/Refs types.
-   */
-  type FC<Signals = {}, AppSignals = {}, Context = {}, Refs = {}, AppRefs = {}> = {
-    /**
-     * Initializes the signals.
-     */
-    readonly init: (initValue: Signals) => void;
+  interface FCExtension<AppSignals = {}, AppRefs = {}, Context = {}> {
     /**
      * The global signals shared across the application.
      */
@@ -263,34 +256,5 @@ declare global {
      * **⚠ This is a server-side only API.**
      */
     readonly session: Session;
-    /**
-     * The `refs` object stores variables in clide side.
-     *
-     * **⚠ This is a client-side only API.**
-     */
-    readonly refs: Refs;
-    /**
-     * Creates a computed signal.
-     */
-    readonly computed: <T = unknown>(fn: () => T) => T;
-    /**
-     * A shortcut for `this.computed(fn)`.
-     */
-    readonly $: FC["computed"];
-    /**
-     * Creates a side effect.
-     * **The effect function is only called on client side.**
-     */
-    readonly effect: (fn: () => (() => void) | void) => void;
-  } & Omit<Signals, "init" | "app" | "context" | "request" | "session" | "form" | "refs" | "computed" | "$" | "effect">;
-
-  /**
-   * Defines the `context` type.
-   */
-  type Context<T, C = {}> = T extends FC<infer S, infer A, infer _, infer R, infer RR> ? FC<S, A, C, R, RR> : never;
-
-  /**
-   *  Defines the `refs` type.
-   */
-  type Refs<T, R = {}, RR = {}> = T extends FC<infer S, infer A, infer C> ? FC<S, A, C, R, RR> : never;
+  }
 }

@@ -563,7 +563,7 @@ interface AppSignals {
   themeColor: string;
 }
 
-function Header(this: FC<{}, AppSignals>) {
+function Header(this: App<FC, AppSignals>) {
   return (
     <header>
       <h1 style={{ color: this.app.themeColor }}>Welcome to mono-jsx!</h1>
@@ -571,7 +571,7 @@ function Header(this: FC<{}, AppSignals>) {
   )
 }
 
-function Footer(this: FC<{}, AppSignals>) {
+function Footer(this: App<FC, AppSignals>) {
   return (
     <footer>
       <p style={{ color: this.app.themeColor }}>(c) 2025 mono-jsx.</p>
@@ -579,7 +579,7 @@ function Footer(this: FC<{}, AppSignals>) {
   )
 }
 
-function Main(this: FC<{}, AppSignals>) {
+function Main(this: App<FC, AppSignals>) {
   return (
     <main>
       <p>
@@ -855,7 +855,7 @@ The `this` object has the following built-in properties:
 - `effect`: A method to create side effects.
 
 ```ts
-type FC<Signals = {}, AppSignals = {}, Context = {}, Refs = {}, AppRefs = {}> = {
+type FC<Signals = {}, Refs = {}, AppSignals = {}, AppRefs = {}, Context = {}> = {
   readonly app: AppSignals & { refs: AppRefs; url: WithParams<URL> }
   readonly context: Context;
   readonly request: WithParams<Request>;

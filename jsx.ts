@@ -1,10 +1,10 @@
-import type { FC } from "./types/jsx.d.ts";
+import type { ComponentType } from "./types/jsx.d.ts";
 
-export const customElements = new Map<string, FC>();
+export const customElements = new Map<string, ComponentType>();
 
 export const JSX = {
   customElements: {
-    define(tagName: string, fc: FC) {
+    define(tagName: string, fc: ComponentType) {
       customElements.set(tagName, fc);
     },
   },

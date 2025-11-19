@@ -1,5 +1,5 @@
 import type { Elements } from "./types/mono.d.ts";
-import type { FC, VNode } from "./types/jsx.d.ts";
+import type { ComponentType, VNode } from "./types/jsx.d.ts";
 import type { RenderOptions } from "./types/render.d.ts";
 import { JSX } from "./jsx.ts";
 import { isSignal, renderToWebStream } from "./render.ts";
@@ -13,9 +13,13 @@ declare global {
   }
 }
 
-export const Fragment = $fragment as unknown as FC;
+export const Fragment = $fragment as unknown as ComponentType;
 
-export const jsx = (tag: string | FC, props: Record<string, unknown> = new NullPrototypeObject(), key?: string | number): VNode => {
+export const jsx = (
+  tag: string | ComponentType,
+  props: Record<string, unknown> = new NullPrototypeObject(),
+  key?: string | number,
+): VNode => {
   const vnode: VNode = [tag, props, $vnode];
   if (key !== undefined) {
     props.key = key;
