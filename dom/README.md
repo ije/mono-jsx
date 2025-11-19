@@ -29,7 +29,14 @@ To use mono-jsx as your JSX runtime, add the following configuration to your `ts
 You can also run `mono-jsx setup --csr` to automatically add the configuration to your project:
 
 ```bash
+# Node.js, Cloudflare Workers, or other node-compatible runtimes
 npx mono-jsx setup --csr
+
+# Deno
+deno run -A npm:mono-jsx setup --csr
+
+# Bun
+bunx mono-jsx setup --csr
 ```
 
 You can also use the `@jsxImportSource` pragma directive to use `mono-jsx/dom` as your JSX runtime:
