@@ -623,7 +623,7 @@ async function renderNode(rc: RenderContext, node: ChildType, stripSlotProp?: bo
             }
             buf += "</m-component>";
             if (attrModifiers) {
-              buf += "<m-group>" + attrModifiers + "</m-group>";
+              buf += "<m-group hidden>" + attrModifiers + "</m-group>";
             }
             write(buf);
             rc.flags.runtime |= COMPONENT;
@@ -789,7 +789,7 @@ async function renderNode(rc: RenderContext, node: ChildType, stripSlotProp?: bo
                   write("</" + tag + ">");
                 }
               } else if (attrModifiers) {
-                write("<m-group>" + attrModifiers + "</m-group>");
+                write("<m-group hidden>" + attrModifiers + "</m-group>");
               }
             }
           }
@@ -1134,7 +1134,7 @@ function createThisProxy(rc: RenderContext, scopeId: number): Record<string, unk
         for (let i = 0; i < n; i++) {
           js[i] = "function $ME_" + scopeId + "_" + i + "(){return(" + effects[i] + ").call(this)};";
         }
-        write('<m-effect scope="' + scopeId + '" n="' + n + '"></m-effect>');
+        write('<m-effect scope="' + scopeId + '" n="' + n + '" hidden></m-effect>');
         signals.effects.push(js.join(""));
       }
     }
