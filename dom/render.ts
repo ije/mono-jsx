@@ -507,7 +507,7 @@ const createScope = (slots: ChildType[] | undefined, abortSignal?: AbortSignal):
           return (init: Record<string, unknown>) => {
             Object.assign(target, init);
           };
-        case "create":
+        case "createStore":
           return (init: Record<string, unknown>) => {
             for (const [key, { set, get, value }] of Object.entries(Object.getOwnPropertyDescriptors(init))) {
               if (set) {

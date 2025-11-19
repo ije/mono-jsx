@@ -47,7 +47,7 @@ declare global {
     /**
      * Creates a new signals object.
      */
-    readonly create: <T extends {}>(initValue: T) => Omit<T, "effect">;
+    readonly createStore: <T extends {}>(initValue: T) => Omit<T, "effect">;
     /**
      * The `refs` object stores variables in clide side.
      *

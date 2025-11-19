@@ -69,7 +69,7 @@ Deno.test.beforeAll(async () => {
   if (DEBUG) {
     console.log(addTestPage(`
       function App(this: FC) {
-        const win = this.create({
+        const win = this.createStore({
           width: window.innerWidth,
           height: window.innerHeight,
           get fmt() {
@@ -292,7 +292,7 @@ Deno.test("[dom] signals", sanitizeFalse, async (t) => {
   await t.step("getter", async () => {
     const testUrl = addTestPage(`
       function App(this: FC) {
-        const count = this.create({
+        const count = this.createStore({
           value: 1,
           get double() {
             return this.value * 2;
@@ -458,7 +458,7 @@ Deno.test("[dom] list rendering", sanitizeFalse, async (t) => {
   await t.step("reactive list", async () => {
     const testUrl = addTestPage(`
       function Todos(this: FC<{ todos: string[] }>) {
-        const todos = this.create({
+        const todos = this.createStore({
           items: ["Buy groceries", "Walk the dog", "Do laundry"],
           add(content: string) {
             this.items = [...this.items, content]
