@@ -43,11 +43,11 @@ declare global {
     /**
      * Initializes the signals.
      */
-    readonly init: (data: Signals) => void;
+    readonly init: (initValue: Signals) => void;
     /**
      * Creates a new signals object.
      */
-    readonly create: <T extends {}>(data: T) => Omit<T, "effect">;
+    readonly create: <T extends {}>(initValue: T) => Omit<T, "effect">;
     /**
      * The `refs` object stores variables in clide side.
      *

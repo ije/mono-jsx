@@ -288,6 +288,34 @@ Deno.test("[dom] signals", sanitizeFalse, async (t) => {
 
     await page.close();
   });
+
+  await t.step("getter", async () => {
+    const testUrl = addTestPage(`
+      function App(this: FC) {
+        const count = this.create({
+          value: 1,
+          get double() {
+            return this.value * 2;
+          },
+          increment() {
+            this.value++;
+          }
+        });
+        return <button onClick={() => count.increment()}>{count.value}-{count.double}</button>
+      }
+      document.body.mount(<App />);
+    `);
+    const page = await browser.newPage();
+    await page.goto(testUrl);
+
+    const button = await page.$("body > button");
+    assert(button);
+    assertEquals(await button.evaluate((el) => el.textContent), "1-2");
+    await button.click();
+    assertEquals(await button.evaluate((el) => el.textContent), "2-4");
+
+    await page.close();
+  });
 });
 
 Deno.test("[dom] ref", sanitizeFalse, async () => {

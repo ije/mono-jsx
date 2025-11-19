@@ -1153,26 +1153,6 @@ function createThisProxy(rc: RenderContext, scopeId: number): Record<string, unk
           return (init: Record<string, unknown>) => {
             Object.assign(target, init);
           };
-        case "create":
-          return (init: Record<string, unknown>) => {
-            for (const [key, { set, get, value }] of Object.entries(Object.getOwnPropertyDescriptors(init))) {
-              if (set) {
-                throw new TypeError("setter is not allowed");
-              }
-              if (get) {
-                target[key] = computed(get);
-              } else {
-                if (key === "effect") {
-                  if (isFunction(value)) {
-                    receiver.effect(value);
-                  }
-                } else {
-                  target[key] = value;
-                }
-              }
-            }
-            return receiver;
-          };
         case "app":
           if (scopeId === 0) {
             return null;
