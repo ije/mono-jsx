@@ -1,12 +1,12 @@
 import type { FC, VNode } from "../types/jsx.d.ts";
 import { JSX } from "../jsx.ts";
-import { domEscapeHTML, isString, NullProtoObject } from "../runtime/utils.ts";
+import { domEscapeHTML, isString, NullPrototypeObject } from "../runtime/utils.ts";
 import { $fragment, $html, $vnode } from "../symbols.ts";
 import { isReactive, render } from "./render.ts";
 
 const Fragment = $fragment as unknown as FC;
 
-const jsx = (tag: string | FC, props: Record<string, unknown> = new NullProtoObject(), key?: string | number): VNode => {
+const jsx = (tag: string | FC, props: Record<string, unknown> = new NullPrototypeObject(), key?: string | number): VNode => {
   const vnode: VNode = [tag, props, $vnode];
   if (key !== undefined) {
     props.key = key;
@@ -36,7 +36,7 @@ const html = (template: string | TemplateStringsArray, ...values: unknown[]): VN
 
 // inject mount method to HTMLElement prototype
 HTMLElement.prototype.mount = function(node: VNode, aboutSignal?: AbortSignal) {
-  render(new NullProtoObject() as any, node as JSX.Element, this, aboutSignal);
+  render(new NullPrototypeObject() as any, node as JSX.Element, this, aboutSignal);
 };
 
 // inject global variables

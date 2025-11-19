@@ -14,7 +14,7 @@ import {
   isFunction,
   isObject,
   isString,
-  NullProtoObject,
+  NullPrototypeObject,
   styleToCSS,
   toHyphenCase,
 } from "./runtime/utils.ts";
@@ -1111,10 +1111,10 @@ let collectDep: ((scopeId: number, key: string) => void) | undefined;
 
 function createThisProxy(rc: RenderContext, scopeId: number): Record<string, unknown> {
   const { context, request, routeForm, session } = rc;
-  const store = new NullProtoObject() as Record<string | symbol, unknown>;
+  const store = new NullPrototypeObject() as Record<string | symbol, unknown>;
   const signals = new Map<string, Signal>();
   const effects = [] as string[];
-  const refs = new Proxy(new NullProtoObject(), {
+  const refs = new Proxy(new NullPrototypeObject(), {
     get(_, key) {
       return new Ref(scopeId, key as string);
     },
@@ -1154,10 +1154,22 @@ function createThisProxy(rc: RenderContext, scopeId: number): Record<string, unk
             Object.assign(target, init);
           };
         case "create":
-          return ({ effect, ...init }: Record<string, unknown>) => {
-            Object.assign(target, init);
-            if (isFunction(effect)) {
-              receiver.effect(effect);
+          return (init: Record<string, unknown>) => {
+            for (const [key, { set, get, value }] of Object.entries(Object.getOwnPropertyDescriptors(init))) {
+              if (set) {
+                throw new TypeError("setter is not allowed");
+              }
+              if (get) {
+                target[key] = computed(get);
+              } else {
+                if (key === "effect") {
+                  if (isFunction(value)) {
+                    receiver.effect(value);
+                  }
+                } else {
+                  target[key] = value;
+                }
+              }
             }
             return receiver;
           };
@@ -1300,7 +1312,7 @@ function traverseProps(
   path: string[] = [],
 ): typeof obj {
   const isArray = Array.isArray(obj);
-  const copy: any = isArray ? new Array(obj.length) : new NullProtoObject();
+  const copy: any = isArray ? new Array(obj.length) : new NullPrototypeObject();
   for (const [k, value] of Object.entries(obj)) {
     const newPath = path.concat(isArray ? k : stringify(k));
     const key = isArray ? Number(k) : k;

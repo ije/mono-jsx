@@ -72,7 +72,7 @@ Deno.test.beforeAll(async () => {
         const win = this.create({
           width: window.innerWidth,
           height: window.innerHeight,
-          fmt() {
+          get fmt() {
             return this.width + "x" +this.height;
           },
           effect() {
@@ -83,12 +83,12 @@ Deno.test.beforeAll(async () => {
           },
         });
         this.effect(() => {
-          console.log("window size:", win.fmt());
+          console.log("window size:", win.fmt);
         });
         return (
           <>
             <h1>Welcome to mono-jsx!</h1>
-            <p>Window size: {win.width}x{win.height}</p>
+            <p>Window size: {win.fmt}</p>
           </>
         );
       }

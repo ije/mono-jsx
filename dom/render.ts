@@ -1,6 +1,6 @@
 import type { ChildType, FC, VNode } from "../types/jsx.d.ts";
 import { customElements } from "../jsx.ts";
-import { applyStyle, cx, isFunction, isObject, isString, NullProtoObject } from "../runtime/utils.ts";
+import { applyStyle, cx, isFunction, isObject, isString, NullPrototypeObject } from "../runtime/utils.ts";
 import { $fragment, $html, $vnode } from "../symbols.ts";
 
 interface IScope {
@@ -12,6 +12,7 @@ interface IScope {
 }
 
 interface IReactive<T = unknown> {
+  get(): T;
   reactive(effect: (value: T) => void): void;
 }
 
@@ -54,8 +55,11 @@ class Compute implements IReactive {
     this.#scope = scope;
     this.#compute = compute;
   }
+  get() {
+    return this.#compute.call(this.#scope);
+  }
   reactive(effect: (value: unknown) => void) {
-    const update = () => effect(this.#compute.call(this.#scope));
+    const update = () => effect(this.get());
     // start collecting dependencies
     $depsMark = new Set<Signal>();
     update();
@@ -473,7 +477,7 @@ const createScope = (slots: ChildType[] | undefined, abortSignal?: AbortSignal):
   let isBound = false;
   let watchHandlers = new Map<string, Set<() => void>>();
   let signals = new Map<string, Signal>();
-  let refs = new Proxy(new NullProtoObject(), {
+  let refs = new Proxy(new NullPrototypeObject(), {
     get(target, key: string) {
       if (isBound || $depsMark) {
         return target[key];
@@ -481,7 +485,7 @@ const createScope = (slots: ChildType[] | undefined, abortSignal?: AbortSignal):
       return new Ref(target, key);
     },
   });
-  let scope = new Proxy(new NullProtoObject() as IScope, {
+  let scope = new Proxy(new NullPrototypeObject() as IScope, {
     get(target, key, receiver) {
       switch (key) {
         case $get:
@@ -504,10 +508,22 @@ const createScope = (slots: ChildType[] | undefined, abortSignal?: AbortSignal):
             Object.assign(target, init);
           };
         case "create":
-          return ({ effect, ...init }: Record<string, unknown>) => {
-            Object.assign(target, init);
-            if (isFunction(effect)) {
-              receiver.effect(effect);
+          return (init: Record<string, unknown>) => {
+            for (const [key, { set, get, value }] of Object.entries(Object.getOwnPropertyDescriptors(init))) {
+              if (set) {
+                throw new TypeError("setter is not allowed");
+              }
+              if (get) {
+                target[key] = new Compute(receiver, get);
+              } else {
+                if (key === "effect") {
+                  if (isFunction(value)) {
+                    receiver.effect(value);
+                  }
+                } else {
+                  target[key] = value;
+                }
+              }
             }
             return receiver;
           };
@@ -533,9 +549,12 @@ const createScope = (slots: ChildType[] | undefined, abortSignal?: AbortSignal):
           };
         case "refs":
           return refs;
-        default:
+        default: {
+          const value = Reflect.get(target, key as string, receiver);
+          if (isReactive(value)) {
+            return isBound || $depsMark ? value.get() : value;
+          }
           if (isBound || $depsMark) {
-            const value = Reflect.get(target, key as string, receiver);
             if ($depsMark && isString(key) && !isFunction(value)) {
               $depsMark.add(getSignal(key));
             }
@@ -544,6 +563,8 @@ const createScope = (slots: ChildType[] | undefined, abortSignal?: AbortSignal):
           if (isString(key)) {
             return getSignal(key);
           }
+          return value;
+        }
       }
     },
     set(target, key, value) {

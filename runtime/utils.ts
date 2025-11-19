@@ -45,7 +45,7 @@ export const cx = (className: unknown): string => {
 export const styleToCSS = (style: Record<string, unknown>): { inline?: string; css?: Array<string | null> } => {
   const inline: [string, string | number][] = [];
   const css: Array<string | null> = [];
-  const ret: ReturnType<typeof styleToCSS> = new NullProtoObject();
+  const ret: ReturnType<typeof styleToCSS> = new NullPrototypeObject();
   for (const [k, v] of Object.entries(style)) {
     switch (k.charCodeAt(0)) {
       case /* ':' */ 58:
@@ -114,10 +114,10 @@ export const renderStyle = (style: unknown): string => {
 // Fastest way for creating null-prototype objects in JavaScript
 // copyied from https://github.com/h3js/rou3/blob/main/src/_utils.ts
 // by @pi0
-export const NullProtoObject = /* @__PURE__ */ (() => {
-  function NPO() {}
-  NPO.prototype = Object.freeze(Object.create(null));
-  return NPO;
+export const NullPrototypeObject = /* @__PURE__ */ (() => {
+  function ObjectWithNullPrototype() {}
+  ObjectWithNullPrototype.prototype = Object.create(null);
+  return ObjectWithNullPrototype;
 })() as unknown as { new(): Record<string, any> };
 
 /**
