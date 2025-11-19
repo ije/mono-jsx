@@ -1,5 +1,6 @@
 import { existsSync } from "node:fs";
 import { readFile, writeFile } from "node:fs/promises";
+import { argv } from "node:process";
 
 export async function setup() {
   if (globalThis.Deno && existsSync("deno.jsonc")) {
@@ -26,8 +27,9 @@ export async function setup() {
   } catch {
     // ignore
   }
+  const jsxImportSource = argv.includes("--dom") ? "mono-jsx/dom" : "mono-jsx";
   const compilerOptions = tsConfig.compilerOptions ?? (tsConfig.compilerOptions = {});
-  if (compilerOptions.jsx === "react-jsx" && compilerOptions.jsxImportSource === "mono-jsx") {
+  if (compilerOptions.jsx === "react-jsx" && compilerOptions.jsxImportSource === jsxImportSource) {
     console.log("%cmono-jsx already setup.", "color:grey");
     return;
   }
@@ -39,7 +41,7 @@ export async function setup() {
     compilerOptions.noEmit ??= true;
   }
   compilerOptions.jsx = "react-jsx";
-  compilerOptions.jsxImportSource = "mono-jsx";
+  compilerOptions.jsxImportSource = jsxImportSource;
   await writeFile(tsConfigFilename, JSON.stringify(tsConfig, null, 2));
   console.log("✅ mono-jsx setup complete.");
 }
