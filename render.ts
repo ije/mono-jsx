@@ -1068,7 +1068,7 @@ function renderSignal(
   rc: RenderContext,
   signal: Signal,
   mode?: "toggle" | "switch" | "list" | "html" | [string],
-  close?: boolean,
+  close = true,
 ) {
   const { scope, key, value } = signal;
   let buffer = "<m-signal";
@@ -1083,6 +1083,9 @@ function renderSignal(
     buffer += " key=" + toAttrStringLit(key);
   } else {
     buffer += ' computed="' + rc.mcs.gen(signal, rc.fc?.id) + '"';
+  }
+  if (mode && mode !== "html" && close) {
+    buffer += " hidden";
   }
   buffer += ">";
   if (!mode || mode === "html") {
@@ -1101,7 +1104,7 @@ function renderSignal(
       buffer += !mode ? escapeHTML(text) : text;
     }
   }
-  return buffer + (close !== false ? "</m-signal>" : "");
+  return buffer + (close ? "</m-signal>" : "");
 }
 
 let collectDep: ((scopeId: number, key: string) => void) | undefined;
