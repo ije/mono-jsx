@@ -40,6 +40,8 @@ To use mono-jsx as your JSX runtime, add the following configuration to your `ts
 ```jsonc
 {
   "compilerOptions": {
+    "module": "esnext",
+    "moduleResolution": "bundler",
     "jsx": "react-jsx",
     "jsxImportSource": "mono-jsx"
   }

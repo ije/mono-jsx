@@ -11,14 +11,13 @@
 npm install mono-jsx
 ```
 
-## Usage
+## Setup JSX Runtime
 
-To use `mono-jsx/dom`, add the following configuration to your `tsconfig.json`:
+To use mono-jsx as your JSX runtime, add the following configuration to your `tsconfig.json` (or `deno.json` for Deno):
 
 ```jsonc
 {
   "compilerOptions": {
-    "lib": ["dom", "esnext"],
     "module": "esnext",
     "moduleResolution": "bundler",
     "jsx": "react-jsx",
@@ -27,16 +26,10 @@ To use `mono-jsx/dom`, add the following configuration to your `tsconfig.json`:
 }
 ```
 
-To mount the UI to the DOM, use the `<mount>` element:
+You can also run `mono-jsx setup --csr` to automatically add the configuration to your project:
 
-```tsx
-// app.tsx
-
-function App() {
-  return <div>Hello, world!</div>;
-}
-
-document.body.mount(<App />);
+```bash
+npx mono-jsx setup --csr
 ```
 
 You can also use the `@jsxImportSource` pragma directive to use `mono-jsx/dom` as your JSX runtime:
@@ -51,40 +44,11 @@ function App() {
 document.body.mount(<App />);
 ```
 
-## Build
+## Usage
 
-`mono-jsx/dom` uses JSX to describe the UI which is not supported by browsers. You need to compile your app to JavaScript before serving it to the browser. We suggest using bun with mono-jsx to build your app:
-
-```ts
-// server.ts
-import homepage from "./index.html";
-
-export default {
-  routes: {
-    "/": homepage,
-  },
-  async fetch(req) {
-    // ...api requests
-    return new Response("hello world");
-  },
-}
-```
-
-In `index.html`, you need use `<script type="module">` to load the `app.tsx` file without the build step.
-
-```html
-<!-- index.html -->
-<html>
-  <head>
-    <title>My App</title>
-    <script type="module" src="./app.tsx"></script>
-  </head>
-  <body></body>
-</html>
-```
+mono-jsx/dom adds a `mount` method to the `HTMLElement` prototype to allow you to mount the UI to the DOM.
 
 ```tsx
-// app.tsx
 function App() {
   return <div>Hello, world!</div>;
 }
