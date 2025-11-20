@@ -584,7 +584,7 @@ function Main(this: App<FC, AppSignals>) {
     <main>
       <p>
         <label>Theme Color: </label>
-        <input type="color" onInput={({ target }) => this.app.themeColor = target.value}/>
+        <input type="color" $value={this.app.themeColor} />
       </p>
     </main>
   )
@@ -592,7 +592,7 @@ function Main(this: App<FC, AppSignals>) {
 
 export default {
   fetch: (req) => (
-    <html app={{ themeColor: "#232323" }}>
+    <html app={{ themeColor: "#232323" } satisfies AppSignals}>
       <Header />
       <Main />
       <Footer />
@@ -877,7 +877,7 @@ See the [Using Signals](#using-signals) section for more details on how to use s
 You can use `this.refs` to access refs in your components. Refs are defined using the `ref` attribute in JSX, and they allow you to access DOM elements directly. The `refs` object is a map of ref names to DOM elements.
 
 ```tsx
-function App(this: Refs<FC, { input: HTMLInputElement }>) {
+function App(this: Refs<FC, { input?: HTMLInputElement }>) {
   this.effect(() => {
     this.refs.input?.addEventListener("input", (evt) => {
       console.log("Input changed:", evt.target.value);
@@ -896,7 +896,7 @@ function App(this: Refs<FC, { input: HTMLInputElement }>) {
 You can also use `this.app.refs` to access app-level refs:
 
 ```tsx
-function Layout(this: Refs<FC, {}, { h1: HTMLH1Element }>) {
+function Layout(this: FC) {
   return (
     <>
     <header>

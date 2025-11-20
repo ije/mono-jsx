@@ -1142,33 +1142,64 @@ Deno.test("[runtime] <form> action callback", sanitizeFalse, async () => {
   await page.close();
 });
 
-Deno.test("[runtime] refs", sanitizeFalse, async () => {
-  function App(this: Refs<FC, { h2: HTMLElement }, { h1: HTMLElement }>) {
-    this.effect(() => {
-      this.app.refs.h1.textContent = "Welcome to mono-jsx!";
-      this.refs.h2.textContent = "Building User Interfaces.";
-    });
-    return (
-      <hgroup>
-        <h1 ref={this.app.refs.h1} />;
-        <h2 ref={this.refs.h2} />;
-      </hgroup>
-    );
-  }
-  const testUrl = addTestPage(<App />);
+Deno.test("[runtime] refs", sanitizeFalse, async (t) => {
+  await t.step("without types", async () => {
+    function App(this: FC) {
+      this.effect(() => {
+        this.app.refs.h1.textContent = "Welcome to mono-jsx!";
+        this.refs.h2.textContent = "Building User Interfaces.";
+      });
+      return (
+        <hgroup>
+          <h1 ref={this.app.refs.h1} />;
+          <h2 ref={this.refs.h2} />;
+        </hgroup>
+      );
+    }
+    const testUrl = addTestPage(<App />);
 
-  const page = await browser.newPage();
-  await page.goto(testUrl);
+    const page = await browser.newPage();
+    await page.goto(testUrl);
 
-  const h1 = await page.$("h1");
-  assert(h1);
-  assertEquals(await h1.evaluate((el: HTMLElement) => el.textContent), "Welcome to mono-jsx!");
+    const h1 = await page.$("h1");
+    assert(h1);
+    assertEquals(await h1.evaluate((el: HTMLElement) => el.textContent), "Welcome to mono-jsx!");
 
-  const h2 = await page.$("h2");
-  assert(h2);
-  assertEquals(await h2.evaluate((el: HTMLElement) => el.textContent), "Building User Interfaces.");
+    const h2 = await page.$("h2");
+    assert(h2);
+    assertEquals(await h2.evaluate((el: HTMLElement) => el.textContent), "Building User Interfaces.");
 
-  await page.close();
+    await page.close();
+  });
+
+  await t.step("with types", async () => {
+    function App(this: App<Refs<FC, { h2?: HTMLHeadingElement }>, {}, { h1?: HTMLHeadingElement }>) {
+      this.effect(() => {
+        this.app.refs.h1!.textContent = "Welcome to mono-jsx!";
+        this.refs.h2!.textContent = "Building User Interfaces.";
+      });
+      return (
+        <hgroup>
+          <h1 ref={this.app.refs.h1} />;
+          <h2 ref={this.refs.h2} />;
+        </hgroup>
+      );
+    }
+    const testUrl = addTestPage(<App />);
+
+    const page = await browser.newPage();
+    await page.goto(testUrl);
+
+    const h1 = await page.$("h1");
+    assert(h1);
+    assertEquals(await h1.evaluate((el: HTMLElement) => el.textContent), "Welcome to mono-jsx!");
+
+    const h2 = await page.$("h2");
+    assert(h2);
+    assertEquals(await h2.evaluate((el: HTMLElement) => el.textContent), "Building User Interfaces.");
+
+    await page.close();
+  });
 });
 
 Deno.test("[runtime] ref callback", sanitizeFalse, async () => {

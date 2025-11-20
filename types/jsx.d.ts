@@ -69,12 +69,12 @@ declare global {
     interface IntrinsicElements extends HTML.Elements, HTML.SVGElements, HTML.CustomElements, JSX.BuiltinElements {}
   }
 
-  interface FCExtension<AppSignals = {}, AppRefs = {}, Context = {}> {}
+  interface FCExtension {}
 
   /**
-   *  Defines the Signals/Context/Refs types.
+   * mono-jsx component scope.
    */
-  type FC<Signals = {}, Refs = {}, AppSignals = {}, AppRefs = {}, Context = {}> =
+  type FC<Signals = {}, Refs = Record<string, HTMLElement>> =
     & {
       /**
        * Initializes the signals.
@@ -100,30 +100,24 @@ declare global {
        */
       readonly effect: (fn: () => (() => void) | void) => void;
     }
-    & FCExtension<AppSignals, AppRefs, Context>
+    & FCExtension
     & Omit<Omit<Signals, "init" | "refs" | "computed" | "$" | "effect">, keyof FCExtension>;
-
-  /**
-   * Defines the `this.app` type.
-   */
-  type App<T, A = {}, RR = {}> = T extends FC<infer S, infer R, infer _, infer _, infer C> ? FC<S, R, A, RR, C> : never;
-
-  /**
-   * Defines the `this.context` type.
-   */
-  type Context<T, C = {}> = T extends FC<infer S, infer R, infer A, infer RR> ? FC<S, R, A, RR, C> : never;
 
   /**
    *  Defines the `this.refs` type.
    */
-  type Refs<T, R = {}, RR = {}> = T extends FC<infer S, infer _, infer A, infer _, infer C> ? FC<S, R, A, RR, C> : never;
+  type Refs<T, R extends {}> = T extends FC<infer S> ? FC<S, R> : never;
 
   /**
-   * The JSX global object.
+   * The JSX namespace object.
    * @mono-jsx
    */
   var JSX: {
     customElements: {
+      /**
+       * Defines a built-in custom element.
+       * @mono-jsx
+       */
       define: (tagName: string, fc: ComponentType<any>) => void;
     };
   };
