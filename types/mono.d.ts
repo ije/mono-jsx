@@ -226,12 +226,6 @@ declare global {
       readonly url: WithParams<URL>;
     };
     /**
-     * The rendering context object.
-     *
-     * **⚠ This is a server-side only API.**
-     */
-    readonly context: {};
-    /**
      * The `request` object contains the current request.
      *
      * **⚠ This is a server-side only API.**

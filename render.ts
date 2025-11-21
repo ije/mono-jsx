@@ -1110,7 +1110,7 @@ function renderSignal(
 let collectDep: ((scopeId: number, key: string) => void) | undefined;
 
 function createThisProxy(rc: RenderContext, scopeId: number): Record<string, unknown> {
-  const { context, request, routeForm, session } = rc;
+  const { context = {}, request, routeForm, session } = rc;
   const store = new NullPrototypeObject() as Record<string | symbol, unknown>;
   const signals = new Map<string, Signal>();
   const effects = [] as string[];
@@ -1161,12 +1161,15 @@ function createThisProxy(rc: RenderContext, scopeId: number): Record<string, unk
         case "context":
           return context;
         case "request":
+          if (!request) {
+            throw new TypeError("[mono-jsx] The `request` prop in the `<html>` element is required.");
+          }
           return request;
         case "form":
           return routeForm;
         case "session":
           if (!session) {
-            throw new Error("[mono-jsx] The `session` and `request` props in the `<html>` element are required for the session.");
+            throw new TypeError("[mono-jsx] The `session` and `request` props in the `<html>` element are required.");
           }
           return session;
         case "refs":
@@ -1250,8 +1253,7 @@ async function createSession(request: Request, options: SessionOptions): Promise
 
   const { name = "session", secret } = options.cookie ?? {};
   if (!secret) {
-    console.error("[mono-jsx] The `cookie.secret` option is required for the session.");
-    return session;
+    throw new TypeError("[mono-jsx] The `cookie.secret` option is required for the session.");
   }
 
   const sid = request.headers.get("cookie")?.split("; ").find((cookie) => cookie.startsWith(name + "="))?.slice(name.length + 1);

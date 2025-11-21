@@ -69,7 +69,7 @@ declare global {
     interface IntrinsicElements extends HTML.Elements, HTML.SVGElements, HTML.CustomElements, JSX.BuiltinElements {}
   }
 
-  interface FCExtension {}
+  interface FCExtension<FC = {}> {}
 
   /**
    * mono-jsx component scope.
@@ -77,30 +77,30 @@ declare global {
   type FC<Signals = {}, Refs = Record<string, HTMLElement>> =
     & {
       /**
-       * Initializes the signals.
-       */
-      readonly init: (initValue: Signals) => void;
-      /**
        * The `refs` object stores variables in clide side.
        *
        * **⚠ This is a client-side only API.**
        */
       readonly refs: Refs;
       /**
+       * Initializes the signals.
+       */
+      init(initValue: Signals): void;
+      /**
        * Creates a computed signal.
        */
-      readonly computed: <T = unknown>(fn: () => T) => T;
+      computed<T = unknown>(fn: () => T): T;
       /**
        * A shortcut for `this.computed(fn)`.
        */
-      readonly $: FC["computed"];
+      $<T = unknown>(fn: () => T): T;
       /**
        * Creates a side effect.
        * **The effect function is only called on client side.**
        */
-      readonly effect: (fn: () => (() => void) | void) => void;
+      effect(fn: () => (() => void) | void): void;
     }
-    & FCExtension
+    & FCExtension<FC>
     & Omit<Omit<Signals, "init" | "refs" | "computed" | "$" | "effect">, keyof FCExtension>;
 
   /**

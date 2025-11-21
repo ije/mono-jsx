@@ -36,12 +36,12 @@ export interface Elements {
 }
 
 declare global {
-  interface FCExtension {
+  interface FCExtension<FC> {
     /**
      * Creates a new signals object.
      *
      * **⚠ This is a client-side only API.**
      */
-    readonly createStore: <T extends {}>(initValue: T) => Omit<T, "effect">;
+    extend<T extends Record<string, unknown>>(initValue: T): FC & T;
   }
 }
