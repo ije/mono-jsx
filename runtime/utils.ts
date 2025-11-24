@@ -11,7 +11,6 @@ export const isString = (v: unknown): v is string => typeof v === "string";
 export const isObject = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null;
 export const isFunction = (v: unknown): v is Function => typeof v === "function";
 export const toHyphenCase = (k: string) => k.replace(/[a-z][A-Z]/g, (m) => m.charAt(0) + "-" + m.charAt(1).toLowerCase());
-export const hashCode = (s: string) => [...s].reduce((hash, c) => (Math.imul(31, hash) + c.charCodeAt(0)) | 0, 0);
 
 export class IdGen<T> extends Map<T, number> {
   #seq = 0;
@@ -26,6 +25,15 @@ export class IdGen<T> extends Map<T, number> {
     }
   }
 }
+
+/** calculates the hash code (32-bit) of a string. */
+export const hashCode = (str: string) => {
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    hash = Math.imul(31, hash) + str.charCodeAt(i);
+  }
+  return hash;
+};
 
 /** merge class names. */
 export const cx = (className: unknown): string => {
@@ -115,9 +123,9 @@ export const renderStyle = (style: unknown): string => {
 // copyied from https://github.com/h3js/rou3/blob/main/src/_utils.ts
 // by @pi0
 export const NullPrototypeObject = /* @__PURE__ */ (() => {
-  function ObjectWithNullPrototype() {}
-  ObjectWithNullPrototype.prototype = Object.create(null);
-  return ObjectWithNullPrototype;
+  function ONP() {}
+  ONP.prototype = Object.create(null);
+  return ONP;
 })() as unknown as { new(): Record<string, any> };
 
 /**
