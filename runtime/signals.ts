@@ -191,12 +191,12 @@ win.$MC = (scope: number, id: number, compute: Function, deps: string[]) => {
 // update an object with patches
 win.$patch = (obj: Record<string, unknown>, ...patches: unknown[][]) => {
   for (const [value, ...path] of patches) {
-    const key = path.pop()!;
+    let key = path.pop()! as string;
     let target = obj;
     for (const p of path) {
       target = (target as any)[p as string];
     }
-    target[key as string] = value;
+    target[key] = value;
   }
   return obj;
 };

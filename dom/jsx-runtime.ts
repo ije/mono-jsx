@@ -2,7 +2,7 @@ import type { ComponentType, VNode } from "../types/jsx.d.ts";
 import { JSX } from "../jsx.ts";
 import { domEscapeHTML, isString, NullPrototypeObject } from "../runtime/utils.ts";
 import { $fragment, $html, $vnode } from "../symbols.ts";
-import { isReactive, render } from "./render.ts";
+import { Reactive, render } from "./render.ts";
 
 const Fragment = $fragment as unknown as ComponentType;
 
@@ -29,14 +29,14 @@ const jsxEscape = (value: unknown): string => {
 const html = (template: string | TemplateStringsArray, ...values: unknown[]): VNode => [
   $html,
   {
-    innerHTML: isString(template) || isReactive(template) ? template : String.raw(template, ...values.map(jsxEscape)),
+    innerHTML: isString(template) || template instanceof Reactive ? template : String.raw(template, ...values.map(jsxEscape)),
   },
   $vnode,
 ];
 
 // inject mount method to HTMLElement prototype
 HTMLElement.prototype.mount = function(node: VNode, aboutSignal?: AbortSignal) {
-  render(new NullPrototypeObject() as any, node as JSX.Element, this, aboutSignal);
+  render(null as any, node as JSX.Element, this, aboutSignal);
 };
 
 // inject global variables

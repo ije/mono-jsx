@@ -1,25 +1,38 @@
 import type { ChildType, ComponentType, VNode } from "../types/jsx.d.ts";
 import { customElements } from "../jsx.ts";
-import { applyStyle, cx, isFunction, isObject, isString, NullPrototypeObject } from "../runtime/utils.ts";
+import { NullPrototypeObject, regexpIsNonDimensional } from "../runtime/utils.ts";
+import { hashCode, isFunction, isPlainObject, isString, toHyphenCase } from "../runtime/utils.ts";
 import { $fragment, $html, $vnode } from "../symbols.ts";
 
 interface IScope {
   [key: string]: unknown;
   readonly [$get]: (key: string) => unknown;
-  readonly [$watch]: (key: string, effect: () => void) => void;
+  readonly [$watch]: (key: string, effect: () => void) => () => void;
   readonly [$postbind]: () => void;
   readonly [$slots]: ChildType[] | undefined;
 }
 
-interface IReactive<T = unknown> {
-  get(): T;
-  reactive(effect: (value: T) => void): void;
+abstract class Reactive {
+  abstract get(): unknown;
+  abstract watch(callback: () => void, abortSignal: AbortSignal | undefined): void;
+  reactive(effect: (value: unknown) => void, abortSignal: AbortSignal | undefined) {
+    const update = () => effect(this.get());
+    update();
+    this.watch(update, abortSignal);
+  }
+  map(callback: (value: unknown, index: number) => JSX.Element) {
+    return new ReactiveList(this, callback);
+  }
+  toString() {
+    return "" + this.get();
+  }
 }
 
-class Signal implements IReactive {
+class Signal extends Reactive {
   #scope: IScope;
   #key: string;
   constructor(scope: IScope, key: string) {
+    super();
     this.#scope = scope;
     this.#key = key;
   }
@@ -29,52 +42,45 @@ class Signal implements IReactive {
   set(value: unknown) {
     this.#scope[this.#key] = value;
   }
-  reactive(effect: (value: unknown) => void) {
-    const update = () => effect(this.get());
-    update();
-    this.watch(update);
-  }
-  map(callback: (value: unknown, index: number) => JSX.Element) {
-    return new ReactiveList(this, callback);
-  }
-  watch(callback: () => void) {
-    this.#scope[$watch](this.#key, callback);
-  }
-  toString() {
-    return String(this.get());
+  watch(callback: () => void, abortSignal: AbortSignal | undefined) {
+    onAbort(abortSignal, this.#scope[$watch](this.#key, callback));
   }
 }
 
-class Compute implements IReactive {
+class Compute extends Reactive {
   #scope: IScope;
   #compute: () => unknown;
+  #deps?: Set<Signal>;
   constructor(
     scope: IScope,
     compute: () => unknown,
   ) {
+    super();
     this.#scope = scope;
     this.#compute = compute;
   }
   get() {
-    return this.#compute.call(this.#scope);
+    const shouldMark = !this.#deps && !$depsMark;
+    if (shouldMark) {
+      // start collecting dependencies
+      $depsMark = new Set<Signal>();
+    }
+    const value = this.#compute.call(this.#scope);
+    if (shouldMark) {
+      this.#deps = $depsMark;
+      // stop collecting dependencies
+      $depsMark = undefined;
+    }
+    return value;
   }
-  reactive(effect: (value: unknown) => void) {
-    const update = () => effect(this.get());
-    // start collecting dependencies
-    $depsMark = new Set<Signal>();
-    update();
-    $depsMark.forEach((dep) => dep.watch(update));
-    // stop collecting dependencies
-    $depsMark = undefined;
-  }
-  map(callback: (value: unknown, index: number) => JSX.Element) {
-    return new ReactiveList(this, callback);
+  watch(callback: () => void, abortSignal: AbortSignal | undefined) {
+    this.#deps?.forEach(dep => dep.watch(callback, abortSignal));
   }
 }
 
 class ReactiveList {
   constructor(
-    public readonly reactive: IReactive,
+    public readonly reactive: Reactive,
     public readonly callback: (value: unknown, index: number) => JSX.Element,
   ) {}
 }
@@ -116,17 +122,20 @@ const $get = Symbol();
 const $watch = Symbol();
 const $postbind = Symbol();
 const $slots = Symbol();
+const document = globalThis.document;
 const isVNode = (v: unknown): v is VNode => Array.isArray(v) && v.length === 3 && v[2] === $vnode;
-const isReactive = (v: unknown): v is Signal | Compute => v instanceof Signal || v instanceof Compute;
 const createTextNode = (text = "") => document.createTextNode(text);
 const createElement = (tag: string) => document.createElement(tag);
 const onAbort = (signal: AbortSignal | undefined, callback: () => void) => signal?.addEventListener("abort", callback);
 const setAttribute = (el: Element, name: string, value: unknown) => {
-  const type = typeof value;
-  if (type === "boolean") {
-    el.toggleAttribute(name, value as boolean);
-  } else if (type === "number" || type === "string") {
-    el.setAttribute(name, String(value));
+  switch (typeof value) {
+    case "boolean":
+      el.toggleAttribute(name, value);
+      break;
+    case "number":
+    case "string":
+      el.setAttribute(name, String(value));
+      break;
   }
 };
 
@@ -171,15 +180,15 @@ const render = (scope: IScope, child: ChildType, root: HTMLElement | DocumentFra
             cleanup();
             insertMark.insert(...nodes);
             list = newList;
-          });
+          }, abortSignal);
           onAbort(abortSignal, cleanup);
           return;
         }
-        if (isReactive(child)) {
+        if (child instanceof Reactive) {
           const textNode = createTextNode();
           child.reactive(value => {
             textNode.textContent = String(value);
-          });
+          }, abortSignal);
           root.appendChild(textNode);
           onAbort(abortSignal, () => textNode.remove());
           return;
@@ -201,12 +210,12 @@ const render = (scope: IScope, child: ChildType, root: HTMLElement | DocumentFra
             case $html: {
               const { innerHTML } = props;
               const mark = new InsertMark(root);
-              if (isReactive(innerHTML)) {
+              if (innerHTML instanceof Reactive) {
                 let cleanup: (() => void) | undefined;
                 innerHTML.reactive(html => {
                   cleanup?.();
                   cleanup = mark.insertHTML(html as string);
-                });
+                }, abortSignal);
                 onAbort(abortSignal, () => cleanup?.());
               } else {
                 onAbort(abortSignal, mark.insertHTML(innerHTML));
@@ -228,7 +237,7 @@ const render = (scope: IScope, child: ChildType, root: HTMLElement | DocumentFra
               // todo: support viewTransition
               let { value: valueProp, children } = props;
               if (children !== undefined) {
-                if (isReactive(valueProp)) {
+                if (valueProp instanceof Reactive) {
                   let mark = new InsertMark(root);
                   let ac: AbortController | undefined;
                   valueProp.reactive(value => {
@@ -237,7 +246,7 @@ const render = (scope: IScope, child: ChildType, root: HTMLElement | DocumentFra
                       ac = new AbortController();
                       mark.insert(renderToFragment(scope, children, ac.signal));
                     }
-                  });
+                  }, abortSignal);
                   onAbort(abortSignal, () => ac?.abort());
                 } else if (valueProp) {
                   renderChildren(scope, children, root, abortSignal);
@@ -251,7 +260,7 @@ const render = (scope: IScope, child: ChildType, root: HTMLElement | DocumentFra
               // todo: support viewTransition
               const { value: valueProp, children } = props;
               if (children !== undefined) {
-                if (isReactive(valueProp)) {
+                if (valueProp instanceof Reactive) {
                   let mark = new InsertMark(root);
                   let ac: AbortController | undefined;
                   valueProp.reactive(value => {
@@ -261,7 +270,7 @@ const render = (scope: IScope, child: ChildType, root: HTMLElement | DocumentFra
                       ac = new AbortController();
                       mark.insert(renderToFragment(scope, slots, ac.signal));
                     }
-                  });
+                  }, abortSignal);
                   onAbort(abortSignal, () => ac?.abort());
                 } else {
                   renderChildren(
@@ -295,29 +304,34 @@ const render = (scope: IScope, child: ChildType, root: HTMLElement | DocumentFra
                 for (const [attrName, attrValue] of Object.entries(attrs)) {
                   switch (attrName) {
                     case "class": {
-                      const updateClassName = (value: unknown) => {
-                        el.className = cx(value);
+                      const updateClassName = (className: string) => {
+                        el.className = [className, ...el.classList.values().filter(name => name.startsWith("css-"))].join(" ");
                       };
-                      if (isReactive(attrValue)) {
-                        attrValue.reactive(updateClassName);
-                      } else {
+                      if (isString(attrValue)) {
                         updateClassName(attrValue);
+                      } else {
+                        let mark: Set<Reactive> | undefined = new Set();
+                        let update = () => updateClassName(cx(attrValue, mark));
+                        update();
+                        for (const reactive of mark) {
+                          reactive.watch(update, abortSignal);
+                        }
+                        mark = undefined;
                       }
                       break;
                     }
 
                     case "style": {
-                      const updateStyle = (value: unknown) => {
-                        if (isObject(value)) {
-                          applyStyle(el, value);
-                        } else if (isString(value)) {
-                          el.style.cssText = value;
-                        }
-                      };
-                      if (isReactive(attrValue)) {
-                        attrValue.reactive(updateStyle);
+                      if (isString(attrValue)) {
+                        el.style.cssText = attrValue;
                       } else {
-                        updateStyle(attrValue);
+                        let mark: Set<Reactive> | undefined = new Set();
+                        let update = () => applyStyle(el, attrValue, mark);
+                        update();
+                        for (const reactive of mark) {
+                          reactive.watch(update, abortSignal);
+                        }
+                        mark = undefined;
                       }
                       break;
                     }
@@ -344,7 +358,7 @@ const render = (scope: IScope, child: ChildType, root: HTMLElement | DocumentFra
                         const isValue = name.charAt(0) === "v";
                         attrValue.reactive(value => {
                           (el as any)[name] = isValue ? String(value) : !!value;
-                        });
+                        }, abortSignal);
                         el.addEventListener("input", () => attrValue.set((el as any)[name]));
                         // queueMicrotask(() =>
                         //   (el as HTMLInputElement).form?.addEventListener(
@@ -382,8 +396,8 @@ const render = (scope: IScope, child: ChildType, root: HTMLElement | DocumentFra
                     default:
                       if (attrName.startsWith("on") && isFunction(attrValue)) {
                         el.addEventListener(attrName.slice(2).toLowerCase(), attrValue);
-                      } else if (isReactive(attrValue)) {
-                        attrValue.reactive(value => setAttribute(el, attrName, value));
+                      } else if (attrValue instanceof Reactive) {
+                        attrValue.reactive(value => setAttribute(el, attrName, value), abortSignal);
                       } else {
                         setAttribute(el, attrName, attrValue);
                       }
@@ -454,7 +468,7 @@ const renderFC = (fc: ComponentType, props: Record<string, unknown>, root: HTMLE
     });
   } else {
     scope[$postbind]();
-    if (isObject(v) && !isVNode(v) && Symbol.iterator in v) {
+    if (isPlainObject(v) && !isVNode(v) && Symbol.iterator in v) {
       for (const node of v) {
         render(scope, node as ChildType, root, abortSignal);
       }
@@ -499,6 +513,7 @@ const createScope = (slots: ChildType[] | undefined, abortSignal?: AbortSignal):
               watchHandlers.set(key, handlers);
             }
             handlers.add(effect);
+            return () => handlers.delete(effect);
           };
         case $postbind:
           return () => isBound = true;
@@ -541,7 +556,7 @@ const createScope = (slots: ChildType[] | undefined, abortSignal?: AbortSignal):
                 dep.watch(() => {
                   cleanup?.();
                   cleanup = callback.call(receiver);
-                })
+                }, abortSignal)
               );
               onAbort(abortSignal, () => cleanup?.());
               // stop collecting dependencies
@@ -552,7 +567,7 @@ const createScope = (slots: ChildType[] | undefined, abortSignal?: AbortSignal):
           return refs;
         default: {
           const value = Reflect.get(target, key as string, receiver);
-          if (isReactive(value)) {
+          if (value instanceof Reactive) {
             return isBound || $depsMark ? value.get() : value;
           }
           if (isBound || $depsMark) {
@@ -573,6 +588,7 @@ const createScope = (slots: ChildType[] | undefined, abortSignal?: AbortSignal):
         const prev = target[key];
         if (prev !== value) {
           target[key] = value;
+          // todo: batch update
           watchHandlers.get(key)?.forEach((effect) => effect());
         }
       }
@@ -588,4 +604,98 @@ const createScope = (slots: ChildType[] | undefined, abortSignal?: AbortSignal):
   return scope;
 };
 
-export { createScope, isReactive, render };
+const $ = <T>(value: T, mark?: Set<Reactive>): T => {
+  if (value instanceof Reactive) {
+    mark?.add(value);
+    value = value.get() as T;
+  }
+  return value;
+};
+
+const cx = (className: unknown, mark?: Set<Reactive>): string => {
+  className = $(className, mark);
+  if (isString(className)) {
+    return className;
+  }
+  if (typeof className === "object" && className !== null) {
+    return (
+      Array.isArray(className)
+        ? className.map(cn => cx(cn, mark)).filter(Boolean)
+        : Object.entries(className).filter(([, v]) => !!$(v, mark)).map(([k]) => k)
+    ).join(" ");
+  }
+  return "";
+};
+
+const applyStyle = (el: HTMLElement, style: unknown, mark?: Set<Reactive>): void => {
+  style = $(style, mark);
+  if (isPlainObject(style)) {
+    const { classList } = el;
+    classList.remove(...classList.values().filter(key => key.startsWith("css-")));
+    let inline: Record<string, unknown> | undefined;
+    for (let [k, v] of Object.entries(style)) {
+      v = $(v, mark);
+      let css: (string | null)[] = [];
+      switch (k.charCodeAt(0)) {
+        case /* ':' */ 58:
+          if (isPlainObject(v)) {
+            css.push(k.startsWith("::view-") ? "" : null, k + renderStyle(v, mark));
+          }
+          break;
+        case /* '@' */ 64:
+          if (isPlainObject(v)) {
+            if (k.startsWith("@keyframes ")) {
+              css.push(k + "{" + Object.entries(v).map(([k, v]) => isPlainObject(v) ? k + renderStyle(v, mark) : "").join("") + "}");
+            } else if (k.startsWith("@view-")) {
+              css.push(k + renderStyle(v, mark));
+            } else {
+              css.push(k + "{", null, renderStyle(v, mark) + "}");
+            }
+          }
+          break;
+        case /* '&' */ 38:
+          if (isPlainObject(v)) {
+            css.push(null, k.slice(1) + renderStyle(v, mark));
+          }
+          break;
+        default:
+          inline ??= {};
+          inline[k] = v;
+      }
+      if (css.length) {
+        classList.add(computeStyleClassName(css));
+      }
+    }
+    if (inline) {
+      classList.add(computeStyleClassName([null, renderStyle(inline)]));
+    }
+  } else if (isString(style)) {
+    el.style.cssText = style;
+  }
+};
+
+const renderStyle = (style: Record<string, unknown>, mark?: Set<Reactive>): string => {
+  let css = "";
+  for (let [k, v] of Object.entries(style)) {
+    v = $(v, mark);
+    const vt = typeof v;
+    if (vt === "string" || vt === "number") {
+      const cssKey = toHyphenCase(k);
+      const cssValue = vt === "number" ? (regexpIsNonDimensional.test(k) ? "" + v : v + "px") : "" + v;
+      css += (css ? ";" : "") + cssKey + ":" + (cssKey === "content" ? JSON.stringify(cssValue) : cssValue) + ";";
+    }
+  }
+  return "{" + css + "}";
+};
+
+const computeStyleClassName = (css: (string | null)[]) => {
+  const className = "css-" + hashCode(css.join("")).toString(36).replace("-", "n");
+  if (!document.getElementById(className)) {
+    const styleEl = document.head.appendChild(createElement("style"));
+    styleEl.id = className;
+    styleEl.textContent = css.map(v => v === null ? "." + className : v).join("");
+  }
+  return className;
+};
+
+export { createScope, Reactive, render };

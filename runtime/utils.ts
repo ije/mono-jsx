@@ -3,13 +3,15 @@ declare global {
   var $applyStyle: (el: Element, style: unknown) => void;
 }
 
-const regexpCssBareUnitProps = /acit|ex(?:s|g|n|p|$)|rph|grid|ows|mnc|ntw|ine[ch]|zoo|^ord|itera/i; // copied https://github.com/preactjs/preact
-const regexpHtmlSafe = /["'&<>]/;
-const cssIds = new Set<number>();
+export const regexpIsNonDimensional =
+  /^(-|f[lo].*[^se]$|g.{5,}[^ps]$|z|o[pr]|(W.{5})?[lL]i.*(t|mp)$|an|(bo|s).{4}Im|sca|m.{6}[ds]|ta|c.*[st]$|wido|ini)/; // copied from https://github.com/preactjs/preact/blob/main/compat/src/util.js
+export const regexpHtmlSafe = /["'&<>]/;
+export const cssIds = new Set<number>();
 
 export const isString = (v: unknown): v is string => typeof v === "string";
-export const isObject = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null;
 export const isFunction = (v: unknown): v is Function => typeof v === "function";
+export const isObject = (v: unknown): v is object => typeof v === "object" && v !== null;
+export const isPlainObject = (v: unknown): v is Record<string, unknown> => !!v && (v.constructor === Object || v.constructor === undefined);
 export const toHyphenCase = (k: string) => k.replace(/[a-z][A-Z]/g, (m) => m.charAt(0) + "-" + m.charAt(1).toLowerCase());
 
 export class IdGen<T> extends Map<T, number> {
@@ -30,7 +32,7 @@ export class IdGen<T> extends Map<T, number> {
 export const hashCode = (str: string) => {
   let hash = 0;
   for (let i = 0; i < str.length; i++) {
-    hash = Math.imul(31, hash) + str.charCodeAt(i);
+    hash = Math.imul(31, hash) + str.charCodeAt(i) | 0;
   }
   return hash;
 };
@@ -41,47 +43,13 @@ export const cx = (className: unknown): string => {
     return className;
   }
   if (typeof className === "object" && className !== null) {
-    if (Array.isArray(className)) {
-      return className.map(cx).filter(Boolean).join(" ");
-    }
-    return Object.entries(className).filter(([, v]) => !!v).map(([k]) => k).join(" ");
+    return (
+      Array.isArray(className)
+        ? className.map(cx).filter(Boolean)
+        : Object.entries(className).filter(([, v]) => !!v).map(([k]) => k)
+    ).join(" ");
   }
   return "";
-};
-
-/** converts style object to css string. */
-export const styleToCSS = (style: Record<string, unknown>): { inline?: string; css?: Array<string | null> } => {
-  const inline: [string, string | number][] = [];
-  const css: Array<string | null> = [];
-  const ret: ReturnType<typeof styleToCSS> = new NullPrototypeObject();
-  for (const [k, v] of Object.entries(style)) {
-    switch (k.charCodeAt(0)) {
-      case /* ':' */ 58:
-        css.push(k.startsWith("::view-") ? "" : null, k + "{" + renderStyle(v) + "}");
-        break;
-      case /* '@' */ 64:
-        if (k.startsWith("@keyframes ") || k.startsWith("@view-")) {
-          if (isObject(v)) {
-            css.push(k + "{" + Object.entries(v).map(([k, v]) => k + "{" + renderStyle(v) + "}").join("") + "}");
-          }
-        } else {
-          css.push(k + "{", null, "{" + renderStyle(v) + "}}");
-        }
-        break;
-      case /* '&' */ 38:
-        css.push(null, k.slice(1) + "{" + renderStyle(v) + "}");
-        break;
-      default:
-        inline.push([k, v as string | number]);
-    }
-  }
-  if (inline.length > 0) {
-    ret.inline = renderStyle(inline);
-  }
-  if (css.length > 0) {
-    ret.css = css;
-  }
-  return ret;
 };
 
 /** applies the style to the page. */
@@ -104,19 +72,59 @@ export const applyStyle = (el: Element, style: Record<string, unknown>): void =>
   }
 };
 
-export const renderStyle = (style: unknown): string => {
-  if (typeof style === "object" && style !== null) {
-    let css = "";
-    for (const [k, v] of Array.isArray(style) ? style : Object.entries(style)) {
-      if (isString(v) || typeof v === "number") {
-        const cssKey = toHyphenCase(k);
-        const cssValue = typeof v === "number" ? (regexpCssBareUnitProps.test(k) ? "" + v : v + "px") : "" + v;
-        css += (css ? ";" : "") + cssKey + ":" + (cssKey === "content" ? JSON.stringify(cssValue) : cssValue);
-      }
+/** converts style object to css string. */
+export const styleToCSS = (style: Record<string, unknown>): { inline?: string; css?: Array<string | null> } => {
+  let inline: Record<string, unknown> | undefined;
+  let css: Array<string | null> = [];
+  let ret: ReturnType<typeof styleToCSS> = new NullPrototypeObject();
+  for (const [k, v] of Object.entries(style)) {
+    switch (k.charCodeAt(0)) {
+      case /* ':' */ 58:
+        if (isPlainObject(v)) {
+          css.push(k.startsWith("::view-") ? "" : null, k + renderStyle(v));
+        }
+        break;
+      case /* '@' */ 64:
+        if (isPlainObject(v)) {
+          if (k.startsWith("@keyframes ")) {
+            css.push(k + "{" + Object.entries(v).map(([p, s]) => isPlainObject(s) ? p + renderStyle(s) : "").join("") + "}");
+          } else if (k.startsWith("@view-")) {
+            css.push(k + renderStyle(v));
+          } else {
+            css.push(k + "{", null, renderStyle(v) + "}");
+          }
+        }
+        break;
+      case /* '&' */ 38:
+        if (isPlainObject(v)) {
+          css.push(null, k.slice(1) + renderStyle(v));
+        }
+        break;
+      default:
+        inline ??= {};
+        inline[k] = v;
     }
-    return css;
   }
-  return "";
+  if (inline) {
+    ret.inline = renderStyle(inline).slice(1, -1);
+  }
+  if (css.length > 0) {
+    ret.css = css;
+  }
+  return ret;
+};
+
+export const renderStyle = (style: Record<string, unknown>): string => {
+  let css = "";
+  for (const [k, v] of Object.entries(style)) {
+    const vt = typeof v;
+    if (vt === "string" || vt === "number") {
+      const cssKey = toHyphenCase(k);
+      const cssValue = vt === "number" ? (regexpIsNonDimensional.test(k) ? "" + v : v + "px") : "" + v;
+      css += (css ? ";" : "") + cssKey + ":" + (cssKey === "content" ? JSON.stringify(cssValue) : cssValue);
+    }
+  }
+  return "{" + css + "}";
 };
 
 // Fastest way for creating null-prototype objects in JavaScript

@@ -6,18 +6,8 @@ import { COMPONENT, CX, EVENT, FORM, ROUTER, SIGNALS, STYLE, SUSPENSE } from "./
 import { COMPONENT_JS, CX_JS, EVENT_JS, FORM_JS, ROUTER_JS, SIGNALS_JS, STYLE_JS, SUSPENSE_JS } from "./runtime/index.ts";
 import { RENDER_ATTR, RENDER_SWITCH, RENDER_TOGGLE } from "./runtime/index.ts";
 import { RENDER_ATTR_JS, RENDER_SWITCH_JS, RENDER_TOGGLE_JS } from "./runtime/index.ts";
-import {
-  cx,
-  escapeHTML,
-  hashCode,
-  IdGen,
-  isFunction,
-  isObject,
-  isString,
-  NullPrototypeObject,
-  styleToCSS,
-  toHyphenCase,
-} from "./runtime/utils.ts";
+import { IdGen, isObject, NullPrototypeObject } from "./runtime/utils.ts";
+import { cx, escapeHTML, hashCode, isFunction, isPlainObject, isString, styleToCSS, toHyphenCase } from "./runtime/utils.ts";
 import { $fragment, $html, $vnode } from "./symbols.ts";
 import { VERSION } from "./version.ts";
 
@@ -959,7 +949,7 @@ function renderAttr(
     case "style":
       if (isString(attrValue)) {
         attr = ' style="' + escapeCSSText(attrValue) + '"';
-      } else if (isObject(attrValue) && !Array.isArray(attrValue)) {
+      } else if (isPlainObject(attrValue)) {
         const { inline, css } = styleToCSS(attrValue);
         if (css) {
           const id = hashCode((inline ?? "") + css.join("")).toString(36);
@@ -974,7 +964,7 @@ function renderAttr(
       }
       break;
     case "props":
-      if (isObject(attrValue) && !Array.isArray(attrValue)) {
+      if (isPlainObject(attrValue)) {
         attr = ' props="base64,' + btoa(stringify(attrValue)) + '"';
       }
       break;
@@ -1289,7 +1279,7 @@ function markSignals(rc: RenderContext, signals: Record<symbol, unknown>) {
 }
 
 function traverseProps(
-  obj: Record<string, unknown> | Array<unknown>,
+  obj: object,
   callback: (path: string[], signal: Signal) => void,
   path: string[] = [],
 ): typeof obj {
