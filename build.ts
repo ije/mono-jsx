@@ -1,4 +1,4 @@
-import { build, stop } from "https://deno.land/x/esbuild@v0.25.10/mod.js";
+import { build, stop, transform } from "https://deno.land/x/esbuild@v0.25.10/mod.js";
 import pkgJson from "./package.json" with { type: "json" };
 
 async function buildRuntime(name: string): Promise<string> {
@@ -16,10 +16,10 @@ async function buildRuntime(name: string): Promise<string> {
   return ret.outputFiles[0].text.trim();
 }
 
-async function buildFunction(filename: string, name: string): Promise<string> {
+async function buildChunk(filename: string, exportName: string): Promise<string> {
   const ret = await build({
     stdin: {
-      contents: `export { ${name} } from "./runtime/${filename}";`,
+      contents: `export { ${exportName} } from "./runtime/${filename}";`,
       resolveDir: "./",
     },
     platform: "browser",
@@ -32,7 +32,7 @@ async function buildFunction(filename: string, name: string): Promise<string> {
   if (ret.errors.length > 0) {
     throw new Error(ret.errors[0].text);
   }
-  return ret.outputFiles[0].text.trim().replace(/export\{(\w+) as (\w+)\};$/, "window.$" + name + "=$1;");
+  return ret.outputFiles[0].text.trim().replace(/export\{(\w+) as (\w+)\};$/, "window.$" + exportName + "=$1;");
 }
 
 async function buildPackageModule(name: string, format: "esm" | "cjs" = "esm") {
@@ -47,15 +47,36 @@ async function buildPackageModule(name: string, format: "esm" | "cjs" = "esm") {
     minify: false,
     external: ["node:*"],
   });
-  return await Deno.lstat(outfile);
+  const gzippedSize = await getGzippedSize(await Deno.readTextFile(outfile));
+  return {
+    size: (await Deno.lstat(outfile)).size,
+    gzippedSize,
+  };
 }
 
-function stringLit(str: string): string {
-  return "`{" + str + "}`";
+async function getGzippedSize(code: string, minify: boolean = true): Promise<number> {
+  if (minify) {
+    code = (await transform(code, {
+      loader: "js",
+      platform: "browser",
+      format: "esm",
+      target: "es2022",
+      minify: true,
+    })).code;
+  }
+  const readableStream = new ReadableStream({
+    start(controller) {
+      controller.enqueue(new TextEncoder().encode(code));
+      controller.close();
+    },
+  });
+  const res = new Response(readableStream.pipeThrough(new CompressionStream("gzip")));
+  const buffer = await res.arrayBuffer();
+  return buffer.byteLength;
 }
 
 function formatBytes(bytes: number): string {
-  return bytes.toLocaleString() + " bytes";
+  return bytes.toLocaleString() + "B";
 }
 
 if (import.meta.main) {
@@ -83,11 +104,11 @@ if (import.meta.main) {
   ].join("");
   const runtimeJS = {
     "event.js": await Promise.resolve(eventJS),
-    "cx.js": await buildFunction("utils.ts", "cx"),
-    "style.js": await buildFunction("utils.ts", "applyStyle"),
-    "render_attr.js": await buildFunction("render.ts", "renderAttr"),
-    "render_toggle.js": await buildFunction("render.ts", "renderToggle"),
-    "render_switch.js": await buildFunction("render.ts", "renderSwitch"),
+    "cx.js": await buildChunk("utils.ts", "cx"),
+    "style.js": await buildChunk("utils.ts", "applyStyle"),
+    "render_attr.js": await buildChunk("render.ts", "renderAttr"),
+    "render_toggle.js": await buildChunk("render.ts", "renderToggle"),
+    "render_switch.js": await buildChunk("render.ts", "renderSwitch"),
     "signals.js": await buildRuntime("signals"),
     "suspense.js": await buildRuntime("suspense"),
     "component.js": await buildRuntime("component"),
@@ -110,14 +131,14 @@ if (import.meta.main) {
         const exportName = name.replace(/([a-z])([A-Z])/g, "$1_$2").replace(".", "_").toUpperCase();
         const comment = `/** ${name} (${formatBytes(js.length)}) */`;
         console.log(`· *${name} %c(${formatBytes(js.length)})`, "color:grey");
-        return comment + eol + `export const ${exportName} = ${stringLit(js)};` + eol;
+        return comment + eol + `export const ${exportName} = \`{${js}}\`;` + eol;
       }),
     ].join(eol),
   );
 
   for (const moduleName of ["setup", "index", "jsx-runtime", "dom/jsx-runtime"]) {
-    const { size } = await buildPackageModule(moduleName, "esm");
-    console.log(`· ${moduleName}.mjs %c(${formatBytes(size)})`, "color:grey");
+    const { size, gzippedSize } = await buildPackageModule(moduleName, "esm");
+    console.log(`· ${moduleName}.mjs %c(${formatBytes(size)}, ${formatBytes(gzippedSize)} gzipped)`, "color:grey");
   }
 
   await Deno.writeTextFile("./version.ts", `export const VERSION = "${pkgJson.version}";` + eol);
