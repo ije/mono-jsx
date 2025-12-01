@@ -4,9 +4,6 @@ import type * as Aria from "./aria.d.ts";
 import type * as CSS from "./css.d.ts";
 import type * as Mono from "./jsx.d.ts";
 
-type D9 = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9;
-type D100 = 0 | D9 | `${D9}${0 | D9}` | 100;
-
 export interface BaseCSSProperties extends CSS.Properties<string | number> {
   /**
    * The field-sizing CSS property enables you to control the sizing behavior of elements that are given a default preferred size, such as form control elements. This property enables you to override the default sizing behavior, allowing form controls to adjust in size to fit their contents.
@@ -30,7 +27,7 @@ export interface AtRuleCSSProperties {
   [key: `@media${" " | "("}${string}`]: BaseCSSProperties;
   [key: `@supports${" " | "("}${string}`]: BaseCSSProperties;
   [key: `@keyframes ${string}`]: {
-    [key in "from" | "to" | `${D100}%`]?: BaseCSSProperties;
+    [key in "from" | "to" | `${number}%`]?: BaseCSSProperties;
   };
   "@view-transition"?: {
     /**
