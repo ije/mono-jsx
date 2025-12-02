@@ -2,7 +2,7 @@ import type { ComponentType, VNode } from "../types/jsx.d.ts";
 import { JSX } from "../jsx.ts";
 import { domEscapeHTML, isString, NullPrototypeObject } from "../runtime/utils.ts";
 import { $fragment, $html, $vnode } from "../symbols.ts";
-import { Reactive, render } from "./render.ts";
+import { createStore, Reactive, render } from "./render.ts";
 
 const Fragment = $fragment as unknown as ComponentType;
 
@@ -41,6 +41,7 @@ HTMLElement.prototype.mount = function(node: VNode, aboutSignal?: AbortSignal) {
 
 // inject global variables
 Object.assign(globalThis, {
+  createStore,
   JSX,
   html,
   css: html,

@@ -13,10 +13,15 @@ declare global {
   namespace JSX {
     interface BuiltinElements extends Mono.Elements {}
   }
+
   interface HTMLElement {
     /**
      * Mounts a VNode to the DOM element.
+     *
+     * @mono-jsx
      */
     mount(node: VNode, aboutSignal?: AbortSignal): void;
   }
+
+  var createStore: <T extends Record<string, unknown>>(initValue: T) => FC & T;
 }

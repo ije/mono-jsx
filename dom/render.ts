@@ -6,10 +6,11 @@ import { $fragment, $html, $vnode } from "../symbols.ts";
 
 interface IScope {
   [key: string]: unknown;
+  readonly [$slots]: ChildType[] | undefined;
   readonly [$get]: (key: string) => unknown;
   readonly [$watch]: (key: string, effect: () => void) => () => void;
-  readonly [$postbind]: () => void;
-  readonly [$slots]: ChildType[] | undefined;
+  readonly [$expr]: (ok: boolean) => void;
+  readonly extend: <T = Record<string, unknown>>(props: T) => IScope & T;
 }
 
 abstract class Reactive {
@@ -120,8 +121,9 @@ class InsertMark {
 
 const $get = Symbol();
 const $watch = Symbol();
-const $postbind = Symbol();
+const $expr = Symbol();
 const $slots = Symbol();
+const stores = new Set<IScope>();
 const document = globalThis.document;
 const isVNode = (v: unknown): v is VNode => Array.isArray(v) && v.length === 3 && v[2] === $vnode;
 const createTextNode = (text = "") => document.createTextNode(text);
@@ -137,6 +139,132 @@ const setAttribute = (el: Element, name: string, value: unknown) => {
       el.setAttribute(name, String(value));
       break;
   }
+};
+
+// for reactive dependencies tracking
+let $depsMark: Set<Signal> | undefined;
+
+const createScope = (slots?: ChildType[], abortSignal?: AbortSignal): IScope => {
+  let exprMode = true;
+  let watchHandlers = new Map<string, Set<() => void>>();
+  let refElements = new Map<string, HTMLElement>();
+  let signals = new Map<string, Signal>();
+  let refs = new Proxy(new NullPrototypeObject(), {
+    get(_, key: string) {
+      if (!exprMode || $depsMark) {
+        return refElements.get(key);
+      }
+      return new Ref(refElements, key);
+    },
+  });
+  let scope = new Proxy(new NullPrototypeObject() as IScope, {
+    get(target, key, receiver) {
+      switch (key) {
+        case $get:
+          return (key: string) => target[key];
+        case $watch:
+          return (key: string, effect: () => void) => {
+            let handlers = watchHandlers.get(key);
+            if (!handlers) {
+              handlers = new Set();
+              watchHandlers.set(key, handlers);
+            }
+            handlers.add(effect);
+            return () => handlers.delete(effect);
+          };
+        case $expr:
+          return (ok: boolean) => exprMode = ok;
+        case $slots:
+          return slots;
+        case "init":
+          return (init: Record<string, unknown>) => {
+            Object.assign(target, init);
+          };
+        case "extend":
+          return (init: Record<string, unknown>) => {
+            for (const [key, { set, get, value }] of Object.entries(Object.getOwnPropertyDescriptors(init))) {
+              if (set) {
+                throw new TypeError("setter is not allowed");
+              }
+              if (get) {
+                target[key] = new Compute(receiver, get);
+              } else {
+                if (key === "effect") {
+                  if (isFunction(value)) {
+                    receiver.effect(value);
+                  }
+                } else {
+                  target[key] = value;
+                }
+              }
+            }
+            return receiver;
+          };
+        case "$":
+        case "compute":
+          return (fn: () => unknown) => new Compute(receiver, fn);
+        case "effect":
+          return (callback: () => (() => void) | void) => {
+            queueMicrotask(() => {
+              // start collecting dependencies
+              $depsMark = new Set<Signal>();
+              let cleanup = callback.call(receiver);
+              $depsMark.forEach((dep) =>
+                dep.watch(() => {
+                  cleanup?.();
+                  cleanup = callback.call(receiver);
+                }, abortSignal)
+              );
+              onAbort(abortSignal, () => cleanup?.());
+              // stop collecting dependencies
+              $depsMark = undefined;
+            });
+          };
+        case "refs":
+          return refs;
+        default: {
+          const value = Reflect.get(target, key as string, receiver);
+          if (value instanceof Reactive) {
+            return !exprMode || $depsMark ? value.get() : value;
+          }
+          if (!exprMode || $depsMark) {
+            if ($depsMark && isString(key) && !isFunction(value)) {
+              $depsMark.add(getSignal(key));
+            }
+            return value;
+          }
+          if (isString(key)) {
+            return getSignal(key);
+          }
+          return value;
+        }
+      }
+    },
+    set(target, key, value) {
+      if (isString(key)) {
+        const prev = target[key];
+        if (prev !== value) {
+          target[key] = value;
+          // todo: batch update
+          watchHandlers.get(key)?.forEach((effect) => effect());
+        }
+      }
+      return true;
+    },
+  });
+  let getSignal = (key: string) => signals.get(key) ?? signals.set(key, new Signal(scope, key)).get(key)!;
+  onAbort(abortSignal, () => {
+    watchHandlers.clear();
+    refElements.clear();
+    signals.clear();
+  });
+  return scope;
+};
+
+const createStore = (props: Record<string, unknown>) => {
+  const scope = createScope().extend(props);
+  stores.add(scope);
+  return scope;
 };
 
 const render = (scope: IScope, child: ChildType, root: HTMLElement | DocumentFragment, abortSignal?: AbortSignal) => {
@@ -439,6 +567,7 @@ const renderChildren = (
 };
 
 const renderFC = (fc: ComponentType, props: Record<string, unknown>, root: HTMLElement | DocumentFragment, abortSignal?: AbortSignal) => {
+  stores.forEach(scope => scope[$expr](true));
   const scope = createScope(props.children as ChildType[] | undefined, abortSignal) as unknown as IScope;
   const v = fc.call(scope, props);
   if (v instanceof Promise) {
@@ -451,7 +580,8 @@ const renderFC = (fc: ComponentType, props: Record<string, unknown>, root: HTMLE
     }
     root.append(...placeholder);
     v.then((nodes) => {
-      scope[$postbind]();
+      stores.forEach(scope => scope[$expr](false));
+      scope[$expr](false);
       placeholder[0].replaceWith(...renderToFragment(scope, nodes as ChildType, abortSignal).childNodes);
     }).catch((err) => {
       if (isFunction(props.catch)) {
@@ -467,7 +597,8 @@ const renderFC = (fc: ComponentType, props: Record<string, unknown>, root: HTMLE
       placeholder.forEach(node => node.remove());
     });
   } else {
-    scope[$postbind]();
+    stores.forEach(scope => scope[$expr](false));
+    scope[$expr](false);
     if (isPlainObject(v) && !isVNode(v) && Symbol.iterator in v) {
       for (const node of v) {
         render(scope, node as ChildType, root, abortSignal);
@@ -482,126 +613,6 @@ const renderToFragment = (scope: IScope, node: ChildType | ChildType[], aboutSig
   const fragment = document.createDocumentFragment();
   renderChildren(scope, node, fragment, aboutSignal);
   return fragment;
-};
-
-// for reactive dependencies tracking
-let $depsMark: Set<Signal> | undefined;
-
-const createScope = (slots: ChildType[] | undefined, abortSignal?: AbortSignal): IScope => {
-  let isBound = false;
-  let watchHandlers = new Map<string, Set<() => void>>();
-  let refElements = new Map<string, HTMLElement>();
-  let signals = new Map<string, Signal>();
-  let refs = new Proxy(new NullPrototypeObject(), {
-    get(_, key: string) {
-      if (isBound || $depsMark) {
-        return refElements.get(key);
-      }
-      return new Ref(refElements, key);
-    },
-  });
-  let scope = new Proxy(new NullPrototypeObject() as IScope, {
-    get(target, key, receiver) {
-      switch (key) {
-        case $get:
-          return (key: string) => target[key];
-        case $watch:
-          return (key: string, effect: () => void) => {
-            let handlers = watchHandlers.get(key);
-            if (!handlers) {
-              handlers = new Set();
-              watchHandlers.set(key, handlers);
-            }
-            handlers.add(effect);
-            return () => handlers.delete(effect);
-          };
-        case $postbind:
-          return () => isBound = true;
-        case $slots:
-          return slots;
-        case "init":
-          return (init: Record<string, unknown>) => {
-            Object.assign(target, init);
-          };
-        case "extend":
-          return (init: Record<string, unknown>) => {
-            for (const [key, { set, get, value }] of Object.entries(Object.getOwnPropertyDescriptors(init))) {
-              if (set) {
-                throw new TypeError("setter is not allowed");
-              }
-              if (get) {
-                target[key] = new Compute(receiver, get);
-              } else {
-                if (key === "effect") {
-                  if (isFunction(value)) {
-                    receiver.effect(value);
-                  }
-                } else {
-                  target[key] = value;
-                }
-              }
-            }
-            return receiver;
-          };
-        case "$":
-        case "compute":
-          return (fn: () => unknown) => new Compute(receiver, fn);
-        case "effect":
-          return (callback: () => (() => void) | void) => {
-            queueMicrotask(() => {
-              // start collecting dependencies
-              $depsMark = new Set<Signal>();
-              let cleanup = callback.call(receiver);
-              $depsMark.forEach((dep) =>
-                dep.watch(() => {
-                  cleanup?.();
-                  cleanup = callback.call(receiver);
-                }, abortSignal)
-              );
-              onAbort(abortSignal, () => cleanup?.());
-              // stop collecting dependencies
-              $depsMark = undefined;
-            });
-          };
-        case "refs":
-          return refs;
-        default: {
-          const value = Reflect.get(target, key as string, receiver);
-          if (value instanceof Reactive) {
-            return isBound || $depsMark ? value.get() : value;
-          }
-          if (isBound || $depsMark) {
-            if ($depsMark && isString(key) && !isFunction(value)) {
-              $depsMark.add(getSignal(key));
-            }
-            return value;
-          }
-          if (isString(key)) {
-            return getSignal(key);
-          }
-          return value;
-        }
-      }
-    },
-    set(target, key, value) {
-      if (isString(key)) {
-        const prev = target[key];
-        if (prev !== value) {
-          target[key] = value;
-          // todo: batch update
-          watchHandlers.get(key)?.forEach((effect) => effect());
-        }
-      }
-      return true;
-    },
-  });
-  let getSignal = (key: string) => signals.get(key) ?? signals.set(key, new Signal(scope, key)).get(key)!;
-  onAbort(abortSignal, () => {
-    watchHandlers.clear();
-    refElements.clear();
-    signals.clear();
-  });
-  return scope;
 };
 
 const $ = <T>(value: T, mark?: Set<Reactive>): T => {
@@ -689,7 +700,9 @@ const renderStyle = (style: Record<string, unknown>, mark?: Set<Reactive>): stri
 };
 
 const computeStyleClassName = (css: (string | null)[]) => {
-  const className = "css-" + hashCode(css.join("")).toString(36).replace("-", "n");
+  const hash = hashCode(css.join("")).toString(36);
+  const char0 = hash.charAt(0);
+  const className = "css-" + (char0 === "-" ? "n" : char0) + hash.slice(1);
   if (!document.getElementById(className)) {
     const styleEl = document.head.appendChild(createElement("style"));
     styleEl.id = className;
@@ -698,4 +711,4 @@ const computeStyleClassName = (css: (string | null)[]) => {
   return className;
 };
 
-export { createScope, Reactive, render };
+export { createStore, Reactive, render };
