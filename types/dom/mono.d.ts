@@ -44,4 +44,10 @@ declare global {
      */
     extend<T extends Record<string, unknown>>(initValue: T): FC & T;
   }
+
+  /**
+   * Creates a new signals object.
+   * @mono-jsx
+   */
+  var Store: <T extends Record<string, unknown>>(initValue: T) => FC & T;
 }

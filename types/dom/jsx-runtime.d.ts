@@ -22,6 +22,4 @@ declare global {
      */
     mount(node: VNode, aboutSignal?: AbortSignal): void;
   }
-
-  var createStore: <T extends Record<string, unknown>>(initValue: T) => FC & T;
 }

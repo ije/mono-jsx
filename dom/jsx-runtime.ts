@@ -41,7 +41,7 @@ HTMLElement.prototype.mount = function(node: VNode, aboutSignal?: AbortSignal) {
 
 // inject global variables
 Object.assign(globalThis, {
-  createStore,
+  Store: createStore,
   JSX,
   html,
   css: html,
