@@ -26,7 +26,8 @@ const createTestPage = async (code: string) => {
         <script type="importmap">
           {
             "imports": {
-              "mono-jsx/dom/jsx-runtime": "/mono-jsx/dom/jsx-runtime"
+              "mono-jsx/dom": "/mono-jsx/dom/index.mjs",
+              "mono-jsx/dom/jsx-runtime": "/mono-jsx/dom/jsx-runtime.mjs"
             }
           }
         </script>
@@ -56,12 +57,13 @@ const sanitizeFalse = { sanitizeResources: false, sanitizeOps: false };
 Deno.test.beforeAll(async () => {
   Deno.serve({ port: 8688, onListen: () => {}, signal: ac.signal }, async (request) => {
     const url = new URL(request.url);
-    if (url.pathname === "/mono-jsx/dom/jsx-runtime") {
-      const f = await Deno.open("./dom/jsx-runtime.mjs");
+    const { pathname } = url;
+    if (pathname.startsWith("/mono-jsx/dom/")) {
+      const f = await Deno.open("." + pathname.slice("/mono-jsx".length));
       return new Response(f.readable, { headers: { "Content-Type": "application/javascript; charset=utf-8" } });
     }
-    if (url.pathname.startsWith("/test_")) {
-      const code = await testRoutes.get(url.pathname);
+    if (pathname.startsWith("/test_")) {
+      const code = await testRoutes.get(pathname);
       return new Response(code, { headers: { "Content-Type": "text/html; charset=utf-8" } });
     }
     return new Response("Not Found", { status: 404 });
@@ -70,28 +72,30 @@ Deno.test.beforeAll(async () => {
   const DEBUG = false;
   if (DEBUG) {
     console.log(addTestPage(`
-      function App(this: FC<{ color: string, hoverColor: string }>) {
-        this.color = "blue";
-        this.hoverColor = "green";
-        const win = this.extend({
-          width: window.innerWidth,
-          height: window.innerHeight,
-          get fmt() {
-            return this.width + "x" +this.height;
-          },
-          effect() {
-            window.addEventListener("resize", () => {
-              this.width = window.innerWidth;
-              this.height = window.innerHeight;
-            });
-          },
-        });
+      import { Store } from "mono-jsx/dom";
+      console.log(Store);
+      const colors = Store({ main: "blue", hover: "green" });
+      const win = Store({
+        width: window.innerWidth,
+        height: window.innerHeight,
+        get fmt() {
+          return this.width + "x" +this.height;
+        },
+        effect() {
+          window.addEventListener("resize", () => {
+            this.width = window.innerWidth;
+            this.height = window.innerHeight;
+          });
+        },
+      });
+
+      function App(this: FC) {
         this.effect(() => {
           console.log("window size:", win.fmt);
         });
         return (
           <>
-            <h1 class={["title", this.color]} style={{ color: this.color, ":hover": { color: this.hoverColor }}} onClick={() => this.color = "red"}>Welcome to mono-jsx!</h1>
+            <h1 class={["title", colors.main]} style={{ color: colors.main, ":hover": { color: colors.hover }}} onClick={() => colors.main = "red"}>Welcome to mono-jsx!</h1>
             <p>Window size: {win.fmt}.</p>
           </>
         );
@@ -233,7 +237,7 @@ Deno.test("[dom] signals", sanitizeFalse, async (t) => {
   await t.step("signals reactive", async () => {
     const testUrl = addTestPage(`
       function App(this: FC<{ count: number }>) {
-        this.init({ count: 1 });
+        this.count = 1;
         return <div>
           <button onClick={() => this.count++}>{this.count}</button>
         </div>;
@@ -256,7 +260,7 @@ Deno.test("[dom] signals", sanitizeFalse, async (t) => {
   await t.step("compiuted signals", async () => {
     const testUrl = addTestPage(`
       function App(this: FC<{ count: number }>) {
-        this.init({ count: 1 });
+        this.count = 1;
         return <div>
           <button onClick={() => this.count++}>{this.$(() => 2*this.count)}</button>
         </div>;
@@ -282,7 +286,7 @@ Deno.test("[dom] signals", sanitizeFalse, async (t) => {
         return <span>{count}</span>;
       }
       function App(this: FC<{ count: number }>) {
-        this.init({ count: 1 });
+        this.count = 1;
         return <div>
           <Display count={this.count} />
           <button onClick={() => this.count++}>Click me</button>
@@ -330,7 +334,7 @@ Deno.test("[dom] signals", sanitizeFalse, async (t) => {
   await t.step("async signals", async () => {
     const testUrl = addTestPage(`
       async function App(this: FC<{ count: number }>) {
-        this.init({ count: await Promise.resolve(1) });
+        this.count = await Promise.resolve(1);
         return <div>
           <button onClick={() => this.count++}>{this.count}</button>
         </div>;
@@ -353,7 +357,7 @@ Deno.test("[dom] signals", sanitizeFalse, async (t) => {
   await t.step("async signals as props", async () => {
     const testUrl = addTestPage(`
       function App(this: FC<{ input: string }>) {
-        this.init({ input: '' });
+        this.input = ''
         return <>
           <p>{this.input}</p>
           <input $value={this.input} />
@@ -413,6 +417,54 @@ Deno.test("[dom] signals", sanitizeFalse, async (t) => {
 
     await page.close();
   });
+
+  await t.step("global store", async () => {
+    const testUrl = addTestPage(`
+      import * as dom from "mono-jsx/dom";
+      const count = Store({
+        value: 1,
+        get double() {
+          return this.value * 2;
+        },
+        increment() {
+          this.value++;
+        }
+      });
+      function H1(this: FC) {
+        return <h1>{count.value}-{count.double}</h1>
+      }
+      function H2(this: FC) {
+        return <h2>{count.value}-{count.double}</h2>
+      }
+      function Button(this: FC) {
+        return <button onClick={() => count.increment()}>Increment</button>
+      }
+      document.body.mount(<><H1 /><H2 /><Button /><p>{dom.Store === Store ? "true" : "false"}</p></>);
+    `);
+    const page = await browser.newPage();
+    await page.goto(testUrl);
+
+    const p = await page.$("body > p");
+    assert(p);
+    assertEquals(await p.evaluate((el) => el.textContent), "true");
+
+    const h1 = await page.$("body > h1");
+    assert(h1);
+    assertEquals(await h1.evaluate((el) => el.textContent), "1-2");
+
+    const h2 = await page.$("body > h2");
+    assert(h2);
+    assertEquals(await h2.evaluate((el) => el.textContent), "1-2");
+
+    const button = await page.$("body > button");
+    assert(button);
+
+    await button.click();
+    assertEquals(await h1.evaluate((el) => el.textContent), "2-4");
+    assertEquals(await h2.evaluate((el) => el.textContent), "2-4");
+
+    await page.close();
+  });
 });
 
 Deno.test("[dom] ref", sanitizeFalse, async () => {
@@ -438,7 +490,7 @@ Deno.test("[dom] ref", sanitizeFalse, async () => {
 Deno.test("[dom] `<if>` component", sanitizeFalse, async () => {
   const testUrl = addTestPage(`
     function App(this: FC<{ show: boolean }>) {
-      this.init({ show: true });
+      this.show = true;
       return <div>
         <if value={this.show}>
           <h1>Welcome to mono-jsx!</h1>
@@ -477,7 +529,7 @@ Deno.test("[dom] `<if>` component", sanitizeFalse, async () => {
 Deno.test("[dom] `<toggle>` component", sanitizeFalse, async () => {
   const testUrl = addTestPage(`
     function App(this: FC<{ lang: 'en' | 'zh' | 'emoji' }>) {
-      this.init({ lang: 'en' });
+      this.lang = 'en';
       return <div>
         <switch value={this.lang}>
           <h1 slot="en">Welcome to mono-jsx!</h1>
@@ -713,7 +765,7 @@ Deno.test("[dom] XSS", sanitizeFalse, async (t) => {
   await t.step("dynamic html", async () => {
     const testUrl = addTestPage(`
       function App(this: FC<{ html: string }>) {
-        this.init({ html: "" });
+        this.html = "";
         return <div>
           {html(this.html)}
           <button onClick={() => {
@@ -744,6 +796,11 @@ Deno.test("[dom] XSS", sanitizeFalse, async (t) => {
     await button.click();
     h1 = await page.$("body > div > h1");
     assert(!h1);
+
+    await button.click();
+    h1 = await page.$("body > div > h1");
+    assert(h1);
+    assertEquals(await h1.evaluate((el: HTMLElement) => el.textContent), "Welcome to mono-jsx!");
 
     await page.close();
   });
