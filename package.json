@@ -24,6 +24,11 @@
       "node": "./jsx-runtime.mjs",
       "import": "./jsx-runtime.mjs"
     },
+    "./dom": {
+      "types": "./types/dom/index.d.ts",
+      "node": "./dom/index.mjs",
+      "import": "./dom/index.mjs"
+    },
     "./dom/jsx-runtime": {
       "types": "./types/dom/jsx-runtime.d.ts",
       "node": "./dom/jsx-runtime.mjs",

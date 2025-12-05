@@ -48,4 +48,4 @@ Object.assign(globalThis, {
   js: html,
 });
 
-export { Fragment, html, html as css, html as js, JSX, jsx, jsx as jsxDEV, jsx as jsxs };
+export { createStore as Store, Fragment, html, html as css, html as js, JSX, jsx, jsx as jsxDEV, jsx as jsxs };

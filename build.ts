@@ -45,7 +45,7 @@ async function buildPackageModule(name: string, format: "esm" | "cjs" = "esm") {
     target: "esnext",
     bundle: true,
     minify: false,
-    external: ["node:*"],
+    external: ["node:*", "*.mjs"],
   });
   const gzippedSize = await getGzippedSize(await Deno.readTextFile(outfile));
   return {
@@ -136,7 +136,7 @@ if (import.meta.main) {
     ].join(eol),
   );
 
-  for (const moduleName of ["setup", "index", "jsx-runtime", "dom/jsx-runtime"]) {
+  for (const moduleName of ["setup", "index", "jsx-runtime", "dom/index", "dom/jsx-runtime"]) {
     const { size, gzippedSize } = await buildPackageModule(moduleName, "esm");
     console.log(`· ${moduleName}.mjs %c(${formatBytes(size)}, ${formatBytes(gzippedSize)} gzipped)`, "color:grey");
   }
