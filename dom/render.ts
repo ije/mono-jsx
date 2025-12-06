@@ -119,12 +119,12 @@ class InsertMark {
   }
 }
 
+const document = globalThis.document;
 const $get = Symbol();
 const $watch = Symbol();
 const $expr = Symbol();
 const $slots = Symbol();
 const stores = new Set<IScope>();
-const document = globalThis.document;
 const isVNode = (v: unknown): v is VNode => Array.isArray(v) && v.length === 3 && v[2] === $vnode;
 const createTextNode = (text = "") => document.createTextNode(text);
 const createElement = (tag: string) => document.createElement(tag);
@@ -140,12 +140,16 @@ const setAttribute = (el: Element, name: string, value: unknown) => {
       break;
   }
 };
+const call$expr = (scope: IScope, ok: boolean) => {
+  scope[$expr](ok);
+  stores.forEach(s => s[$expr](ok));
+};
 
 // for reactive dependencies tracking
 let $depsMark: Set<Signal> | undefined;
 
 const createScope = (slots?: ChildType[], abortSignal?: AbortSignal): IScope => {
-  let exprMode = true;
+  let exprMode = false;
   let watchHandlers = new Map<string, Set<() => void>>();
   let refElements = new Map<string, HTMLElement>();
   let signals = new Map<string, Signal>();
@@ -567,9 +571,10 @@ const renderChildren = (
 };
 
 const renderFC = (fc: ComponentType, props: Record<string, unknown>, root: HTMLElement | DocumentFragment, abortSignal?: AbortSignal) => {
-  stores.forEach(scope => scope[$expr](true));
-  const scope = createScope(props.children as ChildType[] | undefined, abortSignal) as unknown as IScope;
-  const v = fc.call(scope, props);
+  let scope = createScope(props.children as ChildType[] | undefined, abortSignal) as unknown as IScope;
+  let v: ReturnType<typeof fc>;
+  call$expr(scope, true);
+  v = fc.call(scope, props);
   if (v instanceof Promise) {
     let placeholder: ChildNode[] | undefined;
     if (isVNode(props.placeholder)) {
@@ -580,8 +585,7 @@ const renderFC = (fc: ComponentType, props: Record<string, unknown>, root: HTMLE
     }
     root.append(...placeholder);
     v.then((nodes) => {
-      stores.forEach(scope => scope[$expr](false));
-      scope[$expr](false);
+      call$expr(scope, false);
       placeholder[0].replaceWith(...renderToFragment(scope, nodes as ChildType, abortSignal).childNodes);
     }).catch((err) => {
       if (isFunction(props.catch)) {
@@ -597,11 +601,14 @@ const renderFC = (fc: ComponentType, props: Record<string, unknown>, root: HTMLE
       placeholder.forEach(node => node.remove());
     });
   } else {
-    stores.forEach(scope => scope[$expr](false));
-    scope[$expr](false);
-    if (isPlainObject(v) && !isVNode(v) && Symbol.iterator in v) {
-      for (const node of v) {
-        render(scope, node as ChildType, root, abortSignal);
+    call$expr(scope, false);
+    if (isPlainObject(v) && !isVNode(v)) {
+      if (Symbol.asyncIterator in v) {
+        //  todo: async generator
+      } else if (Symbol.iterator in v) {
+        for (const node of v) {
+          render(scope, node as ChildType, root, abortSignal);
+        }
       }
     } else {
       render(scope, v as ChildType, root, abortSignal);
@@ -641,9 +648,9 @@ const cx = (className: unknown, mark?: Set<Reactive>): string => {
 const applyStyle = (el: HTMLElement, style: unknown, mark?: Set<Reactive>): void => {
   style = $(style, mark);
   if (isPlainObject(style)) {
-    const { classList } = el;
-    classList.remove(...classList.values().filter(key => key.startsWith("css-")));
+    let { classList } = el;
     let inline: Record<string, unknown> | undefined;
+    classList.remove(...classList.values().filter(key => key.startsWith("css-")));
     for (let [k, v] of Object.entries(style)) {
       v = $(v, mark);
       let css: (string | null)[] = [];
@@ -687,12 +694,15 @@ const applyStyle = (el: HTMLElement, style: unknown, mark?: Set<Reactive>): void
 
 const renderStyle = (style: Record<string, unknown>, mark?: Set<Reactive>): string => {
   let css = "";
+  let vt: string;
+  let cssKey: string;
+  let cssValue: string;
   for (let [k, v] of Object.entries(style)) {
     v = $(v, mark);
-    const vt = typeof v;
+    vt = typeof v;
     if (vt === "string" || vt === "number") {
-      const cssKey = toHyphenCase(k);
-      const cssValue = vt === "number" ? (regexpIsNonDimensional.test(k) ? "" + v : v + "px") : "" + v;
+      cssKey = toHyphenCase(k);
+      cssValue = vt === "number" ? (regexpIsNonDimensional.test(k) ? "" + v : v + "px") : "" + v;
       css += (css ? ";" : "") + cssKey + ":" + (cssKey === "content" ? JSON.stringify(cssValue) : cssValue) + ";";
     }
   }
