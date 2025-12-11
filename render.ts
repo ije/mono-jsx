@@ -663,7 +663,9 @@ async function renderNode(rc: RenderContext, node: ChildType, stripSlotProp?: bo
                 const now = Date.now();
                 const value = cache.get(key);
                 if (value && (!value.expires || value.expires > now)) {
+                  write("<!-- cached -->");
                   write(value.html);
+                  write("<!-- /cached -->");
                 } else {
                   let buf = "";
                   await renderChildren(
