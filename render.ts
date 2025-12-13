@@ -190,19 +190,28 @@ function renderToWebStream(root: VNode, options: RenderOptions): Response {
       new ReadableStream<Uint8Array>({
         async start(controller) {
           try {
-            const propsHeader = reqHeaders?.get("x-props");
-            const props = propsHeader ? JSON.parse(propsHeader) : {};
+            let propsHeader = reqHeaders?.get("x-props");
+            let props = propsHeader ? JSON.parse(propsHeader) : {};
             let html = "";
             let js = "";
+            let json = "";
+            let vnode: VNode = [
+              component instanceof Promise ? (await component).default : component,
+              props,
+              $vnode,
+            ];
+            if (routeForm && typeof (component as any).FormHandler === "function") {
+              vnode = [(component as any).FormHandler, await routeForm, $vnode];
+            }
             await render(
-              [component instanceof Promise ? (await component).default : component, props, $vnode],
+              vnode,
               options,
               (chunk) => html += chunk,
               (chunk) => js += chunk,
               true,
               routeForm,
             );
-            let json = "[" + stringify(html);
+            json = "[" + stringify(html);
             if (js) {
               json += "," + stringify(js);
             }

@@ -1070,7 +1070,7 @@ function Post(this: FC) {
 
 ### Using Route Form
 
-When a form is submitted with the `route` attribute in a route component, the form data will be available in the `form` property of the component's `this` context during the form POST request.
+mono-jsx allows you to define a `FormHandler` function for route components to handle form data from form submissions on the current route page on the client side. To submit the form data to the `FormHandler` function, you need to set the `route` attribute on the `<form>` element.
 
 mono-jsx provides two built-in elements to allow you to control the post-submit behavior:
 
@@ -1079,14 +1079,6 @@ mono-jsx provides two built-in elements to allow you to control the post-submit 
 
 ```tsx
 async function Login(this: FC) {
-  if (this.form) {
-    const user = await auth(this.form)
-    if (!user) {
-      return <invalid for="username,password">Invalid Username/Password</invalid>
-    }
-    this.session.set("user", user)
-    return <redirect to="/dash" />
-  }
   return (
     <form route style={{ "& input:invalid": { borderColor: "red" } }}>
       <input type="text" name="username" placeholder="Username" />
@@ -1094,6 +1086,21 @@ async function Login(this: FC) {
       <button type="submit">Login</button>
     </form>
   )
+}
+
+// `Login` must be defined as a route component with the `FormHandler` function
+Login.FormHandler = function(this: FC, data: FormData) {
+  const user = await auth(data)
+  if (!user) {
+    return <invalid for="username,password">Invalid Username/Password</invalid>
+  }
+  this.session.set("user", user)
+  return <redirect to="/dash" />
+}
+
+const routes = {
+  "/login": Login,
+  // ... other routes ...
 }
 ```
 
@@ -1108,14 +1115,7 @@ mark the position where the returned HTML elements will be inserted.
 - `<formslot mode="insertbefore" />`: Insert HTML before the `formslot` element.
 
 ```tsx
-function MyFormPage(this: FC) {
-  if (this.form) {
-    const message = this.form.get("message") as string | null;
-    if (!message) {
-      return <invalid for="message">Message is required</invalid>
-    }
-    return <p>{message}</p>
-  }
+function MyRoute(this: FC) {
   return (
     <form route>
       {/* <- new message will be inserted here */}
@@ -1125,15 +1125,20 @@ function MyFormPage(this: FC) {
     </form>
   )
 }
+
+MyRoute.FormHandler = function(this: FC, data: FormData) {
+  const message = data.get("message") as string | null;
+  if (!message) {
+    return <invalid for="message">Message is required</invalid>
+  }
+  return <p>{message}</p>
+}
 ```
 
 You can also use the `name` attribute to specify the name of the formslot element. And you can use the `slot` attribute to specify the name of the slot to insert the HTML into.
 
 ```tsx
-function MyFormPage(this: FC) {
-  if (this.form) {
-    return <p slot="message">Hello, world!</p>
-  }
+function MyRoute(this: FC) {
   return (
     <div>
       <formslot name="message" />
@@ -1142,6 +1147,10 @@ function MyFormPage(this: FC) {
       </form>
     </div>
   )
+}
+
+MyRoute.FormHandler = function(this: FC, data: FormData) {
+  return <p slot="message">Hello, world!</p>
 }
 ```
 

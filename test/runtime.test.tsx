@@ -99,9 +99,22 @@ Deno.test.beforeAll(() => {
             this.session.destroy();
             return <redirect to="/" />;
           },
-          "/chat": function(this: FC) {
-            if (this.form) {
-              const message = this.form.get("message") as string | null;
+          "/chat": (() => {
+            function Chat(this: FC) {
+              return (
+                <>
+                  <formslot name="debug-message" />
+                  <formslot name="chat-message" />
+                  <form route>
+                    <formslot mode="insertbefore" />
+                    <input style={{ ":invalid": { borderColor: "red" } }} type="text" name="message" placeholder="Type Message..." />
+                    <input type="submit" value={"Send"} />
+                  </form>
+                </>
+              );
+            }
+            Chat.FormHandler = function(this: FC, data: FormData) {
+              const message = data.get("message") as string | null;
               if (message === null || message.trim() === "") {
                 return (
                   <invalid for="message">
@@ -111,22 +124,14 @@ Deno.test.beforeAll(() => {
               }
               return (
                 <>
-                  <p class="current-message" formslot="message">{message}</p>
+                  <p class="debug-message" formslot="debug-message">{this.form === data ? "true" : "false"}</p>
+                  <p class="chat-message" formslot="chat-message">{message}</p>
                   <p class="message">{message}</p>
                 </>
               );
-            }
-            return (
-              <>
-                <formslot name="message" />
-                <form route>
-                  <formslot mode="insertbefore" />
-                  <input style={{ ":invalid": { borderColor: "red" } }} type="text" name="message" placeholder="Type Message..." />
-                  <input type="submit" value={"Send"} />
-                </form>
-              </>
-            );
-          },
+            };
+            return Chat;
+          })(),
         }}
         session={{
           cookie: {
@@ -1093,7 +1098,10 @@ Deno.test("[runtime] route form", sanitizeFalse, async () => {
   p = await page.$("p.message");
   assert(!p);
 
-  p = await page.$("p.current-message");
+  p = await page.$("p.chat-message");
+  assert(!p);
+
+  p = await page.$("p.debug-message");
   assert(!p);
 
   assertEquals(await input.evaluate((el: HTMLInputElement) => el.validationMessage), "Message is required");
@@ -1106,9 +1114,13 @@ Deno.test("[runtime] route form", sanitizeFalse, async () => {
   assert(p);
   assertEquals(await p.evaluate((el: HTMLElement) => el.textContent), " Hello");
 
-  p = await page.$("p.current-message");
+  p = await page.$("p.chat-message");
   assert(p);
   assertEquals(await p.evaluate((el: HTMLElement) => el.textContent), " Hello");
+
+  p = await page.$("p.debug-message");
+  assert(p);
+  assertEquals(await p.evaluate((el: HTMLElement) => el.textContent), "true");
 
   // input should be reset
   assertEquals(await input.evaluate((el: HTMLInputElement) => el.value), "");
@@ -1122,9 +1134,13 @@ Deno.test("[runtime] route form", sanitizeFalse, async () => {
   assertEquals(await list[0].evaluate((el: HTMLElement) => el.textContent), " Hello");
   assertEquals(await list[1].evaluate((el: HTMLElement) => el.textContent), ", world!");
 
-  p = await page.$("p.current-message");
+  p = await page.$("p.chat-message");
   assert(p);
   assertEquals(await p.evaluate((el: HTMLElement) => el.textContent), ", world!");
+
+  p = await page.$("p.debug-message");
+  assert(p);
+  assertEquals(await p.evaluate((el: HTMLElement) => el.textContent), "true");
 
   await page.close();
 });
