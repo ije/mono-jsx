@@ -19,6 +19,11 @@ export interface BaseAttributes {
    */
   slot?: string;
   /**
+   * The `formslot` attribute assigns a named formslot element to an element.
+   * @mono-jsx
+   */
+  formslot?: string;
+  /**
    * The `portal` attribute is used to mount the component to a specified DOM element.
    * @mono-jsx
    */

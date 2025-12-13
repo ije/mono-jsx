@@ -2,8 +2,6 @@ declare global {
   var $onrfs: (event: SubmitEvent) => Promise<void>;
 }
 
-const setCustomValidity = (inputEl: HTMLInputElement, message: string) => inputEl.setCustomValidity(message);
-
 customElements.define(
   "m-invalid",
   class extends HTMLElement {
@@ -17,10 +15,10 @@ customElements.define(
           if (inputEl) {
             const delCustomValidity = () => {
               inputEl.removeEventListener("input", delCustomValidity);
-              setCustomValidity(inputEl, "");
+              inputEl.setCustomValidity("");
             };
             inputEl.addEventListener("input", delCustomValidity);
-            setCustomValidity(inputEl, message);
+            inputEl.setCustomValidity(message);
             inputEl.focus();
           }
         }
@@ -58,10 +56,13 @@ window.$onrfs = async (evt) => {
   for (const child of tpl.content.childNodes) {
     if (child.nodeType === 1) {
       const el = child as HTMLElement;
-      const slot = el.getAttribute("slot");
-      const formslot = slot ? document.querySelector('m-formslot[name="' + slot + '"]') : formEl.querySelector("m-formslot");
+      const slot = el.getAttribute("formslot");
+      const selector = slot ? 'm-formslot[name="' + slot + '"]' : "m-formslot";
+      const formslot = slot
+        ? formEl.querySelector(selector) ?? document.querySelector(selector)
+        : formEl.querySelector(selector);
       if (formslot) {
-        formslot.replaceChildren();
+        formslot.innerHTML = "";
         formslots.set(el, formslot as HTMLElement);
         continue;
       }

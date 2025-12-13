@@ -111,7 +111,7 @@ Deno.test.beforeAll(() => {
               }
               return (
                 <>
-                  <p class="current-message" slot="message">{message}</p>
+                  <p class="current-message" formslot="message">{message}</p>
                   <p class="message">{message}</p>
                 </>
               );
