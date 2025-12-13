@@ -711,6 +711,9 @@ async function renderNode(rc: RenderContext, node: ChildType, stripSlotProp?: bo
             }
             if (isString(forProp)) {
               buf += " for=" + toAttrStringLit(forProp) + " hidden";
+            } else if (tag === "invalid") {
+              // ignore `invalid` element without `for` attribute
+              break;
             }
             buf += ">";
             if (children) {
