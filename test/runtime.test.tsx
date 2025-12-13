@@ -17,12 +17,6 @@ function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-// function App(this: FC) {
-//   return null;
-// }
-// console.log(addTestPage(<App />));
-// await new Promise(() => {});
-
 const browser = await puppeteer.launch({
   executablePath: (await chrome()).executablePath,
   args: ["--no-sandbox", "--disable-gpu", "--disable-extensions", "--disable-sync", "--disable-background-networking"],
@@ -115,14 +109,22 @@ Deno.test.beforeAll(() => {
                   </invalid>
                 );
               }
-              return <p class="message">{message}</p>;
+              return (
+                <>
+                  <p class="current-message" slot="message">{message}</p>
+                  <p class="message">{message}</p>
+                </>
+              );
             }
             return (
-              <form route>
-                <formslot mode="insertbefore" />
-                <input style={{ ":invalid": { borderColor: "red" } }} type="text" name="message" placeholder="Type Message..." />
-                <input type="submit" value={"Send"} />
-              </form>
+              <>
+                <formslot name="message" />
+                <form route>
+                  <formslot mode="insertbefore" />
+                  <input style={{ ":invalid": { borderColor: "red" } }} type="text" name="message" placeholder="Type Message..." />
+                  <input type="submit" value={"Send"} />
+                </form>
+              </>
             );
           },
         }}
@@ -146,6 +148,12 @@ Deno.test.beforeAll(() => {
       </html>
     );
   });
+
+  // function App(this: FC) {
+  //   return null;
+  // }
+  // console.log(addTestPage(<App />));
+  // await new Promise(() => {});
 });
 
 Deno.test.afterAll(async () => {
@@ -1085,6 +1093,9 @@ Deno.test("[runtime] route form", sanitizeFalse, async () => {
   p = await page.$("p.message");
   assert(!p);
 
+  p = await page.$("p.current-message");
+  assert(!p);
+
   assertEquals(await input.evaluate((el: HTMLInputElement) => el.validationMessage), "Message is required");
   await input.type("Hello");
   assertEquals(await input.evaluate((el: HTMLInputElement) => el.validationMessage), "");
@@ -1092,6 +1103,10 @@ Deno.test("[runtime] route form", sanitizeFalse, async () => {
   await page.waitForNetworkIdle();
 
   p = await page.$("p.message");
+  assert(p);
+  assertEquals(await p.evaluate((el: HTMLElement) => el.textContent), " Hello");
+
+  p = await page.$("p.current-message");
   assert(p);
   assertEquals(await p.evaluate((el: HTMLElement) => el.textContent), " Hello");
 
@@ -1106,6 +1121,10 @@ Deno.test("[runtime] route form", sanitizeFalse, async () => {
   assertEquals(list.length, 2);
   assertEquals(await list[0].evaluate((el: HTMLElement) => el.textContent), " Hello");
   assertEquals(await list[1].evaluate((el: HTMLElement) => el.textContent), ", world!");
+
+  p = await page.$("p.current-message");
+  assert(p);
+  assertEquals(await p.evaluate((el: HTMLElement) => el.textContent), ", world!");
 
   await page.close();
 });

@@ -1103,12 +1103,12 @@ async function Login(this: FC) {
 You can also return regular HTML elements from the route form post response. The `formslot` element is used to
 mark the position where the returned HTML elements will be inserted.
 
-- `<formslot mode="insertbefore" />`: Insert HTML before the `formslot` element.
+- `<formslot mode="replaceChildren" />`: Replace the `formslot` element's children with the HTML. This is the default mode.
 - `<formslot mode="insertafter" />`: Insert HTML after the `formslot` element.
-- `<formslot mode="replace" />`: Replace the `formslot` children. This is the default mode.
+- `<formslot mode="insertbefore" />`: Insert HTML before the `formslot` element.
 
 ```tsx
-function FormSlot(this: FC) {
+function MyFormPage(this: FC) {
   if (this.form) {
     const message = this.form.get("message") as string | null;
     if (!message) {
@@ -1117,12 +1117,30 @@ function FormSlot(this: FC) {
     return <p>{message}</p>
   }
   return (
-   <form route>
-    {/* <- new message will be inserted here */}
-    <formslot mode="insertbefore" />
-    <input type="text" name="message" placeholder="Type Message..." style={{ ":invalid": { borderColor: "red" } }} />
-    <button type="submit">Send</button>
-   </form>
+    <form route>
+      {/* <- new message will be inserted here */}
+      <formslot mode="insertbefore" />
+      <input type="text" name="message" placeholder="Type Message..." style={{ ":invalid": { borderColor: "red" } }} />
+      <button type="submit">Send</button>
+    </form>
+  )
+}
+```
+
+You can also use the `name` attribute to specify the name of the formslot element. And you can use the `slot` attribute to specify the name of the slot to insert the HTML into.
+
+```tsx
+function MyFormPage(this: FC) {
+  if (this.form) {
+    return <p slot="message">Hello, world!</p>
+  }
+  return (
+    <div>
+      <formslot name="message" />
+      <form route>
+        <button type="submit">Send</button>
+      </form>
+    </div>
   )
 }
 ```

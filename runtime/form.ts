@@ -3,7 +3,6 @@ declare global {
 }
 
 const setCustomValidity = (inputEl: HTMLInputElement, message: string) => inputEl.setCustomValidity(message);
-const insertAdjacentHTML = (el: Element, position: InsertPosition, html: string) => el.insertAdjacentHTML(position, html);
 
 customElements.define(
   "m-invalid",
@@ -49,24 +48,37 @@ window.$onrfs = async (evt) => {
     body: data,
   });
   const [html, js] = await res.json();
-  const formslot = formEl.querySelector("m-formslot");
+  const tpl = document.createElement("template");
+  const formslots = new Map<HTMLElement, HTMLElement>();
+  tpl.innerHTML = html;
   for (const inputEl of inputEls) {
     inputEl.disabled = inputEl._disabled!;
     delete inputEl._disabled;
   }
-  if (formslot) {
+  for (const child of tpl.content.childNodes) {
+    if (child.nodeType === 1) {
+      const el = child as HTMLElement;
+      const slot = el.getAttribute("slot");
+      const formslot = slot ? document.querySelector('m-formslot[name="' + slot + '"]') : formEl.querySelector("m-formslot");
+      if (formslot) {
+        formslot.replaceChildren();
+        formslots.set(el, formslot as HTMLElement);
+        continue;
+      }
+    }
+    formEl.appendChild(child);
+  }
+  for (const [child, formslot] of formslots) {
     switch (formslot.getAttribute("mode")) {
       case "insertbefore":
-        insertAdjacentHTML(formslot, "beforebegin", html);
+        formslot.before(child);
         break;
       case "insertafter":
-        insertAdjacentHTML(formslot, "afterend", html);
+        formslot.after(child);
         break;
       default:
-        formslot.innerHTML = html;
+        formslot.appendChild(child);
     }
-  } else {
-    insertAdjacentHTML(formEl, "beforeend", html);
   }
   setTimeout(() => {
     if (!inputEls.some(el => !el.validity.valid)) {

@@ -701,15 +701,16 @@ async function renderNode(rc: RenderContext, node: ChildType, stripSlotProp?: bo
 
           case "invalid":
           case "formslot": {
-            const { children, for: forProp, mode } = props;
+            const { children, name, mode, for: forProp } = props;
             let buf = "<m-" + tag;
-            if (isString(forProp)) {
-              buf += " for=" + toAttrStringLit(forProp) + " hidden";
-            } else if (tag === "invalid") {
-              break;
+            if (isString(name)) {
+              buf += " name=" + toAttrStringLit(name);
             }
             if (isString(mode)) {
               buf += " mode=" + toAttrStringLit(mode);
+            }
+            if (isString(forProp)) {
+              buf += " for=" + toAttrStringLit(forProp) + " hidden";
             }
             buf += ">";
             if (children) {

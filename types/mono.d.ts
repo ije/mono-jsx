@@ -151,9 +151,17 @@ export interface Elements {
    */
   formslot: BaseAttributes & {
     /**
-     * The insert position of the formslot.
+     * The name of the formslot element.
      */
-    mode?: "insertbefore" | "insertafter" | "replace";
+    name?: string;
+    /**
+     * The insert mode of the formslot.
+     * - "insertbefore": Insert HTML before the formslot element.
+     * - "insertafter": Insert HTML after the formslot element.
+     * - "replaceChildren": Replace the formslot element's children with the HTML.
+     * @default "replaceChildren"
+     */
+    mode?: "insertbefore" | "insertafter" | "replaceChildren";
   };
 }
 
