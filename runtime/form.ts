@@ -31,6 +31,9 @@ customElements.define(
 window.$onrfs = async (evt) => {
   evt.preventDefault();
   const formEl = evt.target as HTMLFormElement;
+  formEl.querySelectorAll("m-formslot").forEach(el => {
+    el.innerHTML = "";
+  });
   if (!formEl.checkValidity()) {
     return;
   }
