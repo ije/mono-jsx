@@ -184,20 +184,19 @@ function renderToWebStream(root: VNode, options: RenderOptions): Response {
       new ReadableStream<Uint8Array>({
         async start(controller) {
           try {
+            if (component instanceof Promise) {
+              component = (await component).default;
+            }
             let propsHeader = reqHeaders?.get("x-props");
             let props = propsHeader ? JSON.parse(propsHeader) : {};
             let html = "";
             let js = "";
             let json = "";
-            let vnode: VNode = [
-              component instanceof Promise ? (await component).default : component,
-              props,
-              $vnode,
-            ];
-            if (
-              reqHeaders?.get("x-route-form") === "true" && request?.method === "POST"
-              && typeof (component as any).FormHandler === "function"
-            ) {
+            let vnode: VNode = [component as ComponentType<any>, props, $vnode];
+            if (reqHeaders?.get("x-route-form") === "true" && request?.method === "POST") {
+              if (typeof (component as any).FormHandler !== "function") {
+                throw new Error((component as any).name + ".FormHandler is undefined or not a function");
+              }
               vnode = [(component as any).FormHandler, await request.formData(), $vnode];
             }
             await render(
@@ -212,6 +211,11 @@ function renderToWebStream(root: VNode, options: RenderOptions): Response {
               json += "," + stringify(js);
             }
             controller.enqueue(encoder.encode(json + "]"));
+          } catch (err) {
+            controller.enqueue(encoder.encode(
+              '["",' + stringify('console.log("[mono-jsx]",' + stringify((err as Error).stack)) + "]",
+            ));
+            console.error(err);
           } finally {
             controller.close();
           }
