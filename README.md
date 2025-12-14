@@ -1237,14 +1237,6 @@ function Index(this: FC) {
 }
 
 async function Login(this: FC) {
-  if (this.form) {
-    const user = await auth(this.form)
-    if (!user) {
-      return <invalid for="username,password">Invalid Username/Password</invalid>
-    }
-    this.session.set("user", user)
-    return <redirect to="/" />
-  }
   return (
     <form route>
       <input type="text" name="username" placeholder="Username" />
@@ -1252,6 +1244,15 @@ async function Login(this: FC) {
       <button type="submit">Login</button>
     </form>
   )
+}
+
+Login.FormHandler = async function(this: FC, data: FormData) {
+  const user = await auth(data)
+  if (!user) {
+    return <invalid for="username,password">Invalid Username/Password</invalid>
+  }
+  this.session.set("user", user)
+  return <redirect to="/" />
 }
 
 const routes = {
