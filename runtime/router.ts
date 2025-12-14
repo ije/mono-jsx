@@ -114,7 +114,7 @@ customElements.define(
           } else {
             this.#fallback = [];
             for (const child of this.childNodes) {
-              if (child.nodeType === 1 && (child as Element).tagName === "TEMPLATE" && (child as Element).hasAttribute("m-slot")) {
+              if (child.nodeType === 1 && (child as Element).tagName === "TEMPLATE" && (child as Element).hasAttribute("m-fallback")) {
                 this.#fallback.push(...(child as HTMLTemplateElement).content.childNodes);
                 child.remove();
                 break;

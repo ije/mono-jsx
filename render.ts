@@ -648,7 +648,7 @@ async function renderNode(rc: RenderContext, node: ChildType, stripSlotProp?: bo
             // render fallback (404) elements
             if (children) {
               if (routeFC) {
-                buf += "<template m-slot>";
+                buf += "<template m-fallback>";
               }
               const write = (chunk: string) => {
                 buf += chunk;
