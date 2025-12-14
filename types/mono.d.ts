@@ -247,12 +247,6 @@ declare global {
       }
     >;
     /**
-     * The `form` object created by the route form.
-     *
-     * **⚠ This is a server-side only API.**
-     */
-    readonly form?: FormData;
-    /**
      * The `session` object contains the current session.
      *
      * **⚠ This is a server-side only API.**

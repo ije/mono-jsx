@@ -24,7 +24,6 @@ interface RenderContext {
   request?: Request;
   session?: Session;
   routeFC?: MaybeModule<ComponentType<any>>;
-  routeForm?: FormData;
   svg?: boolean;
 }
 
@@ -122,7 +121,6 @@ function renderToWebStream(root: VNode, options: RenderOptions): Response {
 
   let status = options.status;
   let routeFC: MaybeModule<ComponentType<any>> | undefined = request ? Reflect.get(request, "x-route") : undefined;
-  let routeForm: Promise<FormData> | undefined;
   let component = compHeader
     ? (compHeader.startsWith("@comp_") ? componentsMap.getById(Number(compHeader.slice(6))) : components?.[compHeader])
     : null;
@@ -180,10 +178,6 @@ function renderToWebStream(root: VNode, options: RenderOptions): Response {
     component = routeFC;
   }
 
-  if (reqHeaders?.get("x-route-form") === "true" && request?.method === "POST") {
-    routeForm = request.formData();
-  }
-
   if (component) {
     headers.set("content-type", "application/json; charset=utf-8");
     return new Response(
@@ -200,8 +194,11 @@ function renderToWebStream(root: VNode, options: RenderOptions): Response {
               props,
               $vnode,
             ];
-            if (routeForm && typeof (component as any).FormHandler === "function") {
-              vnode = [(component as any).FormHandler, await routeForm, $vnode];
+            if (
+              reqHeaders?.get("x-route-form") === "true" && request?.method === "POST"
+              && typeof (component as any).FormHandler === "function"
+            ) {
+              vnode = [(component as any).FormHandler, await request.formData(), $vnode];
             }
             await render(
               vnode,
@@ -209,7 +206,6 @@ function renderToWebStream(root: VNode, options: RenderOptions): Response {
               (chunk) => html += chunk,
               (chunk) => js += chunk,
               true,
-              routeForm,
             );
             json = "[" + stringify(html);
             if (js) {
@@ -260,7 +256,6 @@ async function render(
   write: (chunk: string) => void,
   writeJS: (chunk: string) => void,
   componentMode?: boolean,
-  routeForm?: Promise<FormData>,
 ) {
   const { app, context, request, routeFC } = options;
   const suspenses: Promise<string>[] = [];
@@ -413,9 +408,6 @@ async function render(
   }
   if (options.session && request) {
     rc.session = await createSession(request, options.session);
-  }
-  if (routeForm) {
-    rc.routeForm = await routeForm;
   }
   if (componentMode) {
     const [tag, props] = node as VNode;
@@ -1115,7 +1107,7 @@ function renderSignal(
 let collectDep: ((scopeId: number, key: string) => void) | undefined;
 
 function createThisProxy(rc: RenderContext, scopeId: number): Record<string, unknown> {
-  const { context = {}, request, routeForm, session } = rc;
+  const { context = {}, request, session } = rc;
   const store = new NullPrototypeObject() as Record<string | symbol, unknown>;
   const signals = new Map<string, Signal>();
   const effects = [] as string[];
@@ -1170,8 +1162,6 @@ function createThisProxy(rc: RenderContext, scopeId: number): Record<string, unk
             throw new TypeError("[mono-jsx] The `request` prop in the `<html>` element is required.");
           }
           return request;
-        case "form":
-          return routeForm;
         case "session":
           if (!session) {
             throw new TypeError("[mono-jsx] The `session` and `request` props in the `<html>` element are required.");

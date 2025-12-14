@@ -103,7 +103,6 @@ Deno.test.beforeAll(() => {
             function Chat(this: FC) {
               return (
                 <>
-                  <formslot name="debug-message" />
                   <formslot name="chat-message" />
                   <form route>
                     <formslot mode="insertbefore" />
@@ -124,7 +123,6 @@ Deno.test.beforeAll(() => {
               }
               return (
                 <>
-                  <p class="debug-message" formslot="debug-message">{this.form === data ? "true" : "false"}</p>
                   <p class="chat-message" formslot="chat-message">{message}</p>
                   <p class="message">{message}</p>
                 </>
@@ -1101,9 +1099,6 @@ Deno.test("[runtime] route form", sanitizeFalse, async () => {
   p = await page.$("p.chat-message");
   assert(!p);
 
-  p = await page.$("p.debug-message");
-  assert(!p);
-
   assertEquals(await input.evaluate((el: HTMLInputElement) => el.validationMessage), "Message is required");
   await input.type("Hello");
   assertEquals(await input.evaluate((el: HTMLInputElement) => el.validationMessage), "");
@@ -1117,10 +1112,6 @@ Deno.test("[runtime] route form", sanitizeFalse, async () => {
   p = await page.$("p.chat-message");
   assert(p);
   assertEquals(await p.evaluate((el: HTMLElement) => el.textContent), " Hello");
-
-  p = await page.$("p.debug-message");
-  assert(p);
-  assertEquals(await p.evaluate((el: HTMLElement) => el.textContent), "true");
 
   // input should be reset
   assertEquals(await input.evaluate((el: HTMLInputElement) => el.value), "");
@@ -1137,10 +1128,6 @@ Deno.test("[runtime] route form", sanitizeFalse, async () => {
   p = await page.$("p.chat-message");
   assert(p);
   assertEquals(await p.evaluate((el: HTMLElement) => el.textContent), ", world!");
-
-  p = await page.$("p.debug-message");
-  assert(p);
-  assertEquals(await p.evaluate((el: HTMLElement) => el.textContent), "true");
 
   await page.close();
 });
