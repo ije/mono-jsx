@@ -2,7 +2,7 @@
 
 import type { ComponentType } from "./jsx.d.ts";
 
-export type MaybeModule<T> = T | Promise<{ default: T }>;
+export type MaybeModule<T> = T | Promise<{ default: T; FormHandler?: Function }>;
 
 /**
  * Htmx extensions.

@@ -185,7 +185,11 @@ function renderToWebStream(root: VNode, options: RenderOptions): Response {
         async start(controller) {
           try {
             if (component instanceof Promise) {
-              component = (await component).default;
+              const module = await component;
+              component = module.default;
+              if (module.FormHandler && !(component as any).FormHandler) {
+                (component as any).FormHandler = module.FormHandler;
+              }
             }
             let propsHeader = reqHeaders?.get("x-props");
             let props = propsHeader ? JSON.parse(propsHeader) : {};
