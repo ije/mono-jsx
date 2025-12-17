@@ -22,7 +22,7 @@ export function monoRoutes(
   const handlers: Record<string, ServerHandler> = {};
   for (const [path, fc] of Object.entries(routes)) {
     handlers[path] = (request: Request): Response => {
-      Reflect.set(request, "x-route", fc);
+      Reflect.set(request, "routeFC", fc);
       return handler(request);
     };
   }

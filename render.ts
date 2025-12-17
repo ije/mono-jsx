@@ -105,9 +105,10 @@ function renderToWebStream(root: VNode, options: RenderOptions): Response {
   const headers = new Headers();
   const reqHeaders = request?.headers;
   const compHeader = reqHeaders?.get("x-component");
+  const routeForm = reqHeaders?.has("x-route-form");
 
   let status = options.status;
-  let routeFC: MaybeModule<ComponentType<any>> | undefined = request ? Reflect.get(request, "x-route") : undefined;
+  let routeFC: MaybeModule<ComponentType<any>> | undefined = request ? Reflect.get(request, "routeFC") : undefined;
   let component = compHeader
     ? (compHeader.startsWith("@comp_") ? componentsMap.getById(Number(compHeader.slice(6))) : components?.[compHeader])
     : null;
@@ -158,7 +159,7 @@ function renderToWebStream(root: VNode, options: RenderOptions): Response {
     }
   }
 
-  if (reqHeaders?.get("x-route") === "true" || reqHeaders?.get("x-route-form") === "true") {
+  if (reqHeaders?.has("x-route") || routeForm) {
     if (!routeFC) {
       return Response.json({ error: { message: "Route not found" }, status }, { headers, status });
     }
@@ -184,7 +185,7 @@ function renderToWebStream(root: VNode, options: RenderOptions): Response {
             let js = "";
             let json = "";
             let vnode: VNode = [component as ComponentType<any>, props, $vnode];
-            if (reqHeaders?.get("x-route-form") === "true" && request?.method === "POST") {
+            if (routeForm && request?.method === "POST") {
               if (typeof (component as any).FormHandler !== "function") {
                 throw new Error((component as any).name + ".FormHandler is undefined or not a function");
               }
@@ -196,6 +197,7 @@ function renderToWebStream(root: VNode, options: RenderOptions): Response {
               (chunk) => html += chunk,
               (chunk) => js += chunk,
               true,
+              routeForm,
             );
             json = "[" + stringify(html);
             if (js) {
@@ -251,6 +253,7 @@ async function render(
   write: (chunk: string) => void,
   writeJS: (chunk: string) => void,
   componentMode?: boolean,
+  routeForm?: boolean,
 ) {
   const { app, context, request, routeFC } = options;
   const suspenses: Promise<string>[] = [];
@@ -310,7 +313,9 @@ async function render(
       const url = "new URL(" + stringify(request.url) + ")";
       const urlWithParams = params ? "Object.assign(" + url + "," + stringify(params) + ")" : url;
       if (componentMode) {
-        js += "$signals(0).url=" + urlWithParams + ";";
+        if (!routeForm) {
+          js += "$signals(0).url=" + urlWithParams + ";";
+        }
       } else {
         js += '$S("0:url",' + urlWithParams + ");";
       }
