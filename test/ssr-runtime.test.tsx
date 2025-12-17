@@ -545,9 +545,9 @@ Deno.test("[runtime] effect", sanitizeFalse, async () => {
     return (
       <>
         <pre id="web-console"></pre>
-        <toggle show={this.show}>
+        <show when={this.show}>
           <Effect />
-        </toggle>
+        </show>
         <div>
           <button class="toggle" type="button" onClick={() => this.show = !this.show}>Toggle</button>
         </div>
@@ -682,14 +682,14 @@ Deno.test("[runtime] $checked", sanitizeFalse, async () => {
   await page.close();
 });
 
-Deno.test("[runtime] <toggle>", sanitizeFalse, async () => {
+Deno.test("[runtime] <show>", sanitizeFalse, async () => {
   function Toggle(this: FC<{ show: boolean }>) {
     this.show = false;
     return (
       <div>
-        <toggle show={this.show}>
+        <show when={this.show}>
           <h1>Welcome to mono-jsx!</h1>
-        </toggle>
+        </show>
         <button type="button" onClick={() => this.show = !this.show}>
           Show
         </button>
@@ -698,6 +698,43 @@ Deno.test("[runtime] <toggle>", sanitizeFalse, async () => {
   }
 
   const testUrl = addTestPage(<Toggle />);
+  const page = await browser.newPage();
+  await page.goto(testUrl);
+
+  const div = await page.$("div h1");
+  assert(!div);
+
+  const button = await page.$("div button");
+  assert(button);
+  await button.click();
+
+  let h1 = await page.$("div h1");
+  assert(h1);
+  assertEquals(await h1.evaluate((el: HTMLElement) => el.textContent), "Welcome to mono-jsx!");
+
+  await button.click();
+  h1 = await page.$("div h1");
+  assert(!h1);
+
+  await page.close();
+});
+
+Deno.test("[runtime] <hidden>", sanitizeFalse, async () => {
+  function Hidden(this: FC<{ hidden: boolean }>) {
+    this.hidden = true;
+    return (
+      <div>
+        <hidden when={this.hidden}>
+          <h1>Welcome to mono-jsx!</h1>
+        </hidden>
+        <button type="button" onClick={() => this.hidden = !this.hidden}>
+          Show
+        </button>
+      </div>
+    );
+  }
+
+  const testUrl = addTestPage(<Hidden />);
   const page = await browser.newPage();
   await page.goto(testUrl);
 
@@ -826,9 +863,9 @@ Deno.test("[runtime] <component> controled by <toggle>", sanitizeFalse, async ()
     this.show = false;
     return (
       <div>
-        <toggle show={this.show}>
+        <show when={this.show}>
           <component name="greeting" props={{ message: "Hello, world" }} placeholder={<p>loading...</p>} />
-        </toggle>
+        </show>
         <button type="button" onClick={() => this.show = !this.show}>Show</button>
       </div>
     );

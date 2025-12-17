@@ -5,11 +5,23 @@ export interface Elements {
    * A built-in element of mono-jsx that toggles the visibility of its children.
    * @mono-jsx
    */
-  if: BaseAttributes & {
+  show: BaseAttributes & {
     /**
-     * The visibility of the children.
+     * Show the children if the value is truthy.
      */
-    value?: any;
+    when?: any;
+
+    /**
+     * Enables view transition for the children.
+     */
+    viewTransition?: string | boolean;
+  };
+
+  hidden: BaseAttributes & {
+    /**
+     * Hide the children if the value is truthy.
+     */
+    when?: any;
 
     /**
      * Enables view transition for the children.

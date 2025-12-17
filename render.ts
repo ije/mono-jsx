@@ -488,25 +488,26 @@ async function renderNode(rc: RenderContext, node: ChildType, stripSlotProp?: bo
             break;
           }
 
-          // `<toggle>` element
-          case "toggle": {
-            let { show, hidden, viewTransition, children } = props;
+          // `<show>` and `<hidden>` elements
+          case "show":
+          case "hidden": {
+            let { viewTransition, children, when = true } = props;
             if (children !== undefined) {
-              if (show === undefined && hidden !== undefined) {
-                if (isReactive(hidden)) {
-                  let { scope, value } = hidden;
-                  if (hidden instanceof Signal) {
-                    show = new Compute(scope, "()=>!this[" + stringify(hidden.key) + "]", new Set([scope + ":" + hidden.key]), !value);
+              if (tag === "hidden") {
+                if (isReactive(when)) {
+                  let { scope, value } = when;
+                  if (when instanceof Signal) {
+                    when = new Compute(scope, "()=>!this[" + stringify(when.key) + "]", new Set([scope + ":" + when.key]), !value);
                   } else {
-                    show = new Compute(scope, "()=>!(" + hidden.compute + ")()", hidden.deps, !value);
+                    when = new Compute(scope, "()=>!(" + when.compute + ")()", when.deps, !value);
                   }
                 } else {
-                  show = !hidden;
+                  when = !when;
                 }
               }
-              if (isReactive(show)) {
-                const { value } = show;
-                let buf = renderSignal(rc, show, "toggle", false).slice(0, -1) + renderViewTransitionAttr(viewTransition) + ">";
+              if (isReactive(when)) {
+                const { value } = when;
+                let buf = renderSignal(rc, when, "toggle", false).slice(0, -1) + renderViewTransitionAttr(viewTransition) + ">";
                 if (!value) {
                   buf += "<template m-slot>";
                 }
@@ -515,8 +516,8 @@ async function renderNode(rc: RenderContext, node: ChildType, stripSlotProp?: bo
                 await renderChildren(rc, children);
                 write((!value ? "</template>" : "") + "</m-signal>");
               } else {
-                console.warn("[mono-jsx] <toggle> The `show` or `hidden` prop is not a signal/compute.");
-                if (show) {
+                console.warn("[mono-jsx] <" + tag + "> The `when` prop is not a signal/compute.");
+                if (when) {
                   await renderChildren(rc, children);
                 }
               }

@@ -112,7 +112,7 @@ Deno.test.afterAll(async () => {
   await stop();
 });
 
-Deno.test("[dom] mount", sanitizeFalse, async () => {
+Deno.test("[csr] mount", sanitizeFalse, async () => {
   const testUrl = addTestPage(`
     function App() {
       return <div>Hello, world!</div>;
@@ -140,7 +140,7 @@ Deno.test("[dom] mount", sanitizeFalse, async () => {
   await page.close();
 });
 
-Deno.test("[dom] style", sanitizeFalse, async (t) => {
+Deno.test("[csr] style", sanitizeFalse, async (t) => {
   await t.step("inline style", async () => {
     const testUrl = addTestPage(`
       function App() {
@@ -233,7 +233,7 @@ Deno.test("[dom] style", sanitizeFalse, async (t) => {
   });
 });
 
-Deno.test("[dom] signals", sanitizeFalse, async (t) => {
+Deno.test("[csr] signals", sanitizeFalse, async (t) => {
   await t.step("signals reactive", async () => {
     const testUrl = addTestPage(`
       function App(this: FC<{ count: number }>) {
@@ -467,7 +467,7 @@ Deno.test("[dom] signals", sanitizeFalse, async (t) => {
   });
 });
 
-Deno.test("[dom] ref", sanitizeFalse, async () => {
+Deno.test("[csr] ref", sanitizeFalse, async () => {
   const testUrl = addTestPage(`
       function App(this: FC<{}, { h1?: HTMLHeadingElement }>) {
         this.effect(() => {
@@ -487,14 +487,14 @@ Deno.test("[dom] ref", sanitizeFalse, async () => {
   await page.close();
 });
 
-Deno.test("[dom] `<if>` component", sanitizeFalse, async () => {
+Deno.test("[csr] `<show>` component", sanitizeFalse, async () => {
   const testUrl = addTestPage(`
     function App(this: FC<{ show: boolean }>) {
       this.show = true;
       return <div>
-        <if value={this.show}>
+        <show when={this.show}>
           <h1>Welcome to mono-jsx!</h1>
-        </if>
+        </show>
         <button onClick={() => this.show = !this.show}>{this.$(() => this.show ? "Show" : "Hide")}</button>
       </div>;
     }
@@ -526,7 +526,46 @@ Deno.test("[dom] `<if>` component", sanitizeFalse, async () => {
   await page.close();
 });
 
-Deno.test("[dom] `<toggle>` component", sanitizeFalse, async () => {
+Deno.test("[csr] `<hidden>` component", sanitizeFalse, async () => {
+  const testUrl = addTestPage(`
+    function App(this: FC<{ hidden: boolean }>) {
+      this.hidden = false;
+      return <div>
+        <hidden when={this.hidden}>
+          <h1>Welcome to mono-jsx!</h1>
+        </hidden>
+        <button onClick={() => this.hidden = !this.hidden}>{this.$(() => this.hidden ? "Show" : "Hide")}</button>
+      </div>;
+    }
+    document.body.mount(<App />);
+  `);
+  const page = await browser.newPage();
+  await page.goto(testUrl);
+
+  let h1 = await page.$("body > div > h1");
+  assert(h1);
+  assertEquals(await h1.evaluate((el) => el.textContent), "Welcome to mono-jsx!");
+  assertEquals(await h1.evaluate((el) => (el.nextSibling as HTMLElement).tagName), "BUTTON");
+
+  let button = await page.$("body > div > button");
+  assert(button);
+
+  await button.click();
+  h1 = await page.$("body > div > h1");
+  assert(!h1);
+  button = await page.$("body > div > button");
+  assert(button);
+
+  await button.click();
+  h1 = await page.$("body > div > h1");
+  assert(h1);
+  assertEquals(await h1.evaluate((el) => el.textContent), "Welcome to mono-jsx!");
+  assertEquals(await h1.evaluate((el) => (el.nextSibling as HTMLElement).tagName), "BUTTON");
+
+  await page.close();
+});
+
+Deno.test("[csr] `<toggle>` component", sanitizeFalse, async () => {
   const testUrl = addTestPage(`
     function App(this: FC<{ lang: 'en' | 'zh' | 'emoji' }>) {
       this.lang = 'en';
@@ -578,7 +617,7 @@ Deno.test("[dom] `<toggle>` component", sanitizeFalse, async () => {
   await page.close();
 });
 
-Deno.test("[dom] list rendering", sanitizeFalse, async (t) => {
+Deno.test("[csr] list rendering", sanitizeFalse, async (t) => {
   await t.step("basic", async () => {
     const testUrl = addTestPage(`
       function Todos(props: { todos: string[] }) {
@@ -695,7 +734,7 @@ Deno.test("[dom] list rendering", sanitizeFalse, async (t) => {
   });
 });
 
-Deno.test("[dom] async component", sanitizeFalse, async () => {
+Deno.test("[csr] async component", sanitizeFalse, async () => {
   const testUrl = addTestPage(`
     const Blah = () => Promise.resolve(<h2>Building User Interfaces.</h2>);
     const Sleep = async ({ ms }: { ms: number }) => {
@@ -742,7 +781,7 @@ Deno.test("[dom] async component", sanitizeFalse, async () => {
   await page.close();
 });
 
-Deno.test("[dom] XSS", sanitizeFalse, async (t) => {
+Deno.test("[csr] XSS", sanitizeFalse, async (t) => {
   await t.step("static html", async () => {
     const testUrl = addTestPage(`
     function App() {

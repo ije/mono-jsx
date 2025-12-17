@@ -196,9 +196,9 @@ Deno.test("[ssr] view transition", async () => {
           "::view-transition-new(toggle)": { animation: "0.5s ease-in both toggle-in" },
         }}
       >
-        <toggle show={this.show} viewTransition={props.viewTransition}>
+        <show when={this.show} viewTransition={props.viewTransition}>
           <h1>Hello world!</h1>
-        </toggle>
+        </show>
         <button type="button" onClick={() => this.show = !this.show}>Toggle</button>
       </div>
     );
@@ -1119,9 +1119,9 @@ Deno.test("[ssr] this.effect", async () => {
     this.effect(() => console.log("Welcome to mono-jsx!"));
     return (
       <>
-        <toggle show={this.show}>
+        <show when={this.show}>
           <Effect />
-        </toggle>
+        </show>
         <button type="button" onClick={() => this.show = !this.show}>Toggle</button>
       </>
     );
@@ -1592,22 +1592,9 @@ Deno.test("[ssr] <static>", async () => {
 Deno.test("[ssr] <toggle>", async () => {
   assertEquals(
     await renderToString(
-      <toggle>
+      <show>
         <h1>👋</h1>
-      </toggle>,
-    ),
-    [
-      `<!DOCTYPE html>`,
-      `<html lang="en"><body>`,
-      `</body></html>`,
-    ].join(""),
-  );
-
-  assertEquals(
-    await renderToString(
-      <toggle show>
-        <h1>👋</h1>
-      </toggle>,
+      </show>,
     ),
     [
       `<!DOCTYPE html>`,
@@ -1617,26 +1604,39 @@ Deno.test("[ssr] <toggle>", async () => {
     ].join(""),
   );
 
-  function Toggle(this: FC<{ show: boolean }>, props: { show?: boolean }) {
+  assertEquals(
+    await renderToString(
+      <hidden>
+        <h1>👋</h1>
+      </hidden>,
+    ),
+    [
+      `<!DOCTYPE html>`,
+      `<html lang="en"><body>`,
+      `</body></html>`,
+    ].join(""),
+  );
+
+  function ShowTag(this: FC<{ show: boolean }>, props: { show?: boolean }) {
     this.show = !!props.show;
     return (
-      <toggle show={this.show}>
+      <show when={this.show}>
         <h1>👋</h1>
-      </toggle>
+      </show>
     );
   }
 
-  function ToggleWithHiddenProp(this: FC<{ hidden: boolean }>, props: { hidden?: boolean }) {
+  function HiddenTag(this: FC<{ hidden: boolean }>, props: { hidden?: boolean }) {
     this.hidden = !!props.hidden;
     return (
-      <toggle hidden={this.hidden}>
+      <hidden when={this.hidden}>
         <h1>👋</h1>
-      </toggle>
+      </hidden>
     );
   }
 
   assertEquals(
-    await renderToString(<Toggle />),
+    await renderToString(<ShowTag />),
     [
       `<!DOCTYPE html>`,
       `<html lang="en"><body>`,
@@ -1656,7 +1656,7 @@ Deno.test("[ssr] <toggle>", async () => {
   );
 
   assertEquals(
-    await renderToString(<Toggle show />),
+    await renderToString(<ShowTag show />),
     [
       `<!DOCTYPE html>`,
       `<html lang="en"><body>`,
@@ -1676,7 +1676,7 @@ Deno.test("[ssr] <toggle>", async () => {
   );
 
   assertEquals(
-    await renderToString(<ToggleWithHiddenProp />),
+    await renderToString(<HiddenTag />),
     [
       `<!DOCTYPE html>`,
       `<html lang="en"><body>`,
@@ -1699,7 +1699,7 @@ Deno.test("[ssr] <toggle>", async () => {
   );
 
   assertEquals(
-    await renderToString(<ToggleWithHiddenProp hidden />),
+    await renderToString(<HiddenTag hidden />),
     [
       `<!DOCTYPE html>`,
       `<html lang="en"><body>`,

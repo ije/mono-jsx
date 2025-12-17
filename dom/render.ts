@@ -364,24 +364,28 @@ const render = (scope: IScope, child: ChildType, root: HTMLElement | DocumentFra
               break;
             }
 
-            // `<if>` element
-            case "if": {
+            // `<show>` and `<hidden>` elements
+            case "show":
+            case "hidden": {
               // todo: support viewTransition
-              let { value: valueProp, children } = props;
+              let { when = true, children } = props;
               if (children !== undefined) {
-                if (valueProp instanceof Reactive) {
+                if (when instanceof Reactive) {
                   let mark = new InsertMark(root);
                   let ac: AbortController | undefined;
-                  valueProp.reactive(value => {
+                  when.reactive(value => {
                     ac?.abort();
-                    if (value) {
+                    if (tag === "show" ? value : !value) {
                       ac = new AbortController();
                       mark.insert(renderToFragment(scope, children, ac.signal));
                     }
                   }, abortSignal);
                   onAbort(abortSignal, () => ac?.abort());
-                } else if (valueProp) {
-                  renderChildren(scope, children, root, abortSignal);
+                } else {
+                  console.warn("[mono-jsx] <" + tag + "> The `when` prop is not a signal/compute.");
+                  if (when) {
+                    renderChildren(scope, children, root, abortSignal);
+                  }
                 }
               }
               break;
