@@ -9,11 +9,12 @@ export interface Elements {
    */
   toggle: BaseAttributes & {
     /**
-     * The visibility of the children.
+     * Display the children if the value is truthy.
      */
     show?: any;
+
     /**
-     * The visibility of the children.
+     * Hide the children if the value is truthy.
      */
     hidden?: any;
 

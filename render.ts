@@ -514,8 +514,11 @@ async function renderNode(rc: RenderContext, node: ChildType, stripSlotProp?: bo
                 write(buf);
                 await renderChildren(rc, children);
                 write((!value ? "</template>" : "") + "</m-signal>");
-              } else if (show) {
-                await renderChildren(rc, children);
+              } else {
+                console.warn("[mono-jsx] <toggle> The `show` or `hidden` prop is not a signal/compute.");
+                if (show) {
+                  await renderChildren(rc, children);
+                }
               }
             }
             break;
