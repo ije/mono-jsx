@@ -2,7 +2,7 @@ import type { Elements } from "./types/mono.d.ts";
 import type { ComponentType, VNode } from "./types/jsx.d.ts";
 import type { RenderOptions } from "./types/render.d.ts";
 import { JSX } from "./jsx.ts";
-import { isSignal, renderToWebStream } from "./render.ts";
+import { isReactive, renderToWebStream } from "./render.ts";
 import { escapeHTML, isString, NullPrototypeObject } from "./runtime/utils.ts";
 import { $fragment, $html, $setup, $vnode } from "./symbols.ts";
 
@@ -61,7 +61,7 @@ export const jsxEscape = (value: unknown): string => {
 
 export const html = (template: string | TemplateStringsArray, ...values: unknown[]): VNode => [
   $html,
-  { innerHTML: isString(template) || isSignal(template) ? template : String.raw(template, ...values.map(jsxEscape)) },
+  { innerHTML: isString(template) || isReactive(template) ? template : String.raw(template, ...values.map(jsxEscape)) },
   $vnode,
 ];
 

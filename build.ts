@@ -98,9 +98,11 @@ if (import.meta.main) {
     ``,
   ].join(eol);
   const eventJS = [
-    `var w=window;`,
-    `w.$emit=(e,f,s)=>f.call(w.$signals?.(s)??e.target,e.type==="mount"?e.target:e);`,
-    `w.$onsubmit=(e,f,s)=>{e.preventDefault();f.call(w.$signals?.(s)??e.target,new FormData(e.target),e)};`,
+    `var w=window,m=new Map;`,
+    `w.$F=m.set.bind(m);`,
+    `w.$fmap=m;`,
+    `w.$emit=(e,i,s)=>m.get(i).call(w.$signals?.(s)??e.target,e.type==="mount"?e.target:e);`,
+    `w.$onsubmit=(e,i,s)=>{e.preventDefault();m.get(i).call(w.$signals?.(s)??e.target,new FormData(e.target),e)};`,
   ].join("");
   const runtimeJS = {
     "event.js": await Promise.resolve(eventJS),

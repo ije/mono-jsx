@@ -13,13 +13,12 @@ import { VERSION } from "./version.ts";
 
 interface RenderContext {
   write: (chunk: string) => void;
+  extraJS: Array<string>;
   suspenses: Array<Promise<string>>;
   fc?: FCScope;
   flags: Flags;
-  mcs: IdGenManager<Signal>;
-  mfs: IdGenManager<CallableFunction & { str?: string }>;
   signals: Signals;
-  extraJS: string[];
+  fidGenerator: FunctionIdGenerator;
   context?: Record<string, unknown>;
   request?: Request;
   session?: Session;
@@ -43,63 +42,38 @@ interface Flags {
 interface Signals {
   app: Record<string, unknown>;
   store: Map<string, unknown>;
-  effects: Array<string>;
+  computes: Set<Compute>;
+  effects: Array<[number, string]>;
 }
 
-export interface Compute {
-  readonly compute: (() => unknown) | string;
-  readonly deps: Set<string>;
-}
-
-const cdn = "https://raw.esm.sh"; // the cdn for loading htmx and its extensions
-const encoder = new TextEncoder();
-const voidTags = new Set("area,base,br,col,embed,hr,img,input,keygen,link,meta,param,source,track,wbr".split(","));
-const cache = new Map<string, { html: string; expires?: number }>();
-const componentsMap = new IdGen<ComponentType>();
-const subtle = crypto.subtle;
-const stringify = JSON.stringify;
-const isVNode = (v: unknown): v is VNode => Array.isArray(v) && v.length === 3 && v[2] === $vnode;
-const isSignal = (v: unknown): v is Signal => v instanceof Signal;
-const isFC = (v: unknown): v is ComponentType => isFunction(v) && v.name.charCodeAt(0) <= /*Z*/ 90;
-const escapeCSSText = (str: string): string => str.replace(/[><]/g, (m) => m.charCodeAt(0) === 60 ? "&lt;" : "&gt;");
-const toAttrStringLit = (str: string) => '"' + escapeHTML(str) + '"';
-const toStr = <T = string | number>(v: T | undefined, str: (v: T) => string) => v !== undefined ? str(v) : "";
-
-class IdGenManager<T> {
-  #scopes = new Map<number, IdGen<T>>();
-
-  size = 0;
-
-  gen(key: T, scope = 0): number {
-    let idGen = this.#scopes.get(scope);
-    if (!idGen) {
-      idGen = new IdGen<T>();
-      this.#scopes.set(scope, idGen);
-    }
-    this.size++;
-    return idGen.gen(key);
+class FunctionIdGenerator extends Map<string, number> {
+  constructor(public seq = 0) {
+    super();
   }
-
-  toJS(callback: (scope: number, id: number, v: T) => string): string {
-    let js = "";
-    for (const [scope, gens] of this.#scopes) {
-      for (const [v, id] of gens.entries()) {
-        js += callback(scope, id, v);
-      }
+  genId(fn: CallableFunction | string): number {
+    const fnStr = String(fn);
+    let id = this.get(fnStr);
+    if (id === undefined) {
+      id = this.seq++;
+      this.set(fnStr, id);
     }
-    return js;
-  }
-
-  clear() {
-    this.#scopes.clear();
-    this.size = 0;
+    return id;
   }
 }
 
 class Signal {
   constructor(
     public readonly scope: number,
-    public readonly key: string | Compute,
+    public readonly key: string,
+    public readonly value: unknown,
+  ) {}
+}
+
+class Compute {
+  constructor(
+    public readonly scope: number,
+    public readonly compute: (() => unknown) | string,
+    public readonly deps: Set<string>,
     public readonly value: unknown,
   ) {}
 }
@@ -110,6 +84,19 @@ class Ref {
     public readonly name: string,
   ) {}
 }
+
+const cdn = "https://raw.esm.sh"; // the cdn for loading htmx and its extensions
+const encoder = new TextEncoder();
+const voidTags = new Set("area,base,br,col,embed,hr,img,input,keygen,link,meta,param,source,track,wbr".split(","));
+const cache = new Map<string, { html: string; expires?: number }>();
+const componentsMap = new IdGen<ComponentType>();
+const subtle = crypto.subtle;
+const stringify = JSON.stringify;
+const isVNode = (v: unknown): v is VNode => Array.isArray(v) && v.length === 3 && v[2] === $vnode;
+const isReactive = (v: unknown): v is Signal | Compute => v instanceof Signal || v instanceof Compute;
+const isFC = (v: unknown): v is ComponentType => isFunction(v) && v.name.charCodeAt(0) <= /*Z*/ 90;
+const escapeCSSText = (str: string): string => str.replace(/[><]/g, (m) => m.charCodeAt(0) === 60 ? "&lt;" : "&gt;");
+const toAttrStringLit = (str: string) => '"' + escapeHTML(str) + '"';
 
 /** Renders a `<html>` element to a `Response` object. */
 function renderToWebStream(root: VNode, options: RenderOptions): Response {
@@ -270,6 +257,7 @@ async function render(
   const signals: Signals = {
     app: {},
     store: new Map(),
+    computes: new Set(),
     effects: [],
   };
   const rc: RenderContext = {
@@ -280,16 +268,19 @@ async function render(
     signals,
     routeFC,
     flags: { scope: 0, chunk: 0, runtime: 0 },
-    mcs: new IdGenManager(),
-    mfs: new IdGenManager(),
+    fidGenerator: new FunctionIdGenerator(),
     extraJS: [],
   };
   signals.app = Object.assign(createThisProxy(rc, 0), app);
 
+  // a flag to decide which runtime JS should be sent to the client
+  let runtimeFlag = 0;
+
   // finalize creates runtime JS for client
   // it may be called recursively when thare are unresolved suspenses
   const finalize = async () => {
-    const { extraJS, mfs, mcs, session, flags } = rc;
+    const { extraJS, fidGenerator, session, flags } = rc;
+    const computes = signals.computes;
     const hasEffect = signals.effects.length > 0;
     const treeshake = (flag: number, code: string, force?: boolean) => {
       if ((force || flags.runtime & flag) && !(runtimeFlag & flag)) {
@@ -300,8 +291,8 @@ async function render(
     let js = "";
     treeshake(CX, CX_JS);
     treeshake(STYLE, STYLE_JS);
-    treeshake(EVENT, EVENT_JS, mfs.size > 0);
-    if (signals.store.size > 0 || mcs.size > 0 || hasEffect) {
+    treeshake(EVENT, EVENT_JS, fidGenerator.size > 0 || hasEffect || computes.size > 0);
+    if (signals.store.size > 0 || computes.size > 0 || hasEffect) {
       treeshake(RENDER_ATTR, RENDER_ATTR_JS);
       treeshake(RENDER_TOGGLE, RENDER_TOGGLE_JS);
       treeshake(RENDER_SWITCH, RENDER_SWITCH_JS);
@@ -312,20 +303,7 @@ async function render(
     treeshake(ROUTER, ROUTER_JS);
     treeshake(FORM, FORM_JS);
     if (js.length > 0) {
-      js = "(()=>{" + js + "})();/* --- */";
-    }
-    if ((runtimeFlag & COMPONENT) || (runtimeFlag & ROUTER) || (runtimeFlag & FORM)) {
-      const { scope, chunk } = flags;
-      js += 'window.$FLAGS="' + scope + "|" + chunk + "|" + runtimeFlag + '";';
-    }
-    if (mfs.size > 0) {
-      js += mfs.toJS((scope, seq, fn) =>
-        "function $MF_" + scope + "_" + seq + "(){(" + (fn.str ?? String(fn)) + ").apply(this,arguments)};"
-      );
-      mfs.clear();
-    }
-    if (hasEffect) {
-      js += signals.effects.splice(0, signals.effects.length).join("");
+      js = "(()=>{" + js + "})();/*!*/";
     }
     if ((runtimeFlag & ROUTER) && (runtimeFlag & SIGNALS) && request) {
       const { params } = request as Request & { params?: Record<string, string> };
@@ -334,23 +312,43 @@ async function render(
       if (componentMode) {
         js += "$signals(0).url=" + urlWithParams + ";";
       } else {
-        js += '$MS("0:url",' + urlWithParams + ");";
+        js += '$S("0:url",' + urlWithParams + ");";
       }
     }
     if (signals.store.size > 0) {
       for (const [key, value] of signals.store.entries()) {
-        js += "$MS(" + stringify(key) + (value !== undefined ? "," + stringify(value) : "") + ");";
+        js += "$S(" + stringify(key) + (value !== undefined ? "," + stringify(value) : "") + ");";
       }
       signals.store.clear();
     }
-    if (mcs.size > 0) {
-      js += mcs.toJS((scope, seq, signal) => {
-        const { compute, deps } = signal.key as Compute;
-        return "$MC(" + scope + "," + seq + ",function(){return(" + String(compute) + ").call(this)},"
-          + stringify([...deps.values()])
-          + ");";
-      });
-      mcs.clear();
+    if (computes.size > 0) {
+      for (const compute of computes) {
+        const id = fidGenerator.genId(compute.compute);
+        js += "$C(" + compute.scope + "," + id + "," + stringify([...compute.deps.values()]) + ");";
+      }
+      computes.clear();
+    }
+    if (hasEffect) {
+      const effects = new Map<number, number[]>();
+      for (const [scopeId, callback] of signals.effects) {
+        const fid = fidGenerator.genId(callback);
+        const arr = effects.get(scopeId) ?? effects.set(scopeId, []).get(scopeId)!;
+        arr.push(fid);
+      }
+      signals.effects.length = 0;
+      for (const [scopeId, fids] of effects.entries()) {
+        js += "$E(" + scopeId + "," + fids.join(",") + ");";
+      }
+    }
+    if (fidGenerator.size > 0) {
+      for (const [fnStr, id] of fidGenerator.entries()) {
+        js += "$F(" + id + ",function(...a){return(" + fnStr + ").apply(this,a)});";
+      }
+      fidGenerator.clear();
+    }
+    if ((runtimeFlag & COMPONENT) || (runtimeFlag & ROUTER) || (runtimeFlag & FORM)) {
+      const { scope, chunk } = flags;
+      js += 'window.$FLAGS="' + scope + "|" + chunk + "|" + runtimeFlag + "|" + fidGenerator.seq + '";';
     }
     if (session && session.isDirty) {
       const sessionStore = session.all();
@@ -404,13 +402,13 @@ async function render(
     }
   };
 
-  let runtimeFlag = 0;
   if (componentMode && request) {
     const headers = request.headers;
     const flagsHeader = headers.get("x-flags")?.split("|");
-    if (flagsHeader?.length === 3) {
-      const [scope, chunk, runtime] = flagsHeader.map(Number);
+    if (flagsHeader?.length === 4) {
+      const [scope, chunk, runtime, fid] = flagsHeader.map(Number);
       Object.assign(rc.flags, { scope, chunk });
+      rc.fidGenerator.seq = fid;
       runtimeFlag = runtime;
     }
   }
@@ -445,7 +443,7 @@ async function renderNode(rc: RenderContext, node: ChildType, stripSlotProp?: bo
     case "object":
       if (node === null) {
         // skip null
-      } else if (isSignal(node)) {
+      } else if (isReactive(node)) {
         rc.write(renderSignal(rc, node));
       } else if (isVNode(node)) {
         const [tag, props] = node;
@@ -462,7 +460,7 @@ async function renderNode(rc: RenderContext, node: ChildType, stripSlotProp?: bo
           case $html: {
             const { innerHTML } = props;
             if (innerHTML) {
-              if (isSignal(innerHTML)) {
+              if (isReactive(innerHTML)) {
                 rc.write(renderSignal(rc, innerHTML, "html"));
               } else {
                 write(innerHTML);
@@ -495,25 +493,18 @@ async function renderNode(rc: RenderContext, node: ChildType, stripSlotProp?: bo
             let { show, hidden, viewTransition, children } = props;
             if (children !== undefined) {
               if (show === undefined && hidden !== undefined) {
-                if (isSignal(hidden)) {
-                  let { scope, key, value } = hidden;
-                  if (typeof key === "string") {
-                    key = {
-                      compute: "()=>!this[" + stringify(key) + "]",
-                      deps: new Set([scope + ":" + key]),
-                    };
+                if (isReactive(hidden)) {
+                  let { scope, value } = hidden;
+                  if (hidden instanceof Signal) {
+                    show = new Compute(scope, "()=>!this[" + stringify(hidden.key) + "]", new Set([scope + ":" + hidden.key]), !value);
                   } else {
-                    key = {
-                      compute: "()=>!(" + key.compute + ")()",
-                      deps: key.deps,
-                    };
+                    show = new Compute(scope, "()=>!(" + hidden.compute + ")()", hidden.deps, !value);
                   }
-                  show = new Signal(scope, key, !value);
                 } else {
                   show = !hidden;
                 }
               }
-              if (isSignal(show)) {
+              if (isReactive(show)) {
                 const { value } = show;
                 let buf = renderSignal(rc, show, "toggle", false).slice(0, -1) + renderViewTransitionAttr(viewTransition) + ">";
                 if (!value) {
@@ -540,7 +531,7 @@ async function renderNode(rc: RenderContext, node: ChildType, stripSlotProp?: bo
               let unnamedSlots: ChildType[] = [];
               let signalHtml: string | undefined;
               let toSlotName: string;
-              if (isSignal(valueProp)) {
+              if (isReactive(valueProp)) {
                 const { value } = valueProp;
                 signalHtml = renderSignal(rc, valueProp, "switch", false).slice(0, -1) + renderViewTransitionAttr(viewTransition) + ">";
                 rc.flags.runtime |= RENDER_SWITCH;
@@ -912,38 +903,40 @@ function renderAttr(
   attrName: string,
   attrValue: unknown,
   stripSlotProp?: boolean,
-): [attr: string, addonHtml: string, signalValue: Signal | undefined, binding: boolean] {
+): [attr: string, addonHtml: string, signalValue: Signal | Compute | undefined, binding: boolean] {
   let attr = "";
   let addonHtml = "";
-  let signalValue: Signal | undefined;
+  let signalValue: Signal | Compute | undefined;
   let binding = false;
   let scopeId = rc.fc?.id;
   if (isObject(attrValue)) {
-    let signal: Signal | undefined;
-    if (isSignal(attrValue)) {
+    let signal: Signal | Compute | undefined;
+    if (isReactive(attrValue)) {
       signal = attrValue;
     } else {
       if (scopeId) {
         const deps = new Set<string>();
         const patches = [] as string[];
         const staticProps = traverseProps(attrValue, (path, value) => {
-          const { scope, key } = value;
-          if (isString(key)) {
+          const { scope } = value;
+          if (value instanceof Signal) {
+            const { key } = value;
             patches.push([
               (scope !== scopeId ? "$signals(" + scope + ")" : "this") + "[" + stringify(key) + "]",
               ...path,
             ].join(","));
             deps.add(scope + ":" + key);
           } else {
-            patches.push(["(" + String(key.compute) + ")(),", ...path].join(","));
-            for (const dep of key.deps) {
+            const { compute, deps } = value;
+            patches.push(["(" + String(compute) + ")(),", ...path].join(","));
+            for (const dep of deps) {
               deps.add(dep);
             }
           }
         });
         if (patches.length > 0) {
           const compute = "()=>$patch(" + stringify(staticProps) + ",[" + patches.join("],[") + "])";
-          signal = new Signal(scopeId, { compute, deps }, staticProps);
+          signal = new Compute(scopeId, compute, deps, staticProps);
         }
       }
     }
@@ -1001,9 +994,9 @@ function renderAttr(
     case "action":
       if (isFunction(attrValue)) {
         const scopeId = rc.fc?.id;
-        attr = ' onsubmit="$onsubmit(event,$MF_'
-          + (scopeId ?? 0) + "_"
-          + rc.mfs.gen(attrValue, scopeId) + toStr(scopeId, (i) => "," + i)
+        attr = ' onsubmit="$onsubmit(event,'
+          + rc.fidGenerator.genId(attrValue)
+          + (scopeId !== undefined ? "," + scopeId : "")
           + ')"';
       } else if (isString(attrValue)) {
         attr = " action=" + toAttrStringLit(attrValue);
@@ -1022,17 +1015,13 @@ function renderAttr(
           attr += "=" + toAttrStringLit(String(attrValue));
         }
       }
-      if (signalValue) {
+      if (signalValue instanceof Signal) {
         const { key } = signalValue;
-        if (isString(key)) {
-          const fn = () => {}; // todo: use cached fn by the key to reduce the code size
-          fn.str = "e=>this[" + toAttrStringLit(key) + "]=e.target." + attrName.slice(1);
-          attr += ' oninput="$emit(event,$MF_'
-            + (scopeId ?? 0) + "_"
-            + rc.mfs.gen(fn, scopeId)
-            + toStr(scopeId, (i) => "," + i)
-            + ')"';
-        }
+        const fn = "e=>this[" + toAttrStringLit(key) + "]=e.target." + attrName.slice(1);
+        attr += ' oninput="$emit(event,'
+          + rc.fidGenerator.genId(fn)
+          + (scopeId !== undefined ? "," + scopeId : "")
+          + ')"';
         binding = true;
       }
       break;
@@ -1045,10 +1034,9 @@ function renderAttr(
       break;
     default:
       if (attrName.startsWith("on") && isFunction(attrValue)) {
-        attr = " " + escapeHTML(attrName.toLowerCase()) + '="$emit(event,$MF_'
-          + (scopeId ?? 0) + "_"
-          + rc.mfs.gen(attrValue, scopeId)
-          + toStr(scopeId, (i) => "," + i)
+        attr = " " + escapeHTML(attrName.toLowerCase()) + '="$emit(event,'
+          + rc.fidGenerator.genId(attrValue)
+          + (scopeId !== undefined ? "," + scopeId : "")
           + ')"';
       } else if (attrValue === false || attrValue === null || attrValue === undefined) {
         // skip false, null or undefined attributes
@@ -1071,11 +1059,11 @@ function renderViewTransitionAttr(viewTransition?: string | boolean): string {
 
 function renderSignal(
   rc: RenderContext,
-  signal: Signal,
+  signal: Signal | Compute,
   mode?: "toggle" | "switch" | "list" | "html" | [string],
   close = true,
 ) {
-  const { scope, key, value } = signal;
+  const { scope, value } = signal;
   let buffer = "<m-signal";
   if (mode) {
     if (Array.isArray(mode)) {
@@ -1084,10 +1072,11 @@ function renderSignal(
     buffer += ' mode="' + mode + '"';
   }
   buffer += ' scope="' + scope + '"';
-  if (isString(key)) {
-    buffer += " key=" + toAttrStringLit(key);
+  if (signal instanceof Signal) {
+    buffer += " key=" + toAttrStringLit(signal.key);
   } else {
-    buffer += ' computed="' + rc.mcs.gen(signal, rc.fc?.id) + '"';
+    rc.signals.computes.add(signal);
+    buffer += ' computed="' + rc.fidGenerator.genId(signal.compute) + '"';
   }
   if (mode && mode !== "html" && close) {
     buffer += " hidden";
@@ -1129,21 +1118,16 @@ function createThisProxy(rc: RenderContext, scopeId: number): Record<string, unk
     collectDep = (scopeId, key) => deps.add(scopeId + ":" + key);
     const value = compute.call(thisProxy);
     collectDep = undefined;
-    return new Signal(scopeId, { compute, deps }, value);
-  };
-  const markEffect = (effect: CallableFunction) => {
-    effects.push(String(effect));
+    return new Compute(scopeId, compute, deps, value);
   };
   const mark = ({ signals, write }: RenderContext) => {
     if (effects.length > 0) {
       const n = effects.length;
       if (n > 0) {
-        const js = new Array<string>(n);
         for (let i = 0; i < n; i++) {
-          js[i] = "function $ME_" + scopeId + "_" + i + "(){return(" + effects[i] + ").call(this)};";
+          signals.effects.push([scopeId, effects[i]]);
         }
-        write('<m-effect scope="' + scopeId + '" n="' + n + '" hidden></m-effect>');
-        signals.effects.push(js.join(""));
+        write('<m-effect scope="' + scopeId + '" hidden></m-effect>');
       }
     }
     for (const [key, value] of Object.entries(store)) {
@@ -1181,7 +1165,9 @@ function createThisProxy(rc: RenderContext, scopeId: number): Record<string, unk
         case "$":
           return computed;
         case "effect":
-          return markEffect;
+          return (effect: CallableFunction) => {
+            effects.push(String(effect));
+          };
         case Symbol.for("effects"):
           return effects;
         case Symbol.for("mark"):
@@ -1201,7 +1187,7 @@ function createThisProxy(rc: RenderContext, scopeId: number): Record<string, unk
             Reflect.set(target, key, undefined, receiver);
           }
           const value = Reflect.get(target, key, receiver);
-          if (typeof key === "symbol" || isSignal(value)) {
+          if (typeof key === "symbol" || isReactive(value)) {
             return value;
           }
           if (collectDep) {
@@ -1293,7 +1279,7 @@ function markSignals(rc: RenderContext, signals: Record<symbol, unknown>) {
 
 function traverseProps(
   obj: object,
-  callback: (path: string[], signal: Signal) => void,
+  callback: (path: string[], signal: Signal | Compute) => void,
   path: string[] = [],
 ): typeof obj {
   const isArray = Array.isArray(obj);
@@ -1302,7 +1288,7 @@ function traverseProps(
     const newPath = path.concat(isArray ? k : stringify(k));
     const key = isArray ? Number(k) : k;
     if (isObject(value)) {
-      if (isSignal(value)) {
+      if (isReactive(value)) {
         copy[key] = value.value; // use the value of the signal
         callback(newPath, value);
       } else {
@@ -1315,4 +1301,4 @@ function traverseProps(
   return copy;
 }
 
-export { cache, isSignal, renderToWebStream };
+export { cache, isReactive, renderToWebStream };

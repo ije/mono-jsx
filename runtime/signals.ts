@@ -1,4 +1,5 @@
 declare global {
+  var $fmap: Map<number, Function>;
   interface Signals {
     readonly $init: (key: string, value: unknown) => void;
     readonly $watch: (key: string, effect: () => void) => () => void;
@@ -10,8 +11,9 @@ let collectDep: ((scopeId: number, key: string) => void) | undefined;
 
 const win = window as any;
 const doc = document;
-const mcs = new Map<number, [Function, string[]]>();
 const scopes = new Map<number, Signals>();
+const computes = new Map<string, string[]>();
+const effects = new Map<number, number[]>();
 const Signals = (id: number) => scopes.get(id) ?? scopes.set(id, createSignals(id)).get(id)!;
 
 const createNullObject = () => Object.create(null);
@@ -101,20 +103,19 @@ const resolveSignalID = (id: string): [scope: number, key: string] | null => {
   return i > 0 ? [Number(id.slice(0, i)), id.slice(i + 1)] : null;
 };
 
-const defer = async <T>(getter: () => T | undefined) => {
+const defer = async <T>(getter: () => T | undefined, retries = 100) => {
   const v = getter();
   if (v !== undefined) {
     return v;
   }
-  await new Promise((resolve) => setTimeout(resolve, 0));
-  return defer(getter);
+  await new Promise((resolve) => setTimeout(resolve, 25));
+  if (retries <= 0) {
+    throw new Error("Deferred value not found");
+  }
+  return defer(getter, retries - 1);
 };
 
-const callFn = (v: unknown) => {
-  if (typeof v === "function") {
-    v();
-  }
-};
+const callFn = (v: unknown) => typeof v === "function" && v();
 
 const defineElement = (tag: string, callback: (el: Element & { disposes: (() => void)[] }) => void) =>
   customElements.define(
@@ -138,9 +139,9 @@ defineElement("m-signal", (el) => {
   if (key) {
     el.disposes.push(signals.$watch(key, createDomEffect(el, getAttr(el, "mode"), () => (signals as any)[key])));
   } else {
-    const id = Number(getAttr(el, "computed"));
-    defer(() => mcs.get(scope * 1e9 + id)).then(([compute, deps]) => {
-      const effect = createDomEffect(el, getAttr(el, "mode"), compute.bind(signals));
+    const cid = Number(getAttr(el, "computed"));
+    defer(() => computes.get(scope + ":" + cid)).then((deps) => {
+      const effect = createDomEffect(el, getAttr(el, "mode"), $fmap.get(cid)!.bind(signals));
       deps.forEach((dep) => {
         const [scope, key] = resolveSignalID(dep)!;
         el.disposes.push(Signals(scope).$watch(key, effect));
@@ -152,20 +153,20 @@ defineElement("m-signal", (el) => {
 defineElement("m-effect", (el) => {
   const { disposes } = el;
   const scope = Number(getAttr(el, "scope"));
-  const n = Number(getAttr(el, "n"));
-  const cleanups = new Array<unknown>(n);
-  disposes.push(() => {
-    cleanups.forEach(callFn);
-    cleanups.length = 0;
-  });
-  for (let i = 0; i < n; i++) {
-    const fname = "$ME_" + scope + "_" + i;
-    defer<Function>(() => win[fname]).then((fn) => {
+  defer(() => effects.get(scope) ?? undefined).then((effects) => {
+    const n = effects.length;
+    const cleanups = new Array<unknown>(n);
+    disposes.push(() => {
+      cleanups.forEach(callFn);
+      cleanups.length = 0;
+    });
+    for (let i = 0; i < n; i++) {
       const deps: [number, string][] = [];
       const signals = Signals(scope);
+      const fn = $fmap.get(effects[i]);
       const effect = () => {
         callFn(cleanups[i]);
-        cleanups[i] = fn.call(signals);
+        cleanups[i] = fn?.call(signals);
       };
       collectDep = (scope, key) => deps.push([scope, key]);
       effect();
@@ -173,19 +174,24 @@ defineElement("m-effect", (el) => {
       for (const [scope, key] of deps) {
         disposes.push(Signals(scope).$watch(key, effect));
       }
-    }, () => {});
-  }
+    }
+  });
 });
 
 // initialize a signal with the given value
-win.$MS = (id: string, value: unknown) => {
+win.$S = (id: string, value: unknown) => {
   const [scope, key] = resolveSignalID(id)!;
   Signals(scope).$init(key, value);
 };
 
 // define a computed signal
-win.$MC = (scope: number, id: number, compute: Function, deps: string[]) => {
-  mcs.set(scope * 1e9 + id, [compute, deps]);
+win.$C = (scope: number, cid: number, deps: string[]) => {
+  computes.set(scope + ":" + cid, deps);
+};
+
+// define effects in a component
+win.$E = (scope: number, ...ids: number[]) => {
+  effects.set(scope, ids);
 };
 
 // update an object with patches

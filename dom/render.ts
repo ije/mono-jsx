@@ -711,8 +711,7 @@ const renderStyle = (style: Record<string, unknown>, mark?: Set<Reactive>): stri
 
 const computeStyleClassName = (css: (string | null)[]) => {
   const hash = hashCode(css.join("")).toString(36);
-  const char0 = hash.charAt(0);
-  const className = "css-" + (char0 === "-" ? "n" : char0) + hash.slice(1);
+  const className = "css-" + hash;
   if (!document.getElementById(className)) {
     const styleEl = document.head.appendChild(createElement("style"));
     styleEl.id = className;
