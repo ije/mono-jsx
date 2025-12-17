@@ -491,7 +491,7 @@ async function renderNode(rc: RenderContext, node: ChildType, stripSlotProp?: bo
           // `<show>` and `<hidden>` elements
           case "show":
           case "hidden": {
-            let { viewTransition, children, when = true } = props;
+            let { children, when = true } = props;
             if (children !== undefined) {
               if (tag === "hidden") {
                 if (isReactive(when)) {
@@ -507,7 +507,10 @@ async function renderNode(rc: RenderContext, node: ChildType, stripSlotProp?: bo
               }
               if (isReactive(when)) {
                 const { value } = when;
-                let buf = renderSignal(rc, when, "toggle", false).slice(0, -1) + renderViewTransitionAttr(viewTransition) + ">";
+                let buf = renderSignal(rc, when, "toggle", false).slice(0, -1)
+                  + renderFormslotAttr(props)
+                  + renderViewTransitionAttr(props)
+                  + ">";
                 if (!value) {
                   buf += "<template m-slot>";
                 }
@@ -527,7 +530,7 @@ async function renderNode(rc: RenderContext, node: ChildType, stripSlotProp?: bo
 
           // `<switch>` element
           case "switch": {
-            const { value: valueProp, viewTransition, children } = props;
+            const { value: valueProp, children } = props;
             if (children !== undefined) {
               let slots = Array.isArray(children) ? (isVNode(children) ? [children] : children) : [children];
               let matchedSlot: [string, ChildType] | undefined;
@@ -537,7 +540,10 @@ async function renderNode(rc: RenderContext, node: ChildType, stripSlotProp?: bo
               let toSlotName: string;
               if (isReactive(valueProp)) {
                 const { value } = valueProp;
-                signalHtml = renderSignal(rc, valueProp, "switch", false).slice(0, -1) + renderViewTransitionAttr(viewTransition) + ">";
+                signalHtml = renderSignal(rc, valueProp, "switch", false).slice(0, -1)
+                  + renderFormslotAttr(props)
+                  + renderViewTransitionAttr(props)
+                  + ">";
                 rc.flags.runtime |= RENDER_SWITCH;
                 toSlotName = String(value);
               } else {
@@ -580,7 +586,7 @@ async function renderNode(rc: RenderContext, node: ChildType, stripSlotProp?: bo
 
           // `<component>` element
           case "component": {
-            let { placeholder, viewTransition, is, as } = props;
+            let { placeholder, is, as } = props;
             let attrs = "";
             let attrModifiers = "";
             let writeAttr = (propName: string, propValue = props[propName]) => {
@@ -607,7 +613,7 @@ async function renderNode(rc: RenderContext, node: ChildType, stripSlotProp?: bo
               writeAttr("props");
             }
             writeAttr("ref");
-            attrs += renderViewTransitionAttr(viewTransition);
+            attrs += renderViewTransitionAttr(props);
             let buf = "<m-component" + attrs + ">";
             if (placeholder) {
               const write = (chunk: string) => {
@@ -627,9 +633,9 @@ async function renderNode(rc: RenderContext, node: ChildType, stripSlotProp?: bo
           // `<router>` element
           case "router": {
             let { routeFC } = rc;
-            let { children, viewTransition, ref } = props;
+            let { children, ref } = props;
             let buf = "";
-            let attrs = renderViewTransitionAttr(viewTransition);
+            let attrs = renderViewTransitionAttr(props);
             if (ref !== undefined) {
               attrs += renderAttr(rc, "ref", ref)[0];
             }
@@ -1065,7 +1071,14 @@ function renderAttr(
   return [attr, addonHtml, signalValue, binding];
 }
 
-function renderViewTransitionAttr(viewTransition?: string | boolean): string {
+function renderFormslotAttr({ formslot }: { formslot?: string }): string {
+  if (formslot) {
+    return " formslot=" + toAttrStringLit(formslot);
+  }
+  return "";
+}
+
+function renderViewTransitionAttr({ viewTransition }: { viewTransition?: string | boolean }): string {
   if (viewTransition === true || viewTransition === "") {
     return " vt";
   }
