@@ -115,14 +115,11 @@ Deno.test.beforeAll(() => {
             Chat.FormHandler = function(this: FC, data: FormData) {
               const message = data.get("message") as string | null;
               if (message === null || message.trim() === "") {
-                return (
-                  <invalid for="message">
-                    Message is required
-                  </invalid>
-                );
+                return <invalid for="message">Message is required</invalid>;
               }
               return (
                 <>
+                  {this.request.URL.searchParams.has("debug") && <p class="debug-message" formslot="debug-message">{message}</p>}
                   <p class="chat-message" formslot="chat-message">{message}</p>
                   <p class="message">{message}</p>
                 </>
@@ -1165,6 +1162,56 @@ Deno.test("[runtime] route form", sanitizeFalse, async () => {
   p = await page.$("p.chat-message");
   assert(p);
   assertEquals(await p.evaluate((el: HTMLElement) => el.textContent), ", world!");
+
+  await page.close();
+});
+
+Deno.test("[runtime] <formslot> with `onUpdate` callback", sanitizeFalse, async () => {
+  function App(this: FC<{ message: string }>) {
+    this.message = "";
+    return (
+      <>
+        <nav>
+          <a href="/chat?debug=true">Chat</a>
+        </nav>
+        <p class="debug">debug: {this.message}</p>
+        <formslot
+          name="debug-message"
+          hidden
+          onUpdate={(evt) => {
+            this.message = evt.target.textContent;
+          }}
+        />
+        <router>
+          <p>Page not found</p>
+        </router>
+      </>
+    );
+  }
+
+  const testUrl = addTestPage(<App />);
+  const page = await browser.newPage();
+  await page.goto(testUrl);
+
+  const link = await page.$("nav a");
+  assert(link);
+  await link.click();
+  await page.waitForNetworkIdle();
+
+  const form = await page.$("form");
+  assert(form);
+
+  const input = await form.$("input[type='text']");
+  assert(input);
+  const submit = await form.$("input[type='submit']");
+  assert(submit);
+  await input.type("Hello world!");
+  await submit.evaluate((el: HTMLInputElement) => el.click());
+  await page.waitForNetworkIdle();
+
+  const p = await page.$("p.debug");
+  assert(p);
+  assertEquals(await p.evaluate((el: HTMLElement) => el.textContent), "debug: Hello world!");
 
   await page.close();
 });

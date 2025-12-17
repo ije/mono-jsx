@@ -174,6 +174,16 @@ export interface Elements {
      * @default "replaceChildren"
      */
     mode?: "insertbefore" | "insertafter" | "replaceChildren";
+
+    /**
+     * If true, the formslot element will be hidden.
+     */
+    hidden?: boolean;
+
+    /**
+     * The callback function to be called when the formslot element is updated.
+     */
+    onUpdate?: (evt: { type: "update"; target: HTMLElement }) => void | Promise<void>;
   };
 }
 

@@ -2,11 +2,15 @@ declare global {
   var $onrfs: (event: SubmitEvent) => Promise<void>;
 }
 
+const document = window.document;
+const getAttr = (el: HTMLElement, name: string) => el.getAttribute(name);
+const appendChild = (el: HTMLElement, child: Node) => el.appendChild(child);
+
 customElements.define(
   "m-invalid",
   class extends HTMLElement {
     connectedCallback() {
-      const forAttr = this.getAttribute("for");
+      const forAttr = getAttr(this, "for");
       const formEl = this.closest("form");
       const message = this.textContent;
       if (forAttr && formEl && message) {
@@ -59,7 +63,7 @@ window.$onrfs = async (evt) => {
   for (const child of tpl.content.childNodes) {
     if (child.nodeType === 1) {
       const el = child as HTMLElement;
-      const slot = el.getAttribute("formslot");
+      const slot = getAttr(el, "formslot");
       const selector = slot ? 'm-formslot[name="' + slot + '"]' : "m-formslot";
       const formslot = slot
         ? formEl.querySelector(selector) ?? document.querySelector(selector)
@@ -70,10 +74,12 @@ window.$onrfs = async (evt) => {
         continue;
       }
     }
-    formEl.appendChild(child);
+    appendChild(formEl, child);
   }
   for (const [child, formslot] of formslots) {
-    switch (formslot.getAttribute("mode")) {
+    const updateFid = getAttr(formslot, "onupdate");
+    const scope = getAttr(formslot, "scope");
+    switch (getAttr(formslot, "mode")) {
       case "insertbefore":
         formslot.before(child);
         break;
@@ -81,7 +87,13 @@ window.$onrfs = async (evt) => {
         formslot.after(child);
         break;
       default:
-        formslot.appendChild(child);
+        appendChild(formslot, child);
+    }
+    if (updateFid) {
+      $fmap.get(Number(updateFid))?.call(
+        $signals?.(Number(scope)) ?? formslot,
+        { type: "update", target: formslot },
+      );
     }
   }
   setTimeout(() => {
@@ -90,6 +102,6 @@ window.$onrfs = async (evt) => {
     }
   }, 0);
   if (js) {
-    document.body.appendChild(document.createElement("script")).textContent = js;
+    appendChild(document.body, document.createElement("script")).textContent = js;
   }
 };
