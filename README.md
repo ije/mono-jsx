@@ -163,7 +163,8 @@ mono-jsx supports [pseudo classes](https://developer.mozilla.org/en-US/docs/Web/
 
 mono-jsx supports [View Transition](https://developer.mozilla.org/en-US/docs/Web/API/View_Transitions_API) to create smooth transitions between views. To use view transitions, add the `viewTransition` attribute to the following components:
 
- - `<toggle viewTransition="view-transition-name">`
+ - `<show viewTransition="view-transition-name">`
+ - `<hidden viewTransition="view-transition-name">`
  - `<switch viewTransition="view-transition-name">`
  - `<component viewTransition="view-transition-name">`
  - `<router viewTransition="view-transition-name">`
@@ -182,9 +183,9 @@ function App(this: FC<{ show: boolean }>) {
         "::view-transition-new(fade)": { animation: "0.3s ease-in both fade-in" },
       }}
     >
-      <toggle show={this.show} viewTransition="fade">
+      <show when={this.show} viewTransition="fade">
         <h1>Hello world!</h1>
-      </toggle>
+      </show>
       <button onClick={() => this.show = !this.show}>Toggle</button>
     </div>
   )
@@ -481,9 +482,9 @@ function Dash(this: FC<{ page: "Profile" | "Projects" | "Settings" }>) {
   return (
     <>
       <div class="tab">
-        <button onClick={e => this.page = "Profile"}>Profile</button>
-        <button onClick={e => this.page = "Projects"}>Projects</button>
-        <button onClick={e => this.page = "Settings"}>Settings</button>
+        <button onClick={() => this.page = "Profile"}>Profile</button>
+        <button onClick={() => this.page = "Projects"}>Projects</button>
+        <button onClick={() => this.page = "Settings"}>Settings</button>
       </div>
       <div class="page">
         <component name={this.page} placeholder={<p>Loading...</p>} />
@@ -501,16 +502,15 @@ export default {
 }
 ```
 
-You can use the `<toggle>` element to control when to render a component:
+You can use the `<show>` element to control when to render a component:
 
 ```tsx
 async function Lazy(this: FC<{ show: boolean }>, props: { url: string }) {
-  this.show = false;
   return (
     <div>
-      <toggle show={this.show}>
+      <show when={this.show}>
         <component name="Foo" props={{ bar: "baz" }} placeholder={<p>Loading...</p>} />
-      </toggle>
+      </show>
      <button onClick={() => this.show = true }>Load `Foo` Component</button>
     </div>
   )
@@ -592,7 +592,7 @@ function Main(this: App<FC, AppSignals>) {
 
 export default {
   fetch: (req) => (
-    <html app={{ themeColor: "#232323" } satisfies AppSignals}>
+    <html app={{ themeColor: "#232323" }}>
       <Header />
       <Main />
       <Footer />
@@ -641,7 +641,7 @@ function App(this: FC<{ count: number }>) {
 }
 ```
 
-The callback function of `this.effect` can return a cleanup function that gets run once the component element has been removed via `<toggle>` or `<switch>` conditional rendering:
+The callback function of `this.effect` can return a cleanup function that gets run once the component element has been removed via `<show>`, `<hidden>` or `<switch>` conditional rendering:
 
 ```tsx
 function Counter(this: FC<{ count: number }>) {
@@ -663,39 +663,65 @@ function Counter(this: FC<{ count: number }>) {
 }
 
 function App(this: FC<{ show: boolean }>) {
-  this.show = true
   return (
     <div>
-      <toggle show={this.show}>
-        <Foo />
-      </toggle>
+      <show when={this.show}>
+        <Counter />
+      </show>
       <button onClick={e => this.show = !this.show }>{this.computed(() => this.show ? 'Hide': 'Show')}</button>
     </div>
   )
 }
 ```
 
-### Using `<toggle>` Element with Signals
+### Using `<show>` Element with Signals
 
-The `<toggle>` element conditionally renders content based on the `show` prop. You can use signals to control the visibility of the content on the client side.
+The `<show>` element conditionally renders content based on the `when` prop. You can use signals to control the visibility of the content on the client side.
 
 ```tsx
 function App(this: FC<{ show: boolean }>) {
-  this.show = false;
-
-  function toggle() {
+   const toggle = () => {
     this.show = !this.show;
   }
 
   return (
     <div>
-      <toggle show={this.show}>
+      <show when={this.show}>
         <h1>Welcome to mono-jsx!</h1>
-      </toggle>
+      </show>
 
       <button onClick={toggle}>
-        {this.computed(() => this.show ? "Hide" : "Show")}
+        {this.$(() => this.show ? "Hide" : "Show")}
       </button>
+    </div>
+  )
+}
+```
+
+mono-jsx also provides a `<hidden>` element that is similar to `<show>`, but it conditionally hides the content based on the `when` prop.
+
+```tsx
+function App(this: FC<{ hidden: boolean }>) {
+  return (
+    <div>
+      <hidden when={this.hidden}>
+        <h1>Welcome to mono-jsx!</h1>
+      </hidden>
+    </div>
+  )
+}
+```
+
+If you need `if-else` logic in JSX, use `<switch>` element instead:
+
+```tsx
+function App(this: FC<{ ok: boolean }>) {
+  return (
+    <div>
+      <switch value={this.ok}>
+        <span slot="true">True</span>
+        <span slot="false">False</span>
+      </switch>
     </div>
   )
 }
@@ -703,7 +729,7 @@ function App(this: FC<{ show: boolean }>) {
 
 ### Using `<switch>` Element with Signals
 
-The `<switch>` element renders different content based on the `value` prop. Elements with matching `slot` attributes are displayed when their value matches, otherwise default slots are shown. Like `<toggle>`, you can use signals to control the value on the client side.
+The `<switch>` element renders different content based on the `value` prop. Elements with matching `slot` attributes are displayed when their value matches, otherwise default slots are shown. Like `<show>`, you can use signals to control the value on the client side.
 
 ```tsx
 function App(this: FC<{ lang: "en" | "zh" | "🙂" }>) {
@@ -726,7 +752,7 @@ function App(this: FC<{ lang: "en" | "zh" | "🙂" }>) {
 }
 ```
 
-### Form Input Bindings with `$value` Attribute
+### Form Input Two-way Binding
 
 You can use the `$value` attribute to bind a signal to the value of a form input element. The `$value` attribute is a two-way data binding, which means that when the input value changes, the signal will be updated, and when the signal changes, the input value will be updated.
 
@@ -745,7 +771,10 @@ You can also use the `$checked` attribute to bind a signal to the checked state 
 
 ```tsx
 function App(this: FC<{ checked: boolean }>) {
-  this.checked = false;
+  this.effect(() => {
+    console.log("checked changed:", this.checked);
+  });
+  // return <input type="checkbox" checked={this.checked} onchange={e => this.checked = e.target.checked} />;
   return <input type="checkbox" $checked={this.checked} />;
 }
 ```
@@ -799,7 +828,7 @@ function App(this: FC) {
   this.message = "Welcome to mono-jsx";
   return (
     <div>
-      <h1 title={this.computed(() => this.message + "!")}>{this.computed(() => this.message + "!")}</h1>
+      <h1 title={this.$(() => this.message + "!")}>{this.$(() => this.message + "!")}</h1>
       <button onClick={() => this.message = "Clicked"}>
         Click Me
       </button>
@@ -849,7 +878,6 @@ The `this` object has the following built-in properties:
 - `context`: The context object defined on the root `<html>` element.
 - `request`: The request object from the `fetch` handler.
 - `session`: The session storage.
-- `form`: The route form data.
 - `refs`: A map of refs defined in the component.
 - `computed`: A method to create a computed signal.
 - `effect`: A method to create side effects.
@@ -860,7 +888,6 @@ type FC<Signals = {}, Refs = {}, AppSignals = {}, AppRefs = {}, Context = {}> = 
   readonly context: Context;
   readonly request: WithParams<Request>;
   readonly session: Session;
-  readonly form?: FormData;
   readonly refs: Refs;
   readonly computed: <T = unknown>(fn: () => T) => T;
   readonly $: FC["computed"];
@@ -1088,7 +1115,7 @@ async function Login(this: FC) {
   )
 }
 
-// `Login` must be defined as a route component with the `FormHandler` function
+// `FormHandler` function will be called when the form in '/login' route is submitted.
 Login.FormHandler = function(this: FC, data: FormData) {
   const user = await auth(data)
   if (!user) {
@@ -1135,7 +1162,7 @@ MyRoute.FormHandler = function(this: FC, data: FormData) {
 }
 ```
 
-You can also use the `name` attribute to specify the name of the formslot element. And you can use the `slot` attribute to specify the name of the slot to insert the HTML into.
+You can also use the `name` attribute to specify the name of the formslot element. And you can use the `formslot` attribute to specify the name of the slot to insert the HTML into.
 
 ```tsx
 function MyRoute(this: FC) {
@@ -1150,13 +1177,37 @@ function MyRoute(this: FC) {
 }
 
 MyRoute.FormHandler = function(this: FC, data: FormData) {
-  return <p slot="message">Hello, world!</p>
+  return <p formslot="message">Hello, world!</p>
 }
+```
+
+`formslot` element accepts the `onUpdate` attribute to set a callback function that will be called when the formslot element is updated.
+
+```tsx
+function MyRoute(this: FC) {
+  return (
+    <form>
+      <input type="text" name="message" placeholder="Type Message..." />
+      <button type="submit">Send</button>
+      <formslot onUpdate={(evt) => console.log("message updated:", evt.target.textContent)} />
+    </form>
+  )
+}
+
+MyRoute.FormHandler = function(this: FC, data: FormData) {
+  return <p>{data.get("message")}</p>
+}
+```
+
+The `hidden` attribute can be used to hide the formslot payload from the form handler.
+
+```tsx
+<formslot onUpdate={(evt) => console.log("message updated:", evt.target.textContent)} hidden />
 ```
 
 ### Using `this.app.url` Signal
 
-`this.app.url` is an app-level signal that contains the current route URL and parameters. The `this.app.url` signal is automatically updated when the route changes, so you can use it to display the current URL in your components or control the view with `<toggle>` or `<switch>` elements:
+`this.app.url` is an app-level signal that contains the current route URL and parameters. The `this.app.url` signal is automatically updated when the route changes, so you can use it to display the current URL in your components or control the view with `<show>`, `<hidden>` or `<switch>` elements:
 
 ```tsx
 function App(this: FC) {
