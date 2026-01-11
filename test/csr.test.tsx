@@ -262,7 +262,7 @@ Deno.test("[csr] signals", sanitizeFalse, async (t) => {
       function App(this: FC<{ count: number }>) {
         this.count = 1;
         return <div>
-          <button onClick={() => this.count++}>{this.$(() => 2*this.count)}</button>
+          <button onClick={() => this.count++}>{this.computed(() => 2*this.count)}</button>
         </div>;
       }
       document.body.mount(<App />);
