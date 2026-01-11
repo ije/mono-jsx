@@ -48,7 +48,7 @@ class Signal extends Reactive {
   }
 }
 
-class Compute extends Reactive {
+class Computed extends Reactive {
   #scope: IScope;
   #compute: () => unknown;
   #deps?: Set<Signal>;
@@ -191,7 +191,7 @@ const createScope = (slots?: ChildType[], abortSignal?: AbortSignal): IScope => 
                 throw new TypeError("setter is not allowed");
               }
               if (get) {
-                target[key] = new Compute(receiver, get);
+                target[key] = new Computed(receiver, get);
               } else {
                 if (key === "effect") {
                   if (isFunction(value)) {
@@ -205,8 +205,8 @@ const createScope = (slots?: ChildType[], abortSignal?: AbortSignal): IScope => 
             return receiver;
           };
         case "$":
-        case "compute":
-          return (fn: () => unknown) => new Compute(receiver, fn);
+        case "computed":
+          return (fn: () => unknown) => new Computed(receiver, fn);
         case "effect":
           return (callback: () => (() => void) | void) => {
             queueMicrotask(() => {
@@ -382,7 +382,7 @@ const render = (scope: IScope, child: ChildType, root: HTMLElement | DocumentFra
                   }, abortSignal);
                   onAbort(abortSignal, () => ac?.abort());
                 } else {
-                  console.warn("[mono-jsx] <" + tag + "> The `when` prop is not a signal/compute.");
+                  console.warn("[mono-jsx] <" + tag + "> The `when` prop is not a signal/computed.");
                   if (when) {
                     renderChildren(scope, children, root, abortSignal);
                   }
