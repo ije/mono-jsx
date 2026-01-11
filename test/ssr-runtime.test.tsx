@@ -169,7 +169,7 @@ Deno.test("[runtime] async component", sanitizeFalse, async () => {
   };
   const testUrl = addTestPage(
     <div>
-      <Sleep ms={100} placeholder={<p>Loading...</p>}>
+      <Sleep ms={100} pending={<p>Loading...</p>}>
         <h1>Welcome to mono-jsx!</h1>
         <Blah />
       </Sleep>
@@ -209,7 +209,7 @@ Deno.test("[runtime] async generator component", sanitizeFalse, async () => {
 
   const testUrl = addTestPage(
     <h1>
-      <Words placeholder={<span>...</span>} />
+      <Words pending={<span>...</span>} />
     </h1>,
   );
 
@@ -812,7 +812,7 @@ Deno.test("[runtime] <component>", sanitizeFalse, async () => {
     this.show = false;
     return (
       <div>
-        <component name="greeting" props={{ message: "Hello, world" }} placeholder={<p>loading...</p>} />
+        <component name="greeting" props={{ message: "Hello, world" }} pending={<p>loading...</p>} />
       </div>
     );
   }
@@ -838,7 +838,7 @@ Deno.test("[runtime] <component is>", sanitizeFalse, async () => {
     this.show = false;
     return (
       <div>
-        <component is={Greeting} props={{ message: "Hello, world" }} placeholder={<p>loading...</p>} />
+        <component is={Greeting} props={{ message: "Hello, world" }} pending={<p>loading...</p>} />
       </div>
     );
   }
@@ -861,7 +861,7 @@ Deno.test("[runtime] <component> controled by <toggle>", sanitizeFalse, async ()
     return (
       <div>
         <show when={this.show}>
-          <component name="greeting" props={{ message: "Hello, world" }} placeholder={<p>loading...</p>} />
+          <component name="greeting" props={{ message: "Hello, world" }} pending={<p>loading...</p>} />
         </show>
         <button type="button" onClick={() => this.show = !this.show}>Show</button>
       </div>
@@ -895,7 +895,7 @@ Deno.test("[runtime] <component> with signal name/props", sanitizeFalse, async (
     this.tab = "a";
     return (
       <div>
-        <component name={this.tab} props={{ name: this.tab }} placeholder={<span>loading...</span>} />
+        <component name={this.tab} props={{ name: this.tab }} pending={<span>loading...</span>} />
         <select value={this.tab} onChange={(e) => this.tab = e.target.value as "c" | "b" | "a"}>
           <option value="a">A</option>
           <option value="b">B</option>
@@ -942,7 +942,7 @@ Deno.test("[runtime] <component> ref", sanitizeFalse, async () => {
   function App(this: Refs<FC, { comp: ComponentElement }>) {
     return (
       <div>
-        <component name="count" props={{}} ref={this.refs.comp} placeholder={<p>loading...</p>} />
+        <component name="count" props={{}} ref={this.refs.comp} pending={<p>loading...</p>} />
         <button class="refresh" type="button" onClick={() => this.refs.comp.refresh()} />
         <button
           class="greet"

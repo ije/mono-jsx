@@ -591,7 +591,7 @@ async function renderNode(rc: RenderContext, node: ChildType, stripSlotProp?: bo
 
           // `<component>` element
           case "component": {
-            let { placeholder, is, as } = props;
+            let { pending, is, as } = props;
             let attrs = "";
             let attrModifiers = "";
             let writeAttr = (propName: string, propValue = props[propName]) => {
@@ -620,11 +620,11 @@ async function renderNode(rc: RenderContext, node: ChildType, stripSlotProp?: bo
             writeAttr("ref");
             attrs += renderViewTransitionAttr(props);
             let buf = "<m-component" + attrs + ">";
-            if (placeholder) {
+            if (pending) {
               const write = (chunk: string) => {
                 buf += chunk;
               };
-              await renderChildren({ ...rc, write }, placeholder);
+              await renderChildren({ ...rc, write }, pending);
             }
             buf += "</m-component>";
             if (attrModifiers) {
@@ -854,8 +854,8 @@ async function renderFC(rc: RenderContext, fcFn: ComponentType, props: JSX.Intri
         } else {
           const chunkIdAttr = 'chunk-id="' + (rc.flags.chunk++).toString(36) + '"';
           write("<m-portal " + chunkIdAttr + ">");
-          if (props.placeholder) {
-            await renderNode(rc, props.placeholder);
+          if (props.pending) {
+            await renderNode(rc, props.pending);
           }
           write("</m-portal>");
           rc.suspenses.push(v.then(async (node) => {
@@ -878,8 +878,8 @@ async function renderFC(rc: RenderContext, fcFn: ComponentType, props: JSX.Intri
         } else {
           const chunkIdAttr = 'chunk-id="' + (rc.flags.chunk++).toString(36) + '"';
           write("<m-portal " + chunkIdAttr + ">");
-          if (props.placeholder) {
-            await renderNode(rc, props.placeholder);
+          if (props.pending) {
+            await renderNode(rc, props.pending);
           }
           write("</m-portal>");
           const iter = () =>

@@ -743,7 +743,7 @@ Deno.test("[csr] async component", sanitizeFalse, async () => {
     };
     function App() {
       return <div>
-        <Sleep ms={100} placeholder={<p>Waiting...</p>}>
+        <Sleep ms={100} pending={<p>Waiting...</p>}>
           <h1>Welcome to mono-jsx!</h1>
           <Blah />
         </Sleep>

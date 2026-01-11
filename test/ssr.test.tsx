@@ -386,7 +386,7 @@ Deno.test("[ssr] async component", async () => {
     );
   }
 
-  "without placeholder";
+  "without pending";
   {
     assertEquals(
       await renderToString(<List />),
@@ -410,10 +410,10 @@ Deno.test("[ssr] async component", async () => {
     );
   }
 
-  "with placeholder";
+  "with pending";
   {
     assertEquals(
-      await renderToString(<List placeholder={<p>loading...</p>} />),
+      await renderToString(<List pending={<p>loading...</p>} />),
       [
         `<!DOCTYPE html>`,
         `<html lang="en"><body>`,
@@ -519,7 +519,7 @@ Deno.test("[ssr] async component", async () => {
       );
     };
     assertEquals(
-      await renderToString(<App placeholder={<p>Loading...</p>} />),
+      await renderToString(<App pending={<p>Loading...</p>} />),
       [
         `<!DOCTYPE html>`,
         `<html lang="en"><body>`,
@@ -586,7 +586,7 @@ Deno.test("[ssr] async generator component", async () => {
     }
   }
 
-  "without placeholder";
+  "without pending";
   {
     assertEquals(
       await renderToString(
@@ -613,12 +613,12 @@ Deno.test("[ssr] async generator component", async () => {
     );
   }
 
-  "with placeholder";
+  "with pending";
   {
     assertEquals(
       await renderToString(
         <h1>
-          <Words placeholder={<span>...</span>} />
+          <Words pending={<span>...</span>} />
         </h1>,
       ),
       [
@@ -1862,36 +1862,36 @@ Deno.test("[ssr] <component>", async () => {
 
   function LazyAppWithSingalName(this: FC<{ name: string }>) {
     this.name = "App";
-    return <component name={this.name} props={{ foo: "bar" }} placeholder={<p>loading...</p>} />;
+    return <component name={this.name} props={{ foo: "bar" }} pending={<p>loading...</p>} />;
   }
 
   function LazyAppWithSignalProps(this: FC<{ props: { foo: string } }>) {
     this.props = { foo: "bar" };
-    return <component name="App" props={this.props} placeholder={<p>loading...</p>} />;
+    return <component name="App" props={this.props} pending={<p>loading...</p>} />;
   }
 
   function LazyAppWithComputedProps(this: FC<{ foo: string }>) {
     this.foo = "bar";
     const props = this.computed(() => ({ foo: this.foo }));
-    return <component name="App" props={props} placeholder={<p>loading...</p>} />;
+    return <component name="App" props={props} pending={<p>loading...</p>} />;
   }
 
   function LazyAppWithImplicitComputedProps(this: FC<{ foo: string }>) {
     this.foo = "bar";
-    return <component name="App" props={{ foo: this.foo, color: "blue" }} placeholder={<p>loading...</p>} />;
+    return <component name="App" props={{ foo: this.foo, color: "blue" }} pending={<p>loading...</p>} />;
   }
 
   function LazyAppIsProp(this: FC) {
-    return <component is={App} props={{ foo: "bar" }} placeholder={<p>loading...</p>} />;
+    return <component is={App} props={{ foo: "bar" }} pending={<p>loading...</p>} />;
   }
 
   function LazyAppAsProp(this: FC) {
-    return <component as={<App2 foo="bar" />} placeholder={<p>loading...</p>} />;
+    return <component as={<App2 foo="bar" />} pending={<p>loading...</p>} />;
   }
 
   assertEquals(
     await renderToString(
-      <component name="App" props={{ foo: "bar" }} placeholder={<p>loading...</p>} />,
+      <component name="App" props={{ foo: "bar" }} pending={<p>loading...</p>} />,
     ),
     [
       `<!DOCTYPE html>`,

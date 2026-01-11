@@ -344,7 +344,7 @@ async function Loader(props: { url: string }) {
 export default {
   fetch: (req) => (
     <html>
-      <Loader url="https://api.example.com/data" placeholder={<p>Loading...</p>} />
+      <Loader url="https://api.example.com/data" pending={<p>Loading...</p>} />
     </html>
   )
 }
@@ -371,13 +371,13 @@ async function* Chat(props: { prompt: string }) {
 export default {
   fetch: (req) => (
     <html>
-      <Chat prompt="Tell me a story" placeholder={<span style="color:grey">●</span>} />
+      <Chat prompt="Tell me a story" pending={<span style="color:grey">●</span>} />
     </html>
   )
 }
 ```
 
-You can use `placeholder` to display a loading state while waiting for async components to render:
+You can use `pending` to display a loading state while waiting for async components to render:
 
 ```tsx
 async function Sleep({ ms }) {
@@ -388,7 +388,7 @@ async function Sleep({ ms }) {
 export default {
   fetch: (req) => (
     <html>
-      <Sleep ms={1000} placeholder={<p>Loading...</p>}>
+      <Sleep ms={1000} pending={<p>Loading...</p>}>
         <p>After 1 second</p>
       </Sleep>
     </html>
@@ -396,7 +396,7 @@ export default {
 }
 ```
 
-You can set the `rendering` attribute to `"eager"` to force synchronous rendering (the `placeholder` will be ignored):
+You can set the `rendering` attribute to `"eager"` to force synchronous rendering (the `pending` property will be ignored):
 
 ```tsx
 export default {
@@ -441,7 +441,7 @@ function Foo(props: { bar: string }) {
 export default {
   fetch: (req) => (
     <html request={req} components={{ Foo }}>
-      <component name="Foo" props={{ bar: "baz" }} placeholder={<p>Loading...</p>} />
+      <component name="Foo" props={{ bar: "baz" }} pending={<p>Loading...</p>} />
     </html>
   )
 }
@@ -453,7 +453,7 @@ You can use the `<component>` element with the `is` prop to render a component b
 export default {
   fetch: (req) => (
     <html request={req}>
-      <component is={Foo} props={{ bar: "baz" }} placeholder={<p>Loading...</p>} />
+      <component is={Foo} props={{ bar: "baz" }} pending={<p>Loading...</p>} />
     </html>
   )
 }
@@ -465,7 +465,7 @@ Or you can use the `<component>` element with the `as` prop to render a componen
 export default {
   fetch: (req) => (
     <html request={req}>
-      <component as={<Foo bar="baz" />} placeholder={<p>Loading...</p>} />
+      <component as={<Foo bar="baz" />} pending={<p>Loading...</p>} />
     </html>
   )
 }
@@ -487,7 +487,7 @@ function Dash(this: FC<{ page: "Profile" | "Projects" | "Settings" }>) {
         <button onClick={() => this.page = "Settings"}>Settings</button>
       </div>
       <div class="page">
-        <component name={this.page} placeholder={<p>Loading...</p>} />
+        <component name={this.page} pending={<p>Loading...</p>} />
       </div>
     </>
   )
@@ -509,7 +509,7 @@ async function Lazy(this: FC<{ show: boolean }>, props: { url: string }) {
   return (
     <div>
       <show when={this.show}>
-        <component name="Foo" props={{ bar: "baz" }} placeholder={<p>Loading...</p>} />
+        <component name="Foo" props={{ bar: "baz" }} pending={<p>Loading...</p>} />
       </show>
      <button onClick={() => this.show = true }>Load `Foo` Component</button>
     </div>

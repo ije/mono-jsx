@@ -580,29 +580,29 @@ const renderFC = (fc: ComponentType, props: Record<string, unknown>, root: HTMLE
   call$expr(scope, true);
   v = fc.call(scope, props);
   if (v instanceof Promise) {
-    let placeholder: ChildNode[] | undefined;
-    if (isVNode(props.placeholder)) {
-      placeholder = [...renderToFragment(scope, props.placeholder as ChildType, abortSignal).childNodes];
+    let pendingNodes: ChildNode[] | undefined;
+    if (isVNode(props.pending)) {
+      pendingNodes = [...renderToFragment(scope, props.pending as ChildType, abortSignal).childNodes];
     }
-    if (!placeholder?.length) {
-      placeholder = [createTextNode()];
+    if (!pendingNodes?.length) {
+      pendingNodes = [createTextNode()];
     }
-    root.append(...placeholder);
+    root.append(...pendingNodes);
     v.then((nodes) => {
       call$expr(scope, false);
-      placeholder[0].replaceWith(...renderToFragment(scope, nodes as ChildType, abortSignal).childNodes);
+      pendingNodes[0].replaceWith(...renderToFragment(scope, nodes as ChildType, abortSignal).childNodes);
     }).catch((err) => {
       if (isFunction(props.catch)) {
         const v = props.catch(err);
         if (isVNode(v)) {
-          placeholder[0].replaceWith(...renderToFragment(scope, v as ChildType, abortSignal).childNodes);
+          pendingNodes[0].replaceWith(...renderToFragment(scope, v as ChildType, abortSignal).childNodes);
         }
       } else {
         console.error(err);
       }
     }).finally(() => {
-      // remove placeholder elements
-      placeholder.forEach(node => node.remove());
+      // remove pendingNodes elements
+      pendingNodes.forEach(node => node.remove());
     });
   } else {
     call$expr(scope, false);

@@ -38,7 +38,7 @@ export interface AsyncComponentAttributes {
   /**
    * The loading spinner for an async component.
    */
-  placeholder?: JSX.Element;
+  pending?: JSX.Element;
   /**
    * Rendering mode of an async component.
    * - `eager`: render async components eagerly

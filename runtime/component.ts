@@ -12,7 +12,7 @@ customElements.define(
 
     #name?: string | null;
     #props?: string;
-    #placeholder?: ChildNode[];
+    #pendingNodes?: ChildNode[];
     #ac?: AbortController;
     #timer?: number;
     #cache = new Map<string, string>();
@@ -37,8 +37,8 @@ customElements.define(
         this.#setContent(this.#cache.get(cacheKey)!);
         return;
       }
-      if (this.#placeholder?.length) {
-        this.#setContent(this.#placeholder);
+      if (this.#pendingNodes?.length) {
+        this.#setContent(this.#pendingNodes);
       }
       const res = await fetch(location.href, { headers, signal: ac.signal });
       if (!res.ok) {
@@ -99,11 +99,11 @@ customElements.define(
     connectedCallback() {
       // set a timeout to wait for the element to be fully parsed
       setTimeout(() => {
-        if (!this.#placeholder) {
+        if (!this.#pendingNodes) {
           const propsAttr = attr(this, "props");
           this.#name = attr(this, "name");
           this.#props = propsAttr?.startsWith("base64,") ? atob(propsAttr.slice(7)) : undefined;
-          this.#placeholder = [...this.childNodes];
+          this.#pendingNodes = [...this.childNodes];
         }
         this.#fetchCompnent();
       });
