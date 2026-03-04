@@ -559,11 +559,11 @@ function Counter(
 You can define app signals by adding the `app` prop to the root `<html>` element. The app signals are available in all components via `this.app.<SignalName>`. Changes to the app signals will trigger re-renders in all components that use them:
 
 ```tsx
-interface AppSignals {
+interface IAppSignals {
   themeColor: string;
 }
 
-function Header(this: App<FC, AppSignals>) {
+function Header(this: WithAppSignals<FC, IAppSignals>) {
   return (
     <header>
       <h1 style={{ color: this.app.themeColor }}>Welcome to mono-jsx!</h1>
@@ -571,7 +571,7 @@ function Header(this: App<FC, AppSignals>) {
   )
 }
 
-function Footer(this: App<FC, AppSignals>) {
+function Footer(this: WithAppSignals<FC, IAppSignals>) {
   return (
     <footer>
       <p style={{ color: this.app.themeColor }}>(c) 2025 mono-jsx.</p>
@@ -579,7 +579,7 @@ function Footer(this: App<FC, AppSignals>) {
   )
 }
 
-function Main(this: App<FC, AppSignals>) {
+function Main(this: WithAppSignals<FC, IAppSignals>) {
   return (
     <main>
       <p>
@@ -879,20 +879,31 @@ The `this` object has the following built-in properties:
 - `request`: The request object from the `fetch` handler.
 - `session`: The session storage.
 - `refs`: A map of refs defined in the component.
-- `computed`: A method to create a computed signal.
-- `effect`: A method to create side effects.
+- `computed(fn)`: A method to create a computed signal.
+- `$(fn)`:  A shortcut for `computed(fn)`.
+- `effect(fn)`: A method to create side effects.
 
 ```ts
-type FC<Signals = {}, Refs = {}, AppSignals = {}, AppRefs = {}, Context = {}> = {
+type FC<Signals = {}, Refs = {}> = {
   readonly app: AppSignals & { refs: AppRefs; url: WithParams<URL> }
   readonly context: Context;
   readonly request: WithParams<Request>;
   readonly session: Session;
   readonly refs: Refs;
   readonly computed: <T = unknown>(fn: () => T) => T;
-  readonly $: FC["computed"];
+  readonly $: FC["computed"]; // A shortcut for `FC.computed`.
   readonly effect: (fn: () => void | (() => void)) => void;
 } & Signals;
+
+// define `AppSignals` type
+function Component(this: WithAppSignals<FC, { title: string }>) {
+  this.app.title // type: 'string'
+}
+
+// define `Context` type
+function Component(this: WithContext<FC, { secret: string }>) {
+  this.context.secret // type: 'string'
+}
 ```
 
 ### Using Signals
@@ -904,7 +915,7 @@ See the [Using Signals](#using-signals) section for more details on how to use s
 You can use `this.refs` to access refs in your components. Refs are defined using the `ref` attribute in JSX, and they allow you to access DOM elements directly. The `refs` object is a map of ref names to DOM elements.
 
 ```tsx
-function App(this: Refs<FC, { input?: HTMLInputElement }>) {
+function App(this: WithRefs<FC, { input?: HTMLInputElement }>) {
   this.effect(() => {
     this.refs.input?.addEventListener("input", (evt) => {
       console.log("Input changed:", evt.target.value);
@@ -946,7 +957,7 @@ The `<component>` element also supports the `ref` attribute, which allows you to
 ```tsx
 import type { ComponentElement } from "mono-jsx";
 
-function App(this: Refs<FC, { component: ComponentElement }>) {
+function App(this: WithRefs<FC, { component: ComponentElement }>) {
   this.effect(() => {
     // updating the component name and props will trigger a re-render of the component
     this.refs.component.name = "Foo";
@@ -971,7 +982,7 @@ function App(this: Refs<FC, { component: ComponentElement }>) {
 You can use the `context` property in `this` to access context values in your components. The context is defined on the root `<html>` element:
 
 ```tsx
-function Dash(this: Context<FC, { auth: { uuid: string; name: string } }>) {
+function Dash(this: WithContext<FC, { auth: { uuid: string; name: string } }>) {
   const { auth } = this.context;
   return (
     <div>

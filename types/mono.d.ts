@@ -279,7 +279,7 @@ declare global {
   /**
    * Defines the `this.app` type.
    */
-  type App<T, AppSignals = {}, AppRefs = Record<string, HTMLElement>> = T extends FC<infer S, infer R> ? FC<S, R> & {
+  type WithAppSignals<T, AppSignals = {}, AppRefs = Record<string, HTMLElement>> = T extends FC<infer S, infer R> ? FC<S, R> & {
       /**
        * The global signals shared across the application.
        */
@@ -302,7 +302,7 @@ declare global {
   /**
    * Defines the `this.context` type.
    */
-  type Context<T, Context = {}> = T extends FC<infer S, infer R> ? FC<S, R> & {
+  type WithContext<T, Context = {}> = T extends FC<infer S, infer R> ? FC<S, R> & {
       /**
        * The rendering context object.
        *

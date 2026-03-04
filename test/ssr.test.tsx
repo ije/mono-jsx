@@ -822,14 +822,14 @@ Deno.test("[ssr] pass signal via prop", async () => {
 });
 
 Deno.test("[ssr] app signals", async () => {
-  function Header(this: App<FC, { title: string }>) {
+  function Header(this: WithAppSignals<FC, { title: string }>) {
     return (
       <header>
         <h1>{this.app.title}</h1>
       </header>
     );
   }
-  function Main(this: App<FC, { title: string }>) {
+  function Main(this: WithAppSignals<FC, { title: string }>) {
     return (
       <main>
         <form
@@ -840,7 +840,7 @@ Deno.test("[ssr] app signals", async () => {
       </main>
     );
   }
-  function Footer(this: App<FC, { title: string }>) {
+  function Footer(this: WithAppSignals<FC, { title: string }>) {
     return (
       <footer>
         <p>(c)2025 {this.app.title}</p>
@@ -888,7 +888,7 @@ Deno.test("[ssr] app signals", async () => {
 });
 
 Deno.test("[ssr] computed signals", async () => {
-  function FooBar(this: App<FC<{ foo: string; bar: string }>, { themeColor: string; tailing: string }>) {
+  function FooBar(this: WithAppSignals<FC<{ foo: string; bar: string }>, { themeColor: string; tailing: string }>) {
     this.foo = "foo";
     this.bar = "bar";
     const className = this.computed(() => [this.foo, this.bar]);
@@ -941,7 +941,7 @@ Deno.test("[ssr] computed signals", async () => {
     ].join(""),
   );
 
-  function ComputedClassName(this: App<FC<{ color: string }>, { themeColor: string }>) {
+  function ComputedClassName(this: WithAppSignals<FC<{ color: string }>, { themeColor: string }>) {
     this.color = "blue";
     return (
       <div
@@ -975,7 +975,7 @@ Deno.test("[ssr] computed signals", async () => {
     ].join(""),
   );
 
-  function ComputedStyle(this: App<FC<{ color: string }>, { themeColor: string }>) {
+  function ComputedStyle(this: WithAppSignals<FC<{ color: string }>, { themeColor: string }>) {
     this.color = "blue";
     return (
       <div
@@ -1012,7 +1012,7 @@ Deno.test("[ssr] computed signals", async () => {
     ].join(""),
   );
 
-  function ListComputedSignals(this: App<FC, { themeColor: string }>) {
+  function ListComputedSignals(this: WithAppSignals<FC, { themeColor: string }>) {
     const className = this.$(() => [this.app.themeColor]);
     return <li class={className} />;
   }
@@ -1164,7 +1164,7 @@ Deno.test("[ssr] this.effect", async () => {
 });
 
 Deno.test("[ssr] this.refs", async () => {
-  function App(this: Refs<FC, { h1: HTMLElement }>) {
+  function App(this: WithRefs<FC, { h1: HTMLElement }>) {
     this.effect(() => console.log(this.refs.h1.textContent));
     return <h1 ref={this.refs.h1}>Welcome to mono-jsx!</h1>;
   }
@@ -1189,7 +1189,7 @@ Deno.test("[ssr] this.refs", async () => {
     ].join(""),
   );
 
-  function Lazy(this: Refs<FC, { component: ComponentElement }>) {
+  function Lazy(this: WithRefs<FC, { component: ComponentElement }>) {
     this.effect(() => void this.refs.component.refresh());
 
     return (
@@ -1223,7 +1223,7 @@ Deno.test("[ssr] this.refs", async () => {
 });
 
 Deno.test("[ssr] this.app.refs", async () => {
-  function App(this: App<FC, {}, { h1: HTMLElement }>) {
+  function App(this: WithAppSignals<FC, {}, { h1: HTMLElement }>) {
     this.effect(() => console.log(this.app.refs.h1.textContent));
     return <h1 ref={this.app.refs.h1}>Welcome to mono-jsx!</h1>;
   }
@@ -1407,7 +1407,7 @@ Deno.test("[ssr] this.request", async () => {
 });
 
 Deno.test("[ssr] this.context", async () => {
-  function App(this: Context<FC, { foo: string }>) {
+  function App(this: WithContext<FC, { foo: string }>) {
     const { context } = this;
     return (
       <div>

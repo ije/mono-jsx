@@ -106,12 +106,12 @@ declare global {
       effect(fn: () => (() => void) | void): void;
     }
     & FCExtension<FC>
-    & Omit<Omit<Signals, "init" | "refs" | "computed" | "$" | "effect">, keyof FCExtension>;
+    & Omit<Omit<Signals, "refs" | "init" | "computed" | "$" | "effect">, keyof FCExtension>;
 
   /**
    *  Defines the `this.refs` type.
    */
-  type Refs<T, R extends {}> = T extends FC<infer S> ? FC<S, R> : never;
+  type WithRefs<T, R extends {}> = T extends FC<infer S> ? FC<S, R> : never;
 
   /**
    * The JSX namespace object.

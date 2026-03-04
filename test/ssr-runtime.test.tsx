@@ -326,13 +326,13 @@ Deno.test("[runtime] signals(boolean)", sanitizeFalse, async () => {
 });
 
 Deno.test("[runtime] app signals", sanitizeFalse, async () => {
-  function Display(this: App<FC, { count: number }>, props: { bold?: boolean }) {
+  function Display(this: WithAppSignals<FC, { count: number }>, props: { bold?: boolean }) {
     if (props.bold) {
       return <strong>{this.app.count}</strong>;
     }
     return <span>{this.app.count}</span>;
   }
-  function Control(this: App<FC, { count: number }>) {
+  function Control(this: WithAppSignals<FC, { count: number }>) {
     return (
       <>
         <button type="button" onClick={() => this.app.count--} />
@@ -379,7 +379,7 @@ Deno.test("[runtime] app signals", sanitizeFalse, async () => {
 });
 
 Deno.test("[runtime] computed signals", sanitizeFalse, async () => {
-  function FooBar(this: App<FC<{ count: number }>, { count: number }>) {
+  function FooBar(this: WithAppSignals<FC<{ count: number }>, { count: number }>) {
     this.count = 0;
     return (
       <div>
@@ -504,7 +504,7 @@ Deno.test("[runtime] computed nesting style", sanitizeFalse, async () => {
 });
 
 Deno.test("[runtime] effect", sanitizeFalse, async () => {
-  function Effect(this: App<FC<{ count: number }>, { themeColor: string }>) {
+  function Effect(this: WithAppSignals<FC<{ count: number }>, { themeColor: string }>) {
     this.count = 0;
 
     this.effect(() => {
@@ -537,7 +537,7 @@ Deno.test("[runtime] effect", sanitizeFalse, async () => {
     );
   }
 
-  function App(this: App<FC<{ show: boolean }>, { themeColor: string }>) {
+  function App(this: WithAppSignals<FC<{ show: boolean }>, { themeColor: string }>) {
     this.show = true;
     return (
       <>
@@ -939,7 +939,7 @@ Deno.test("[runtime] <component> with signal name/props", sanitizeFalse, async (
 });
 
 Deno.test("[runtime] <component> ref", sanitizeFalse, async () => {
-  function App(this: Refs<FC, { comp: ComponentElement }>) {
+  function App(this: WithRefs<FC, { comp: ComponentElement }>) {
     return (
       <div>
         <component name="count" props={{}} ref={this.refs.comp} pending={<p>loading...</p>} />
@@ -1279,7 +1279,7 @@ Deno.test("[runtime] refs", sanitizeFalse, async (t) => {
   });
 
   await t.step("with types", async () => {
-    function App(this: App<Refs<FC, { h2?: HTMLHeadingElement }>, {}, { h1?: HTMLHeadingElement }>) {
+    function App(this: WithAppSignals<WithRefs<FC, { h2?: HTMLHeadingElement }>, {}, { h1?: HTMLHeadingElement }>) {
       this.effect(() => {
         this.app.refs.h1!.textContent = "Welcome to mono-jsx!";
         this.refs.h2!.textContent = "Building User Interfaces.";
