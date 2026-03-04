@@ -3,7 +3,7 @@
 import { assert, assertEquals } from "jsr:@std/assert@1.0.19";
 import puppeteer from "npm:puppeteer-core@24.37.5";
 import chrome from "npm:puppeteer-chromium-resolver@24.0.3";
-import { stop, transform } from "https://deno.land/x/esbuild@v0.25.11/mod.js";
+import { stop, transform } from "npm:esbuild@0.27.3";
 
 let routeSeq = 0;
 let testRoutes: Map<string, Promise<string>> = new Map();
