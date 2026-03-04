@@ -47,8 +47,6 @@ You can also use the `@jsxImportSource` pragma directive to use `mono-jsx/dom` a
 function App() {
   return <div>Hello, world!</div>;
 }
-
-document.body.mount(<App />);
 ```
 
 ## Usage

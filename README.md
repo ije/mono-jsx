@@ -534,10 +534,7 @@ mono-jsx uses signals for updating the view when a signal changes. Signals are s
 You can use the `this` keyword in your components to manage signals. Signals are bound to the component instance, can be updated directly, and the view will automatically re-render when a signal changes:
 
 ```tsx
-function Counter(
-  this: FC<{ count: number }>,
-  props: { initialCount?: number },
-) {
+function Counter(this: FC<{ count: number }>, props: { initialCount?: number }) {
   // Initialize a signal
   this.count = props.initialCount ?? 0;
 
@@ -549,6 +546,25 @@ function Counter(
       {/* Update signal to trigger re-render */}
       <button onClick={() => this.count--}>-</button>
       <button onClick={() => this.count++}>+</button>
+    </div>
+  )
+}
+```
+
+You can also use `this.extend` method to extend the signals:
+
+```tsx
+function Counter(this: FC, props: { initialCount?: number }) {
+  const counter = this.extend({ count: props.initialCount ?? 0})
+
+  return (
+    <div>
+      {/* render signal */}
+      <span>{counter.count}</span>
+
+      {/* Update signal to trigger re-render */}
+      <button onClick={() => counter.count--}>-</button>
+      <button onClick={() => counter.count++}>+</button>
     </div>
   )
 }
