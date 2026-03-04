@@ -1368,13 +1368,13 @@ function Component(this: FC) {
 
 mono-jsx renders HTML dynamically per request; large apps may tax your CPU resources. To improve rendering performance, mono-jsx introduces two built-in elements that can cache the rendered HTML of the children:
 
-- `<cache>` with specified `key` and `ttl`
+- `<cache>` with specified `key` and `maxAge`
 - `<static>` for elements that rarely change, such as `<svg>`
 
 ```tsx
 function BlogPage() {
   return (
-    <cache key="blog" ttl={86400}>
+    <cache key="blog" maxAge={86400}>
       <Blog />
     </cache>
   )

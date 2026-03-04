@@ -116,9 +116,9 @@ export interface Elements {
      */
     key?: string;
     /**
-     * The time-to-live of the cache in seconds.
+     * The maximum age of the cache in seconds.
      */
-    ttl?: number;
+    maxAge?: number;
   };
 
   /**

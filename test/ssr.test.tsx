@@ -1522,7 +1522,7 @@ Deno.test("[ssr] this.session", async () => {
 Deno.test("[ssr] <cache>", async () => {
   assertEquals(
     await renderToString(
-      <cache key="foo" ttl={1000}>
+      <cache key="foo" maxAge={1}>
         <h1>👋</h1>
       </cache>,
     ),
@@ -1535,16 +1535,16 @@ Deno.test("[ssr] <cache>", async () => {
   );
   assertEquals(
     await renderToString(
-      <cache key="foo" ttl={1000}>
+      <cache key="foo" maxAge={1}>
         <h1>👋</h1>
       </cache>,
     ),
     [
       `<!DOCTYPE html>`,
       `<html lang="en"><body>`,
-      `<!-- cached -->`,
+      `<!-- cache -->`,
       `<h1>👋</h1>`,
-      `<!-- /cached -->`,
+      `<!-- /cache -->`,
       `</body></html>`,
     ].join(""),
   );
@@ -1578,11 +1578,11 @@ Deno.test("[ssr] <static>", async () => {
     [
       `<!DOCTYPE html>`,
       `<html lang="en"><body>`,
-      `<!-- cached -->`,
+      `<!-- static -->`,
       `<svg>`,
       `<circle cx="10" cy="10" r="10" />`,
       `</svg>`,
-      `<!-- /cached -->`,
+      `<!-- /static -->`,
       `</body></html>`,
     ].join(""),
   );

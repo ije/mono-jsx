@@ -88,7 +88,7 @@ class Ref {
 const cdn = "https://raw.esm.sh"; // the cdn for loading htmx and its extensions
 const encoder = new TextEncoder();
 const voidTags = new Set("area,base,br,col,embed,hr,img,input,keygen,link,meta,param,source,track,wbr".split(","));
-const cache = new Map<string, { html: string; expires?: number }>();
+const cache = new Map<string, { html: string; expiresAt?: number }>();
 const componentsMap = new IdGen<ComponentType>();
 const subtle = crypto.subtle;
 const stringify = JSON.stringify;
@@ -672,15 +672,15 @@ async function renderNode(rc: RenderContext, node: ChildType, stripSlotProp?: bo
 
           case "cache":
           case "static": {
-            const { $stack, key = $stack, ttl, children } = props;
+            const { $stack, key = $stack, maxAge, children } = props;
             if (children) {
               if (key) {
                 const now = Date.now();
                 const value = cache.get(key);
-                if (value && (!value.expires || value.expires > now)) {
-                  write("<!-- cached -->");
+                if (value && (!value.expiresAt || value.expiresAt > now)) {
+                  write("<!-- " + tag + " -->");
                   write(value.html);
-                  write("<!-- /cached -->");
+                  write("<!-- /" + tag + " -->");
                 } else {
                   let buf = "";
                   await renderChildren(
@@ -693,7 +693,7 @@ async function renderNode(rc: RenderContext, node: ChildType, stripSlotProp?: bo
                     children,
                     true,
                   );
-                  cache.set(key, { html: buf, expires: ttl ? now + ttl : undefined });
+                  cache.set(key, { html: buf, expiresAt: typeof maxAge === "number" && maxAge > 0 ? now + (maxAge * 1000) : undefined });
                   rc.write(buf);
                 }
               } else {
