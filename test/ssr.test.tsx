@@ -1,6 +1,6 @@
 import type { ComponentElement } from "../types/mono.d.ts";
 import type { RenderOptions } from "../types/render.d.ts";
-import { assert, assertEquals } from "jsr:@std/assert@1.0.14";
+import { assert, assertEquals } from "jsr:@std/assert@1.0.19";
 import { cache } from "../render.ts";
 import { COMPONENT, EVENT, FORM, FORM_JS, RENDER_ATTR, ROUTER, SIGNALS } from "../runtime/index.ts";
 import { COMPONENT_JS, CX_JS, EVENT_JS, ROUTER_JS, SIGNALS_JS, STYLE_JS, SUSPENSE_JS } from "../runtime/index.ts";

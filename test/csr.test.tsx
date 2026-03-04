@@ -1,8 +1,8 @@
 /// <reference lib="dom.iterable" />
 
-import { assert, assertEquals } from "jsr:@std/assert@1.0.14";
-import puppeteer from "npm:puppeteer-core@23.1.1";
-import chrome from "npm:puppeteer-chromium-resolver@23.0.0";
+import { assert, assertEquals } from "jsr:@std/assert@1.0.19";
+import puppeteer from "npm:puppeteer-core@24.37.5";
+import chrome from "npm:puppeteer-chromium-resolver@24.0.3";
 import { stop, transform } from "https://deno.land/x/esbuild@v0.25.11/mod.js";
 
 let routeSeq = 0;
