@@ -1,4 +1,5 @@
 declare global {
+  var $F: (id: number, fn: Function) => unknown;
   var $fmap: Map<number, Function>;
   interface Signals {
     readonly $init: (key: string, value: unknown) => void;
@@ -14,6 +15,9 @@ const doc = document;
 const scopes = new Map<number, Signals>();
 const computes = new Map<string, string[]>();
 const effects = new Map<number, number[]>();
+const computesWaiters = new Map<string, ((deps: string[]) => void)[]>();
+const effectsWaiters = new Map<number, ((ids: number[]) => void)[]>();
+const fnWaiters = new Map<number, ((fn: Function) => void)[]>();
 const Signals = (id: number) => scopes.get(id) ?? scopes.set(id, createSignals(id)).get(id)!;
 
 const createNullObject = () => Object.create(null);
@@ -103,17 +107,50 @@ const resolveSignalID = (id: string): [scope: number, key: string] | null => {
   return i > 0 ? [Number(id.slice(0, i)), id.slice(i + 1)] : null;
 };
 
-const defer = async <T>(getter: () => T | undefined, retries = 100) => {
-  const v = getter();
-  if (v !== undefined) {
-    return v;
+const waitFor = <K, V>(
+  store: Map<K, V>,
+  waiters: Map<K, ((value: V) => void)[]>,
+  key: K,
+  callback: (value: V) => void,
+) => {
+  const value = store.get(key);
+  if (value !== undefined) {
+    callback(value);
+    return;
   }
-  await new Promise((resolve) => setTimeout(resolve, 25));
-  if (retries <= 0) {
-    throw new Error("Deferred value not found");
+  const queued = waiters.get(key);
+  if (queued) {
+    queued.push(callback);
+  } else {
+    waiters.set(key, [callback]);
   }
-  return defer(getter, retries - 1);
 };
+
+const waitForFn = (id: number, callback: (fn: Function) => void) => {
+  const fn = win.$fmap?.get(id);
+  if (fn) {
+    callback(fn);
+    return;
+  }
+  const queued = fnWaiters.get(id);
+  if (queued) {
+    queued.push(callback);
+  } else {
+    fnWaiters.set(id, [callback]);
+  }
+};
+
+if (typeof win.$F === "function") {
+  const setFn = win.$F;
+  win.$F = (id: number, fn: Function) => {
+    setFn(id, fn);
+    const queued = fnWaiters.get(id);
+    if (queued) {
+      fnWaiters.delete(id);
+      queued.forEach((callback) => callback(fn));
+    }
+  };
+}
 
 const callFn = (v: unknown) => typeof v === "function" && v();
 
@@ -140,11 +177,14 @@ defineElement("m-signal", (el) => {
     el.disposes.push(signals.$watch(key, createDomEffect(el, getAttr(el, "mode"), () => (signals as any)[key])));
   } else {
     const cid = Number(getAttr(el, "computed"));
-    defer(() => computes.get(scope + ":" + cid)).then((deps) => {
-      const effect = createDomEffect(el, getAttr(el, "mode"), $fmap.get(cid)!.bind(signals));
-      deps.forEach((dep) => {
-        const [scope, key] = resolveSignalID(dep)!;
-        el.disposes.push(Signals(scope).$watch(key, effect));
+    const computeId = scope + ":" + cid;
+    waitFor(computes, computesWaiters, computeId, (deps) => {
+      waitForFn(cid, (fn) => {
+        const effect = createDomEffect(el, getAttr(el, "mode"), fn.bind(signals));
+        deps.forEach((dep) => {
+          const [scope, key] = resolveSignalID(dep)!;
+          el.disposes.push(Signals(scope).$watch(key, effect));
+        });
       });
     });
   }
@@ -153,27 +193,28 @@ defineElement("m-signal", (el) => {
 defineElement("m-effect", (el) => {
   const { disposes } = el;
   const scope = Number(getAttr(el, "scope"));
-  defer(() => effects.get(scope) ?? undefined).then((effects) => {
-    const n = effects.length;
+  waitFor(effects, effectsWaiters, scope, (effectIds) => {
+    const n = effectIds.length;
     const cleanups = new Array<unknown>(n);
     disposes.push(() => {
       cleanups.forEach(callFn);
       cleanups.length = 0;
     });
     for (let i = 0; i < n; i++) {
-      const deps: [number, string][] = [];
-      const signals = Signals(scope);
-      const fn = $fmap.get(effects[i]);
-      const effect = () => {
-        callFn(cleanups[i]);
-        cleanups[i] = fn?.call(signals);
-      };
-      collectDep = (scope, key) => deps.push([scope, key]);
-      effect();
-      collectDep = undefined;
-      for (const [scope, key] of deps) {
-        disposes.push(Signals(scope).$watch(key, effect));
-      }
+      waitForFn(effectIds[i], (fn) => {
+        const deps: [number, string][] = [];
+        const signals = Signals(scope);
+        const effect = () => {
+          callFn(cleanups[i]);
+          cleanups[i] = fn.call(signals);
+        };
+        collectDep = (scope, key) => deps.push([scope, key]);
+        effect();
+        collectDep = undefined;
+        for (const [scope, key] of deps) {
+          disposes.push(Signals(scope).$watch(key, effect));
+        }
+      });
     }
   });
 });
@@ -186,12 +227,23 @@ win.$S = (id: string, value: unknown) => {
 
 // define a computed signal
 win.$C = (scope: number, cid: number, deps: string[]) => {
-  computes.set(scope + ":" + cid, deps);
+  const id = scope + ":" + cid;
+  computes.set(id, deps);
+  const queued = computesWaiters.get(id);
+  if (queued) {
+    computesWaiters.delete(id);
+    queued.forEach((fn) => fn(deps));
+  }
 };
 
 // define effects in a component
 win.$E = (scope: number, ...ids: number[]) => {
   effects.set(scope, ids);
+  const queued = effectsWaiters.get(scope);
+  if (queued) {
+    effectsWaiters.delete(scope);
+    queued.forEach((fn) => fn(ids));
+  }
 };
 
 // update an object with patches

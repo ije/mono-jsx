@@ -416,6 +416,52 @@ Deno.test("[ssr-runtime] computed signals", sanitizeFalse, async () => {
   await page.close();
 });
 
+Deno.test("[ssr-runtime] computed registration order ($C before $F)", sanitizeFalse, async () => {
+  function App(this: FC<{ count: number }>) {
+    this.count = 0;
+    return (
+      <div id="runtime-order-host">
+        {this.count}
+        <button type="button" onClick={() => this.count++}>+</button>
+      </div>
+    );
+  }
+
+  const testUrl = addTestPage(<App />);
+  const page = await browser.newPage();
+  await page.goto(testUrl);
+
+  const text = await page.evaluate(async () => {
+    const id = 987654;
+    const scope = 12345;
+    const host = document.createElement("div");
+    host.id = "order-case-container";
+    document.body.appendChild(host);
+
+    const marker = document.createElement("m-signal");
+    marker.setAttribute("scope", String(scope));
+    marker.setAttribute("computed", String(id));
+    host.appendChild(marker);
+
+    (window as any).$S(`${scope}:count`, 0);
+    (window as any).$C(scope, id, [`${scope}:count`]);
+
+    const signals = (window as any).$signals(scope);
+    signals.count = 1;
+
+    (window as any).$F(id, function(this: { count: number }) {
+      return `count:${this.count}`;
+    });
+
+    signals.count = 2;
+    await Promise.resolve();
+    return marker.textContent;
+  });
+
+  assertEquals(text, "count:2");
+  await page.close();
+});
+
 Deno.test("[ssr-runtime] computed class name", sanitizeFalse, async () => {
   function App(this: FC<{ foo: string; bar: string }>) {
     this.foo = "foo";
