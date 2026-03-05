@@ -538,6 +538,9 @@ function Counter(this: FC<{ count: number }>, props: { initialCount?: number }) 
   // Initialize a signal
   this.count = props.initialCount ?? 0;
 
+  // or you can use `this.init` to initialize the signals
+  this.init({ count: props.initialCount ?? 0 });
+
   return (
     <div>
       {/* render signal */}
@@ -546,25 +549,6 @@ function Counter(this: FC<{ count: number }>, props: { initialCount?: number }) 
       {/* Update signal to trigger re-render */}
       <button onClick={() => this.count--}>-</button>
       <button onClick={() => this.count++}>+</button>
-    </div>
-  )
-}
-```
-
-You can also use `this.extend` method to extend the signals:
-
-```tsx
-function Counter(this: FC, props: { initialCount?: number }) {
-  const counter = this.extend({ count: props.initialCount ?? 0})
-
-  return (
-    <div>
-      {/* render signal */}
-      <span>{counter.count}</span>
-
-      {/* Update signal to trigger re-render */}
-      <button onClick={() => counter.count--}>-</button>
-      <button onClick={() => counter.count++}>+</button>
     </div>
   )
 }
