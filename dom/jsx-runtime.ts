@@ -41,11 +41,10 @@ HTMLElement.prototype.mount = function(node: VNode, aboutSignal?: AbortSignal) {
 
 // inject global variables
 Object.assign(globalThis, {
-  Store: createStore,
   JSX,
   html,
   css: html,
   js: html,
 });
 
-export { createStore as Store, Fragment, html, html as css, html as js, JSX, jsx, jsx as jsxDEV, jsx as jsxs };
+export { createStore, Fragment, html, html as css, html as js, JSX, jsx, jsx as jsxDEV, jsx as jsxs };

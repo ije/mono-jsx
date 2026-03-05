@@ -4,55 +4,6 @@ export type WithParams<T> = T & { params?: Record<string, string> };
 
 export interface Elements {
   /**
-   * A built-in element of mono-jsx that toggles the visibility of its children.
-   * @mono-jsx
-   */
-  show: BaseAttributes & {
-    /**
-     * Show the children if the value is truthy.
-     */
-    when?: any;
-
-    /**
-     * Enables view transition for the children.
-     */
-    viewTransition?: string | boolean;
-  };
-
-  /**
-   * A built-in element of mono-jsx that toggles the visibility of its children.
-   * @mono-jsx
-   */
-  hidden: BaseAttributes & {
-    /**
-     * Hide the children if the value is truthy.
-     */
-    when?: any;
-
-    /**
-     * Enables view transition for the children.
-     */
-    viewTransition?: string | boolean;
-  };
-
-  /**
-   * A a built-in element of mono-jsx that chooses one of its children based on the `slot` attribute to display.
-   * It is similar to a switch statement in programming languages.
-   * @mono-jsx
-   */
-  switch: BaseAttributes & {
-    /**
-     * Which child to display.
-     */
-    value?: string | number | boolean | null;
-
-    /**
-     * Enables view transition for the children.
-     */
-    viewTransition?: string | boolean;
-  };
-
-  /**
    * A built-in element of mono-jsx that is used to load components lazily,
    * which can improve performance by reducing the initial load time of the application.
    * @mono-jsx
@@ -238,7 +189,7 @@ export interface Session {
 }
 
 declare global {
-  interface FCExtension {
+  interface FCExtension<FC> {
     /**
      * The global signals shared across the application.
      */

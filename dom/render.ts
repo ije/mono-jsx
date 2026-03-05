@@ -1,7 +1,7 @@
 import type { ChildType, ComponentType, VNode } from "../types/jsx.d.ts";
 import { customElements } from "../jsx.ts";
 import { NullPrototypeObject, regexpIsNonDimensional } from "../runtime/utils.ts";
-import { hashCode, isFunction, isPlainObject, isString, toHyphenCase } from "../runtime/utils.ts";
+import { hashCode, isFunction, isObject, isPlainObject, isString, toHyphenCase } from "../runtime/utils.ts";
 import { $fragment, $html, $vnode } from "../symbols.ts";
 
 interface IScope {
@@ -124,8 +124,9 @@ const $get = Symbol();
 const $watch = Symbol();
 const $expr = Symbol();
 const $slots = Symbol();
-const stores = new Set<IScope>();
+const globalScopes = new Set<IScope>();
 const isVNode = (v: unknown): v is VNode => Array.isArray(v) && v.length === 3 && v[2] === $vnode;
+const isGetter = (v: unknown): v is { value: ChildType } => isObject(v) && "value" in v;
 const createTextNode = (text = "") => document.createTextNode(text);
 const createElement = (tag: string) => document.createElement(tag);
 const onAbort = (signal: AbortSignal | undefined, callback: () => void) => signal?.addEventListener("abort", callback);
@@ -142,7 +143,7 @@ const setAttribute = (el: Element, name: string, value: unknown) => {
 };
 const call$expr = (scope: IScope, ok: boolean) => {
   scope[$expr](ok);
-  stores.forEach(s => s[$expr](ok));
+  globalScopes.forEach(s => s[$expr](ok));
 };
 
 // for reactive dependencies tracking
@@ -193,10 +194,8 @@ const createScope = (slots?: ChildType[], abortSignal?: AbortSignal): IScope => 
               if (get) {
                 target[key] = new Computed(receiver, get);
               } else {
-                if (key === "effect") {
-                  if (isFunction(value)) {
-                    receiver.effect(value);
-                  }
+                if (key === "effect" && isFunction(value)) {
+                  receiver.effect(value);
                 } else {
                   target[key] = value;
                 }
@@ -267,11 +266,17 @@ const createScope = (slots?: ChildType[], abortSignal?: AbortSignal): IScope => 
 
 const createStore = (props: Record<string, unknown>) => {
   const scope = createScope().extend(props);
-  stores.add(scope);
+  globalScopes.add(scope);
   return scope;
 };
 
 const render = (scope: IScope, child: ChildType, root: HTMLElement | DocumentFragment, abortSignal?: AbortSignal) => {
+  if (isGetter(child)) {
+    const expr = (child as unknown as IScope)[$expr];
+    expr?.(true);
+    child = child.value;
+    expr?.(false);
+  }
   switch (typeof child) {
     case "boolean":
     case "undefined":
@@ -508,14 +513,7 @@ const render = (scope: IScope, child: ChildType, root: HTMLElement | DocumentFra
                       break;
 
                     case "viewTransition":
-                      // const updateViewTransitionName = (value: unknown) => {
-                      //   el.style.viewTransitionName = String(value);
-                      // };
-                      // if (isReactive(value)) {
-                      //   value.reactive(updateViewTransitionName);
-                      // } else {
-                      //   updateViewTransitionName(value);
-                      // }
+                      // todo: support viewTransition
                       break;
 
                     case "action":

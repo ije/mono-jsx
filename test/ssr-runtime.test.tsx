@@ -379,7 +379,7 @@ Deno.test("[ssr-runtime] app signals", sanitizeFalse, async () => {
 });
 
 Deno.test("[ssr-runtime] computed signals", sanitizeFalse, async () => {
-  function FooBar(this: WithAppSignals<FC<{ count: number }>, { count: number }>) {
+  function Counter(this: WithAppSignals<FC<{ count: number }>, { count: number }>) {
     this.count = 0;
     return (
       <div>
@@ -390,7 +390,7 @@ Deno.test("[ssr-runtime] computed signals", sanitizeFalse, async () => {
     );
   }
 
-  const testUrl = addTestPage(<FooBar />);
+  const testUrl = addTestPage(<Counter />);
   const page = await browser.newPage();
   await page.goto(testUrl);
 

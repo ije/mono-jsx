@@ -72,35 +72,19 @@ Deno.test.beforeAll(async () => {
   const DEBUG = false;
   if (DEBUG) {
     console.log(addTestPage(`
-      import { Store } from "mono-jsx/dom";
-      console.log(Store);
-      const colors = Store({ main: "blue", hover: "green" });
-      const win = Store({
-        width: window.innerWidth,
-        height: window.innerHeight,
-        get fmt() {
-          return this.width + "x" +this.height;
-        },
-        effect() {
-          window.addEventListener("resize", () => {
-            this.width = window.innerWidth;
-            this.height = window.innerHeight;
-          });
-        },
-      });
-
-      function App(this: FC) {
-        this.effect(() => {
-          console.log("window size:", win.fmt);
-        });
-        return (
-          <>
-            <h1 class={["title", colors.main]} style={{ color: colors.main, ":hover": { color: colors.hover }}} onClick={() => colors.main = "red"}>Welcome to mono-jsx!</h1>
-            <p>Window size: {win.fmt}.</p>
-          </>
-        );
+      import { atom } from "mono-jsx/dom";
+      const count = atom(1);
+      globalThis.count = count;
+      function H1(this: FC) {
+        return <h1>{count}</h1>
       }
-      document.body.mount(<App />);
+      function H2(this: FC) {
+        return <h2>{count}</h2>
+      }
+      function Button(this: FC) {
+        return <button onClick={() => count.value++}>Increment</button>
+      }
+      document.body.mount(<><H1 /><H2 /><Button /></>);
     `));
     await new Promise(() => {});
   }
@@ -418,10 +402,10 @@ Deno.test("[csr] signals", sanitizeFalse, async (t) => {
     await page.close();
   });
 
-  await t.step("global store", async () => {
+  await t.step("store", async () => {
     const testUrl = addTestPage(`
-      import * as dom from "mono-jsx/dom";
-      const count = Store({
+      import { store } from "mono-jsx/dom";
+      const count = store({
         value: 1,
         get double() {
           return this.value * 2;
@@ -439,14 +423,10 @@ Deno.test("[csr] signals", sanitizeFalse, async (t) => {
       function Button(this: FC) {
         return <button onClick={() => count.increment()}>Increment</button>
       }
-      document.body.mount(<><H1 /><H2 /><Button /><p>{dom.Store === Store ? "true" : "false"}</p></>);
+      document.body.mount(<><H1 /><H2 /><Button /></>);
     `);
     const page = await browser.newPage();
     await page.goto(testUrl);
-
-    const p = await page.$("body > p");
-    assert(p);
-    assertEquals(await p.evaluate((el) => el.textContent), "true");
 
     const h1 = await page.$("body > h1");
     assert(h1);
@@ -462,6 +442,42 @@ Deno.test("[csr] signals", sanitizeFalse, async (t) => {
     await button.click();
     assertEquals(await h1.evaluate((el) => el.textContent), "2-4");
     assertEquals(await h2.evaluate((el) => el.textContent), "2-4");
+
+    await page.close();
+  });
+
+  await t.step("atom", async () => {
+    const testUrl = addTestPage(`
+      import { atom } from "mono-jsx/dom";
+      const count = atom(1);
+      function H1(this: FC) {
+        return <h1>{count}</h1>
+      }
+      function H2(this: FC) {
+        return <h2>{count}</h2>
+      }
+      function Button(this: FC) {
+        return <button onClick={() => count.value++}>Increment</button>
+      }
+      document.body.mount(<><H1 /><H2 /><Button /></>);
+    `);
+    const page = await browser.newPage();
+    await page.goto(testUrl);
+
+    const h1 = await page.$("body > h1");
+    assert(h1);
+    assertEquals(await h1.evaluate((el) => el.textContent), "1");
+
+    const h2 = await page.$("body > h2");
+    assert(h2);
+    assertEquals(await h2.evaluate((el) => el.textContent), "1");
+
+    const button = await page.$("body > button");
+    assert(button);
+
+    await button.click();
+    assertEquals(await h1.evaluate((el) => el.textContent), "2");
+    assertEquals(await h2.evaluate((el) => el.textContent), "2");
 
     await page.close();
   });

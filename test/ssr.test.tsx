@@ -66,6 +66,18 @@ Deno.test("[ssr] condition&loop", async () => {
   );
 });
 
+Deno.test("[ssr] rendering getter", async () => {
+  assertEquals(
+    await renderToString(<p>{{ value: "Hello world!" }}</p>),
+    [
+      `<!DOCTYPE html>`,
+      `<html lang="en"><body>`,
+      `<p>Hello world!</p>`,
+      `</body></html>`,
+    ].join(""),
+  );
+});
+
 Deno.test("[ssr] merge class names", async () => {
   assertEquals(
     await renderToString(<div class={["box", "large", { border: false, rounded: true }]} />),

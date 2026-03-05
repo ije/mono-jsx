@@ -1,7 +1,9 @@
 import type { HTML } from "./html.d.ts";
 
-export type ChildType = MaybeArray<JSX.Element | string | number | bigint | boolean | null | undefined>;
+export type ChildPrimitiveType = JSX.Element | string | number | bigint | boolean | null | undefined;
+export type ChildType = MaybeArray<ChildPrimitiveType | MaybeGetter<ChildPrimitiveType>>;
 export type MaybeArray<T> = T | T[];
+export type MaybeGetter<T> = { value: T };
 export type MaybePromiseOrGenerator<T> = T | Promise<T> | Generator<T> | AsyncGenerator<T>;
 
 export interface BaseAttributes {
@@ -57,6 +59,57 @@ export interface ComponentType<P = {}> {
   rendering?: string;
 }
 
+export interface MonoBuiltinElements {
+  /**
+   * A built-in element of mono-jsx that toggles the visibility of its children.
+   * @mono-jsx
+   */
+  show: BaseAttributes & {
+    /**
+     * Show the children if the value is truthy.
+     */
+    when?: any;
+
+    /**
+     * Enables view transition for the children.
+     */
+    viewTransition?: string | boolean;
+  };
+
+  /**
+   * A built-in element of mono-jsx that toggles the visibility of its children.
+   * @mono-jsx
+   */
+  hidden: BaseAttributes & {
+    /**
+     * Hide the children if the value is truthy.
+     */
+    when?: any;
+
+    /**
+     * Enables view transition for the children.
+     */
+    viewTransition?: string | boolean;
+  };
+
+  /**
+   * A a built-in element of mono-jsx that chooses one of its children based on the `slot` attribute to display.
+   * It is similar to a switch statement in programming languages.
+   * @mono-jsx
+   */
+  switch: BaseAttributes & {
+    /**
+     * Which child to display.
+     */
+    value?: string | number | boolean | null;
+
+    /**
+     * Enables view transition for the children.
+     */
+    viewTransition?: string | boolean;
+  };
+}
+
 declare global {
   namespace JSX {
     type ElementType<P = any> =
@@ -71,7 +124,7 @@ declare global {
     interface CustomElements {}
     interface Element extends VNode, Response {}
     interface IntrinsicAttributes extends BaseAttributes, AsyncComponentAttributes {}
-    interface IntrinsicElements extends HTML.Elements, HTML.SVGElements, HTML.CustomElements, JSX.BuiltinElements {}
+    interface IntrinsicElements extends HTML.Elements, HTML.SVGElements, HTML.CustomElements, JSX.BuiltinElements, MonoBuiltinElements {}
   }
 
   interface FCExtension<FC = {}> {}
