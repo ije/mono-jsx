@@ -2,20 +2,14 @@ import { lstat, readFile, writeFile } from "node:fs/promises";
 import { argv } from "node:process";
 
 const serverTSX = `// mono-jsx SSR example
-// Documentation: https://ije.github.io/mono-jsx/docs/ssr
+// Docs: https://github.com/ije/mono-jsx
 
 function App(this: FC<{ a: number; b: number }>) {
-  this.init({
-    a: 1,
-    b: 2,
-  })
+  this.init({ a: 1,  b: 2 })
 
   this.effect(() => {
     // effect is called when the component is mounted or when the dependencies(calc.a & calc.b) change
     console.log("sum", this.a * this.b);
-    return () => {
-      console.log("cleanup");
-    };
   });
 
   return (
@@ -52,8 +46,6 @@ export default {
       <head>
         <meta charSet="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-        <meta name="description" content="Building user interfaces." />
-        <meta name="keywords" content="ssr,jsx" />
         <title>Welcome to mono-jsx!</title>
       </head>
       <body>
