@@ -69,20 +69,19 @@ Deno.test.beforeAll(async () => {
     return new Response("Not Found", { status: 404 });
   });
 
-  const DEBUG = false;
+  const DEBUG = !true;
   if (DEBUG) {
     console.log(addTestPage(`
       import { atom } from "mono-jsx/dom";
       const count = atom(1);
-      globalThis.count = count;
       function H1(this: FC) {
         return <h1>{count}</h1>
       }
       function H2(this: FC) {
-        return <h2>{count}</h2>
+        return <h2>{this.$(() => 2*count.get())}</h2>
       }
       function Button(this: FC) {
-        return <button onClick={() => count.value++}>Increment</button>
+        return <button onClick={() => count.set(prev => prev+1)}>Increment</button>
       }
       document.body.mount(<><H1 /><H2 /><Button /></>);
     `));
@@ -454,7 +453,7 @@ Deno.test("[csr] signals", sanitizeFalse, async (t) => {
         return <h1>{count}</h1>
       }
       function H2(this: FC) {
-        return <h2>{count}</h2>
+        return <h2>{this.$(() => 2*count.get())}</h2>
       }
       function Button(this: FC) {
         return <button onClick={() => count.set(prev => prev+1)}>Increment</button>
@@ -470,14 +469,14 @@ Deno.test("[csr] signals", sanitizeFalse, async (t) => {
 
     const h2 = await page.$("body > h2");
     assert(h2);
-    assertEquals(await h2.evaluate((el) => el.textContent), "1");
+    assertEquals(await h2.evaluate((el) => el.textContent), "2");
 
     const button = await page.$("body > button");
     assert(button);
 
     await button.click();
     assertEquals(await h1.evaluate((el) => el.textContent), "2");
-    assertEquals(await h2.evaluate((el) => el.textContent), "2");
+    assertEquals(await h2.evaluate((el) => el.textContent), "4");
 
     await page.close();
   });

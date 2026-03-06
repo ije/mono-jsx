@@ -19,7 +19,9 @@ abstract class Reactive {
   abstract watch(callback: () => void, abortSignal: AbortSignal | undefined): void;
   reactive(effect: (value: unknown) => void, abortSignal: AbortSignal | undefined) {
     const update = () => effect(this.get());
+    // collect dependencies first
     update();
+    // watch for updates on dependencies
     this.watch(update, abortSignal);
   }
   map(callback: (value: unknown, index: number) => JSX.Element) {
@@ -33,12 +35,17 @@ abstract class Reactive {
 class Signal extends Reactive {
   #scope: IScope;
   #key: string;
-  constructor(scope: IScope, key: string) {
+  #isAtom: boolean;
+  constructor(scope: IScope, key: string, isAtom: boolean = false) {
     super();
     this.#scope = scope;
     this.#key = key;
+    this.#isAtom = isAtom;
   }
   get() {
+    if (this.#isAtom) {
+      $depsMark?.add(this);
+    }
     return this.#scope[$get](this.#key);
   }
   set(value: unknown) {
@@ -56,10 +63,7 @@ class Computed extends Reactive {
   #scope: IScope;
   #compute: () => unknown;
   #deps?: Set<Signal>;
-  constructor(
-    scope: IScope,
-    compute: () => unknown,
-  ) {
+  constructor(scope: IScope, compute: () => unknown) {
     super();
     this.#scope = scope;
     this.#compute = compute;
@@ -230,19 +234,29 @@ const createScope = (slots?: ChildType[], abortSignal?: AbortSignal): IScope => 
           return refs;
         default: {
           const value = Reflect.get(target, key as string, receiver);
-          if (value instanceof Reactive) {
-            return !exprMode || $depsMark ? value.get() : value;
+          if (typeof key === "symbol" || isFunction(value)) {
+            return value;
           }
-          if (!exprMode || $depsMark) {
-            if ($depsMark && isString(key) && !isFunction(value)) {
-              $depsMark.add(getSignal(key));
+          const getRawValue = !exprMode || $depsMark !== undefined;
+          if (value instanceof Reactive) {
+            if (getRawValue) {
+              if (value instanceof Signal) {
+                $depsMark?.add(value);
+              }
+              return value.get();
             }
             return value;
           }
-          if (isString(key)) {
-            return getSignal(key);
+          let signal = signals.get(key);
+          if (!signal) {
+            signal = new Signal(receiver, key);
+            signals.set(key, signal);
           }
-          return value;
+          if (getRawValue) {
+            $depsMark?.add(signal);
+            return value;
+          }
+          return signal;
         }
       }
     },
@@ -258,7 +272,6 @@ const createScope = (slots?: ChildType[], abortSignal?: AbortSignal): IScope => 
       return true;
     },
   });
-  let getSignal = (key: string) => signals.get(key) ?? signals.set(key, new Signal(scope, key)).get(key)!;
   onAbort(abortSignal, () => {
     watchHandlers.clear();
     refElements.clear();
@@ -273,9 +286,9 @@ const atom = (value: unknown) => {
   if (!atomScope) {
     atomScope = createScope();
   }
-  const atomKey = "atom_" + atomIndex++;
-  atomScope.init({ [atomKey]: value });
-  return new Signal(atomScope, atomKey);
+  const atomKey = "$" + atomIndex++;
+  atomScope[atomKey] = value;
+  return new Signal(atomScope, atomKey, true);
 };
 
 const store = (props: Record<string, unknown>) => {
