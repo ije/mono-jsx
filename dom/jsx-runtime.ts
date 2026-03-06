@@ -2,7 +2,7 @@ import type { ComponentType, VNode } from "../types/jsx.d.ts";
 import { JSX } from "../jsx.ts";
 import { domEscapeHTML, isString, NullPrototypeObject } from "../runtime/utils.ts";
 import { $fragment, $html, $vnode } from "../symbols.ts";
-import { createStore, Reactive, render } from "./render.ts";
+import { atom, Reactive, render, store } from "./render.ts";
 
 const Fragment = $fragment as unknown as ComponentType;
 
@@ -47,4 +47,4 @@ Object.assign(globalThis, {
   js: html,
 });
 
-export { createStore, Fragment, html, html as css, html as js, JSX, jsx, jsx as jsxDEV, jsx as jsxs };
+export { atom, Fragment, html, html as css, html as js, JSX, jsx, jsx as jsxDEV, jsx as jsxs, store };

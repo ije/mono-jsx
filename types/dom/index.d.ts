@@ -1,7 +1,9 @@
 /// <reference types="../jsx.d.ts" />
 
 export interface IAtom<T> {
-  value: T;
+  get: () => T;
+  set: (value: T | ((prev: T) => T)) => void;
+  map: (callback: (value: T extends (infer V)[] ? V : T, index: number) => JSX.Element) => JSX.Element[];
 }
 
 export const atom: <T>(initValue: T) => IAtom<T>;

@@ -3,7 +3,7 @@ import type { HTML } from "./html.d.ts";
 export type ChildPrimitiveType = JSX.Element | string | number | bigint | boolean | null | undefined;
 export type ChildType = MaybeArray<ChildPrimitiveType | MaybeGetter<ChildPrimitiveType>>;
 export type MaybeArray<T> = T | T[];
-export type MaybeGetter<T> = { value: T };
+export type MaybeGetter<T> = { get: () => T };
 export type MaybePromiseOrGenerator<T> = T | Promise<T> | Generator<T> | AsyncGenerator<T>;
 
 export interface BaseAttributes {

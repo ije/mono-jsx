@@ -457,7 +457,7 @@ Deno.test("[csr] signals", sanitizeFalse, async (t) => {
         return <h2>{count}</h2>
       }
       function Button(this: FC) {
-        return <button onClick={() => count.value++}>Increment</button>
+        return <button onClick={() => count.set(prev => prev+1)}>Increment</button>
       }
       document.body.mount(<><H1 /><H2 /><Button /></>);
     `);
@@ -478,6 +478,34 @@ Deno.test("[csr] signals", sanitizeFalse, async (t) => {
     await button.click();
     assertEquals(await h1.evaluate((el) => el.textContent), "2");
     assertEquals(await h2.evaluate((el) => el.textContent), "2");
+
+    await page.close();
+  });
+
+  await t.step("atom(array)", async () => {
+    const testUrl = addTestPage(`
+      import { atom } from "mono-jsx/dom";
+      const list = atom([1, 2, 3]);
+      function App(this: FC) {
+        return <div><ul>{list.map((item) => <li>{item}</li>)}</ul><button onClick={() => list.set(prev => [...prev, prev.length+1])}>Add</button></div>
+      }
+      document.body.mount(<App />);
+    `);
+    const page = await browser.newPage();
+    await page.goto(testUrl);
+
+    const ul = await page.$("body > div > ul");
+    assert(ul);
+    assertEquals(await ul.evaluate((el) => Array.from(el.childNodes).map(node => node.textContent)), ["1", "2", "3"]);
+
+    const button = await page.$("body > div > button");
+    assert(button);
+    await button.click();
+
+    assertEquals(await ul.evaluate((el) => Array.from(el.childNodes).map(node => node.textContent)), ["1", "2", "3", "4"]);
+
+    await button.click();
+    assertEquals(await ul.evaluate((el) => Array.from(el.childNodes).map(node => node.textContent)), ["1", "2", "3", "4", "5"]);
 
     await page.close();
   });

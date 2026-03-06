@@ -820,8 +820,6 @@ async function renderNode(rc: RenderContext, node: ChildType, stripSlotProp?: bo
         for (const child of node) {
           await renderNode(rc, child);
         }
-      } else if ("value" in node) {
-        await renderNode(rc, node.value);
       }
       break;
   }

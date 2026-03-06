@@ -1,7 +1,7 @@
 import type { ChildType, ComponentType, VNode } from "../types/jsx.d.ts";
 import { customElements } from "../jsx.ts";
 import { NullPrototypeObject, regexpIsNonDimensional } from "../runtime/utils.ts";
-import { hashCode, isFunction, isObject, isPlainObject, isString, toHyphenCase } from "../runtime/utils.ts";
+import { hashCode, isFunction, isPlainObject, isString, toHyphenCase } from "../runtime/utils.ts";
 import { $fragment, $html, $vnode } from "../symbols.ts";
 
 interface IScope {
@@ -11,6 +11,7 @@ interface IScope {
   readonly [$watch]: (key: string, effect: () => void) => () => void;
   readonly [$expr]: (ok: boolean) => void;
   readonly extend: <T = Record<string, unknown>>(props: T) => IScope & T;
+  readonly init: (init: Record<string, unknown>) => void;
 }
 
 abstract class Reactive {
@@ -41,6 +42,9 @@ class Signal extends Reactive {
     return this.#scope[$get](this.#key);
   }
   set(value: unknown) {
+    if (isFunction(value)) {
+      value = value(this.get());
+    }
     this.#scope[this.#key] = value;
   }
   watch(callback: () => void, abortSignal: AbortSignal | undefined) {
@@ -126,7 +130,6 @@ const $expr = Symbol();
 const $slots = Symbol();
 const globalScopes = new Set<IScope>();
 const isVNode = (v: unknown): v is VNode => Array.isArray(v) && v.length === 3 && v[2] === $vnode;
-const isGetter = (v: unknown): v is { value: ChildType } => isObject(v) && "value" in v;
 const createTextNode = (text = "") => document.createTextNode(text);
 const createElement = (tag: string) => document.createElement(tag);
 const onAbort = (signal: AbortSignal | undefined, callback: () => void) => signal?.addEventListener("abort", callback);
@@ -264,19 +267,24 @@ const createScope = (slots?: ChildType[], abortSignal?: AbortSignal): IScope => 
   return scope;
 };
 
-const createStore = (props: Record<string, unknown>) => {
+let atomIndex = 0;
+let atomScope: IScope | undefined;
+const atom = (value: unknown) => {
+  if (!atomScope) {
+    atomScope = createScope();
+  }
+  const atomKey = "atom_" + atomIndex++;
+  atomScope.init({ [atomKey]: value });
+  return new Signal(atomScope, atomKey);
+};
+
+const store = (props: Record<string, unknown>) => {
   const scope = createScope().extend(props);
   globalScopes.add(scope);
   return scope;
 };
 
 const render = (scope: IScope, child: ChildType, root: HTMLElement | DocumentFragment, abortSignal?: AbortSignal) => {
-  if (isGetter(child)) {
-    const expr = (child as unknown as IScope)[$expr];
-    expr?.(true);
-    child = child.value;
-    expr?.(false);
-  }
   switch (typeof child) {
     case "boolean":
     case "undefined":
@@ -291,13 +299,13 @@ const render = (scope: IScope, child: ChildType, root: HTMLElement | DocumentFra
             list.forEach((items) => items.forEach(([ac]) => ac.abort()));
             list.clear();
           };
-          reactive.reactive(arr => {
-            if (!Array.isArray(arr)) {
-              throw new TypeError("map is not a function");
+          reactive.reactive(v => {
+            if (!Array.isArray(v)) {
+              v = [v];
             }
             let nodes: ChildNode[] = [];
             let newList: typeof list = new Map();
-            arr.forEach((item, index) => {
+            (v as unknown as unknown[]).forEach((item, index) => {
               let render = list.get(item)?.shift();
               if (callback.length >= 2 && render && render[2] !== index) {
                 render[0].abort();
@@ -722,4 +730,4 @@ const computeStyleClassName = (css: (string | null)[]) => {
   return className;
 };
 
-export { createStore, Reactive, render };
+export { atom, Reactive, render, store };
