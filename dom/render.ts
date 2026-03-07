@@ -107,7 +107,7 @@ class InsertMark {
   constructor(root: HTMLElement | DocumentFragment, signal?: AbortSignal) {
     const anchor = createTextNode();
     root.appendChild(anchor);
-    onAbort(signal, () => anchor.remove());
+    onAbort(signal, anchor.remove.bind(anchor));
     this.#root = root;
     this.#anchor = anchor;
   }
@@ -225,7 +225,9 @@ const createScope = (slots?: ChildType[], abortSignal?: AbortSignal): IScope => 
                   cleanup = callback.call(receiver);
                 }, abortSignal)
               );
-              onAbort(abortSignal, () => cleanup?.());
+              if (cleanup) {
+                onAbort(abortSignal, cleanup);
+              }
               // stop collecting dependencies
               $depsMark = undefined;
             });
@@ -348,7 +350,7 @@ const render = (scope: IScope, child: ChildType, root: HTMLElement | DocumentFra
             textNode.textContent = String(value);
           }, abortSignal);
           root.appendChild(textNode);
-          onAbort(abortSignal, () => textNode.remove());
+          onAbort(abortSignal, textNode.remove.bind(textNode));
           return;
         }
         if (isVNode(child)) {
@@ -558,7 +560,7 @@ const render = (scope: IScope, child: ChildType, root: HTMLElement | DocumentFra
                       break;
                   }
                 }
-                onAbort(abortSignal, () => el.remove());
+                onAbort(abortSignal, el.remove.bind(el));
                 (portal instanceof HTMLElement ? portal : root).appendChild(el);
                 if (children !== undefined) {
                   renderChildren(scope, children, el, abortSignal);
@@ -574,7 +576,7 @@ const render = (scope: IScope, child: ChildType, root: HTMLElement | DocumentFra
   // render to text node
   const textNode = createTextNode(String(child));
   root.appendChild(textNode);
-  onAbort(abortSignal, () => textNode.remove());
+  onAbort(abortSignal, textNode.remove.bind(textNode));
 };
 
 const renderChildren = (
