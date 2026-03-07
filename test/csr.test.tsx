@@ -74,16 +74,15 @@ Deno.test.beforeAll(async () => {
     console.log(addTestPage(`
       import { atom } from "mono-jsx/dom";
       const count = atom(1);
-      function H1(this: FC) {
-        return <h1>{count}</h1>
+      function App(this: FC) {
+        return (
+          <div>
+            <p>2 * {count} = {this.$(() => 2*count.get())}</p>
+            <button onClick={() => count.set(prev => prev+1)}>Increment</button>
+          </div>
+        )
       }
-      function H2(this: FC) {
-        return <h2>{this.$(() => 2*count.get())}</h2>
-      }
-      function Button(this: FC) {
-        return <button onClick={() => count.set(prev => prev+1)}>Increment</button>
-      }
-      document.body.mount(<><H1 /><H2 /><Button /></>);
+      document.body.mount(<App />);
     `));
     await new Promise(() => {});
   }
@@ -495,16 +494,16 @@ Deno.test("[csr] signals", sanitizeFalse, async (t) => {
 
     const ul = await page.$("body > div > ul");
     assert(ul);
-    assertEquals(await ul.evaluate((el) => Array.from(el.childNodes).map(node => node.textContent)), ["1", "2", "3"]);
+    assertEquals(await ul.evaluate((el) => Array.from(el.children).map(node => node.textContent)), ["1", "2", "3"]);
 
     const button = await page.$("body > div > button");
     assert(button);
     await button.click();
 
-    assertEquals(await ul.evaluate((el) => Array.from(el.childNodes).map(node => node.textContent)), ["1", "2", "3", "4"]);
+    assertEquals(await ul.evaluate((el) => Array.from(el.children).map(node => node.textContent)), ["1", "2", "3", "4"]);
 
     await button.click();
-    assertEquals(await ul.evaluate((el) => Array.from(el.childNodes).map(node => node.textContent)), ["1", "2", "3", "4", "5"]);
+    assertEquals(await ul.evaluate((el) => Array.from(el.children).map(node => node.textContent)), ["1", "2", "3", "4", "5"]);
 
     await page.close();
   });
@@ -530,7 +529,7 @@ Deno.test("[csr] ref", sanitizeFalse, async () => {
   await page.close();
 });
 
-Deno.test("[csr] `<show>` component", sanitizeFalse, async () => {
+Deno.test("[csr] `<show>` element", sanitizeFalse, async () => {
   const testUrl = addTestPage(`
     function App(this: FC<{ show: boolean }>) {
       this.show = true;
@@ -549,7 +548,6 @@ Deno.test("[csr] `<show>` component", sanitizeFalse, async () => {
   let h1 = await page.$("body > div > h1");
   assert(h1);
   assertEquals(await h1.evaluate((el) => el.textContent), "Welcome to mono-jsx!");
-  assertEquals(await h1.evaluate((el) => (el.nextSibling as HTMLElement).tagName), "BUTTON");
 
   let button = await page.$("body > div > button");
   assert(button);
@@ -557,19 +555,56 @@ Deno.test("[csr] `<show>` component", sanitizeFalse, async () => {
   await button.click();
   h1 = await page.$("body > div > h1");
   assert(!h1);
-  button = await page.$("body > div > button");
-  assert(button);
 
   await button.click();
   h1 = await page.$("body > div > h1");
   assert(h1);
   assertEquals(await h1.evaluate((el) => el.textContent), "Welcome to mono-jsx!");
-  assertEquals(await h1.evaluate((el) => (el.nextSibling as HTMLElement).tagName), "BUTTON");
 
   await page.close();
 });
 
-Deno.test("[csr] `<hidden>` component", sanitizeFalse, async () => {
+Deno.test("[csr] `<show>` element in fragment", sanitizeFalse, async () => {
+  const testUrl = addTestPage(`
+    export default async function App(this: FC<{ show: boolean }>) {
+      this.show = false;
+
+      return (
+        <>
+          <button onClick={() => this.show = !this.show}>{this.$(() => this.show ? "Hide" : "Show")}</button>
+          <show when={this.show}>
+            <p>Hello, world!</p>
+          </show>
+        </>
+      )
+    }
+    document.body.mount(<App />);
+  `);
+  const page = await browser.newPage();
+  await page.goto(testUrl);
+
+  let p = await page.$("body > p");
+  assert(!p);
+
+  let button = await page.$("body > button");
+  assert(button);
+  assertEquals(await button.evaluate((el) => el.textContent), "Show");
+  await button.click();
+
+  p = await page.$("body > p");
+  assert(p);
+  assertEquals(await button.evaluate((el) => el.textContent), "Hide");
+  assertEquals(await p.evaluate((el) => el.textContent), "Hello, world!");
+
+  await button.click();
+  p = await page.$("body > p");
+  assert(!p);
+  assertEquals(await button.evaluate((el) => el.textContent), "Show");
+
+  await page.close();
+});
+
+Deno.test("[csr] `<hidden>` element", sanitizeFalse, async () => {
   const testUrl = addTestPage(`
     function App(this: FC<{ hidden: boolean }>) {
       this.hidden = false;
@@ -588,7 +623,6 @@ Deno.test("[csr] `<hidden>` component", sanitizeFalse, async () => {
   let h1 = await page.$("body > div > h1");
   assert(h1);
   assertEquals(await h1.evaluate((el) => el.textContent), "Welcome to mono-jsx!");
-  assertEquals(await h1.evaluate((el) => (el.nextSibling as HTMLElement).tagName), "BUTTON");
 
   let button = await page.$("body > div > button");
   assert(button);
@@ -596,19 +630,16 @@ Deno.test("[csr] `<hidden>` component", sanitizeFalse, async () => {
   await button.click();
   h1 = await page.$("body > div > h1");
   assert(!h1);
-  button = await page.$("body > div > button");
-  assert(button);
 
   await button.click();
   h1 = await page.$("body > div > h1");
   assert(h1);
   assertEquals(await h1.evaluate((el) => el.textContent), "Welcome to mono-jsx!");
-  assertEquals(await h1.evaluate((el) => (el.nextSibling as HTMLElement).tagName), "BUTTON");
 
   await page.close();
 });
 
-Deno.test("[csr] `<toggle>` component", sanitizeFalse, async () => {
+Deno.test("[csr] `<toggle>` element", sanitizeFalse, async () => {
   const testUrl = addTestPage(`
     function App(this: FC<{ lang: 'en' | 'zh' | 'emoji' }>) {
       this.lang = 'en';
@@ -716,8 +747,8 @@ Deno.test("[csr] list rendering", sanitizeFalse, async (t) => {
     const ul = await page.$("body > ul");
     assert(ul);
 
-    assertEquals(await ul.evaluate(el => el.childNodes.length), 3);
-    assertEquals(await ul.evaluate(el => Array.from(el.childNodes).map(node => node.childNodes[0].textContent)), [
+    assertEquals(await ul.evaluate(el => el.children.length), 3);
+    assertEquals(await ul.evaluate(el => Array.from(el.children).map(node => node.children[0].textContent)), [
       "1: Buy groceries",
       "2: Walk the dog",
       "3: Do laundry",
@@ -727,8 +758,8 @@ Deno.test("[csr] list rendering", sanitizeFalse, async (t) => {
     assert(button);
 
     await button.click();
-    assertEquals(await ul.evaluate(el => el.childNodes.length), 4);
-    assertEquals(await ul.evaluate(el => Array.from(el.childNodes).map(node => node.childNodes[0].textContent)), [
+    assertEquals(await ul.evaluate(el => el.children.length), 4);
+    assertEquals(await ul.evaluate(el => Array.from(el.children).map(node => node.children[0].textContent)), [
       "1: Buy groceries",
       "2: Walk the dog",
       "3: Do laundry",
@@ -736,8 +767,8 @@ Deno.test("[csr] list rendering", sanitizeFalse, async (t) => {
     ]);
 
     await button.click();
-    assertEquals(await ul.evaluate(el => el.childNodes.length), 5);
-    assertEquals(await ul.evaluate(el => Array.from(el.childNodes).map(node => node.childNodes[0].textContent)), [
+    assertEquals(await ul.evaluate(el => el.children.length), 5);
+    assertEquals(await ul.evaluate(el => Array.from(el.children).map(node => node.children[0].textContent)), [
       "1: Buy groceries",
       "2: Walk the dog",
       "3: Do laundry",
@@ -748,8 +779,8 @@ Deno.test("[csr] list rendering", sanitizeFalse, async (t) => {
     const button0 = await page.$("body > ul > li:nth-child(1) > button");
     assert(button0);
     await button0.click();
-    assertEquals(await ul.evaluate(el => el.childNodes.length), 4);
-    assertEquals(await ul.evaluate(el => Array.from(el.childNodes).map(node => node.childNodes[0].textContent)), [
+    assertEquals(await ul.evaluate(el => el.children.length), 4);
+    assertEquals(await ul.evaluate(el => Array.from(el.children).map(node => node.children[0].textContent)), [
       "1: Walk the dog",
       "2: Do laundry",
       "3: Call Mom",
@@ -759,8 +790,8 @@ Deno.test("[csr] list rendering", sanitizeFalse, async (t) => {
     const button2 = await page.$("body > ul > li:nth-child(2) > button");
     assert(button2);
     await button2.click();
-    assertEquals(await ul.evaluate(el => el.childNodes.length), 3);
-    assertEquals(await ul.evaluate(el => Array.from(el.childNodes).map(node => node.childNodes[0].textContent)), [
+    assertEquals(await ul.evaluate(el => el.children.length), 3);
+    assertEquals(await ul.evaluate(el => Array.from(el.children).map(node => node.children[0].textContent)), [
       "1: Walk the dog",
       "2: Call Mom",
       "3: Call Mom",
@@ -769,8 +800,8 @@ Deno.test("[csr] list rendering", sanitizeFalse, async (t) => {
     const button3 = await page.$("body > ul > li:nth-child(3) > button");
     assert(button3);
     await button3.click();
-    assertEquals(await ul.evaluate(el => el.childNodes.length), 1);
-    assertEquals(await ul.evaluate(el => Array.from(el.childNodes).map(node => node.childNodes[0].textContent)), [
+    assertEquals(await ul.evaluate(el => el.children.length), 1);
+    assertEquals(await ul.evaluate(el => Array.from(el.children).map(node => node.children[0].textContent)), [
       "1: Walk the dog",
     ]);
     await page.close();

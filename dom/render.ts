@@ -103,18 +103,18 @@ class Ref {
 
 class InsertMark {
   #root: HTMLElement | DocumentFragment;
-  #index: number;
-  constructor(root: HTMLElement | DocumentFragment) {
+  #anchor: Text;
+  constructor(root: HTMLElement | DocumentFragment, signal?: AbortSignal) {
+    const anchor = createTextNode();
+    root.appendChild(anchor);
+    onAbort(signal, () => anchor.remove());
     this.#root = root;
-    this.#index = root.childNodes.length;
+    this.#anchor = anchor;
   }
-  insert(...nodes: Node[]) {
-    let argsN = nodes.length;
-    let tmp: Text | undefined;
-    if (argsN) {
-      if (argsN > 1) tmp = createTextNode();
-      this.#root.insertBefore(tmp ?? nodes[0], this.#root.childNodes[this.#index]);
-      tmp?.replaceWith(...nodes);
+  insert(...nodes: ChildNode[]) {
+    const parent = this.#anchor.parentElement ?? this.#root;
+    for (const node of nodes) {
+      parent.insertBefore(node, this.#anchor);
     }
   }
   insertHTML(html: string) {
@@ -306,7 +306,7 @@ const render = (scope: IScope, child: ChildType, root: HTMLElement | DocumentFra
       if (child !== null) {
         if (child instanceof ReactiveList) {
           let { reactive, callback } = child;
-          let insertMark = new InsertMark(root);
+          let insertMark = new InsertMark(root, abortSignal);
           let list = new Map<unknown, Array<[AbortController, Array<ChildNode>, number]>>();
           let cleanup = () => {
             list.forEach((items) => items.forEach(([ac]) => ac.abort()));
@@ -356,10 +356,9 @@ const render = (scope: IScope, child: ChildType, root: HTMLElement | DocumentFra
           switch (tag) {
             // fragment element
             case $fragment: {
-              const { children, root: rootProp } = props;
-              const rootEl = rootProp instanceof HTMLElement ? rootProp : root;
+              const { children } = props;
               if (children !== undefined) {
-                renderChildren(scope, children, rootEl, abortSignal);
+                renderChildren(scope, children, root, abortSignal);
               }
               break;
             }
@@ -367,7 +366,7 @@ const render = (scope: IScope, child: ChildType, root: HTMLElement | DocumentFra
             // XSS!
             case $html: {
               const { innerHTML } = props;
-              const mark = new InsertMark(root);
+              const mark = new InsertMark(root, abortSignal);
               if (innerHTML instanceof Reactive) {
                 let cleanup: (() => void) | undefined;
                 innerHTML.reactive(html => {
@@ -397,13 +396,13 @@ const render = (scope: IScope, child: ChildType, root: HTMLElement | DocumentFra
               let { when = true, children } = props;
               if (children !== undefined) {
                 if (when instanceof Reactive) {
-                  let mark = new InsertMark(root);
+                  let mark = new InsertMark(root, abortSignal);
                   let ac: AbortController | undefined;
                   when.reactive(value => {
                     ac?.abort();
                     if (tag === "show" ? value : !value) {
                       ac = new AbortController();
-                      mark.insert(renderToFragment(scope, children, ac.signal));
+                      mark.insert(...renderToFragment(scope, children, ac.signal).childNodes);
                     }
                   }, abortSignal);
                   onAbort(abortSignal, () => ac?.abort());
@@ -423,14 +422,14 @@ const render = (scope: IScope, child: ChildType, root: HTMLElement | DocumentFra
               const { value: valueProp, children } = props;
               if (children !== undefined) {
                 if (valueProp instanceof Reactive) {
-                  let mark = new InsertMark(root);
+                  let mark = new InsertMark(root, abortSignal);
                   let ac: AbortController | undefined;
                   valueProp.reactive(value => {
                     const slots = children.filter((v: unknown) => isVNode(v) && v[1].slot === String(value));
                     ac?.abort();
                     if (slots.length > 0) {
                       ac = new AbortController();
-                      mark.insert(renderToFragment(scope, slots, ac.signal));
+                      mark.insert(...renderToFragment(scope, slots, ac.signal).childNodes);
                     }
                   }, abortSignal);
                   onAbort(abortSignal, () => ac?.abort());
