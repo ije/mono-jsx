@@ -1,6 +1,6 @@
 /// <reference lib="dom.iterable" />
 
-import { assert, assertEquals } from "jsr:@std/assert@1.0.19";
+import { assert, assertEquals, assertStringIncludes } from "jsr:@std/assert@1.0.19";
 import puppeteer from "npm:puppeteer-core@24.37.5";
 import chrome from "npm:puppeteer-chromium-resolver@24.0.3";
 import { stop, transform } from "npm:esbuild@0.27.3";
@@ -123,7 +123,7 @@ Deno.test("[csr] mount", sanitizeFalse, async () => {
 });
 
 Deno.test("[csr] style", sanitizeFalse, async (t) => {
-  await t.step("inline style", async () => {
+  await t.step("text style", async () => {
     const testUrl = addTestPage(`
       function App() {
         return <div style="font-weight:bold">Hello, world!</div>;
@@ -135,7 +135,30 @@ Deno.test("[csr] style", sanitizeFalse, async (t) => {
 
     const div = await page.$("body > div");
     assert(div);
-    assertEquals(await div.evaluate((el) => el.getAttribute("style")), "font-weight: bold;");
+    assertEquals(await div.evaluate((el) => el.style.fontWeight), "bold");
+
+    const styles = await page.$$("style[id^='css-']");
+    assertEquals(styles.length, 0);
+
+    await page.close();
+  });
+
+  await t.step("inline style", async () => {
+    const testUrl = addTestPage(`
+      function App() {
+        return <div style={{fontWeight: "bold"}}>Hello, world!</div>;
+      }
+      document.body.mount(<App />);
+    `);
+    const page = await browser.newPage();
+    await page.goto(testUrl);
+
+    const div = await page.$("body > div");
+    assert(div);
+    assertEquals(await div.evaluate((el) => el.style.fontWeight), "bold");
+
+    const styles = await page.$$("style[id^='css-']");
+    assertEquals(styles.length, 0);
 
     await page.close();
   });
@@ -152,10 +175,15 @@ Deno.test("[csr] style", sanitizeFalse, async (t) => {
 
     const div = await page.$("body > div");
     assert(div);
-    assertEquals(await div.evaluate((el) => [...el.classList.values().filter(v => v.startsWith("css-"))].length), 3);
+    assertEquals(await div.evaluate((el) => [...el.classList.values().filter(v => v.startsWith("css-"))].length), 1);
+    assertEquals(await div.evaluate((el) => el.style.color), "");
 
     const styles = await page.$$("style[id^='css-']");
-    assertEquals(styles.length, 3);
+    assertEquals(styles.length, 1);
+    assertStringIncludes(await styles[0].evaluate((el) => el.textContent), "{color:black;}");
+    assertStringIncludes(await styles[0].evaluate((el) => el.textContent), ":hover{color:blue;}");
+    assertStringIncludes(await styles[0].evaluate((el) => el.textContent), "@media (max-width: 600px){");
+    assertStringIncludes(await styles[0].evaluate((el) => el.textContent), "{color:red;}");
 
     await page.close();
   });
@@ -174,15 +202,13 @@ Deno.test("[csr] style", sanitizeFalse, async (t) => {
     const div = await page.$("body > div");
     assert(div);
     assertEquals(await div.evaluate((el) => el.computedStyleMap().get("font-weight")?.toString()), "400");
-    assert(await div.evaluate((el) => el.classList.contains("foo")));
-    assert(await div.evaluate((el) => el.classList.contains("normal")));
-    assertEquals(await div.evaluate((el) => [...el.classList.values().filter(v => v.startsWith("css-"))].length), 1);
+    assertEquals(await div.evaluate((el) => el.classList.toString()), "foo normal");
+    assertEquals(await div.evaluate((el) => el.style.fontWeight), "normal");
 
     await div.click();
     assertEquals(await div.evaluate((el) => el.computedStyleMap().get("font-weight")?.toString()), "700");
-    assert(await div.evaluate((el) => el.classList.contains("foo")));
-    assert(await div.evaluate((el) => el.classList.contains("bold")));
-    assertEquals(await div.evaluate((el) => [...el.classList.values().filter(v => v.startsWith("css-"))].length), 1);
+    assertEquals(await div.evaluate((el) => el.classList.toString()), "foo bold");
+    assertEquals(await div.evaluate((el) => el.style.fontWeight), "bold");
 
     await page.close();
   });
@@ -201,15 +227,13 @@ Deno.test("[csr] style", sanitizeFalse, async (t) => {
     const div = await page.$("body > div");
     assert(div);
     assertEquals(await div.evaluate((el) => el.computedStyleMap().get("font-weight")?.toString()), "400");
-    assert(await div.evaluate((el) => el.classList.contains("foo")));
-    assert(await div.evaluate((el) => el.classList.contains("normal")));
-    assertEquals(await div.evaluate((el) => [...el.classList.values().filter(v => v.startsWith("css-"))].length), 1);
+    assertEquals(await div.evaluate((el) => el.classList.toString()), "foo normal");
+    assertEquals(await div.evaluate((el) => el.style.fontWeight), "normal");
 
     await div.click();
     assertEquals(await div.evaluate((el) => el.computedStyleMap().get("font-weight")?.toString()), "700");
-    assert(await div.evaluate((el) => el.classList.contains("foo")));
-    assert(await div.evaluate((el) => el.classList.contains("bold")));
-    assertEquals(await div.evaluate((el) => [...el.classList.values().filter(v => v.startsWith("css-"))].length), 1);
+    assertEquals(await div.evaluate((el) => el.classList.toString()), "foo bold");
+    assertEquals(await div.evaluate((el) => el.style.fontWeight), "bold");
 
     await page.close();
   });

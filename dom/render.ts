@@ -680,10 +680,10 @@ const applyStyle = (el: HTMLElement, style: unknown, mark?: Set<Reactive>): void
   if (isPlainObject(style)) {
     let { classList } = el;
     let inline: Record<string, unknown> | undefined;
+    let css: (string | null)[] = [];
     classList.remove(...classList.values().filter(key => key.startsWith("css-")));
     for (let [k, v] of Object.entries(style)) {
       v = $(v, mark);
-      let css: (string | null)[] = [];
       switch (k.charCodeAt(0)) {
         case /* ':' */ 58:
           if (isPlainObject(v)) {
@@ -710,12 +710,14 @@ const applyStyle = (el: HTMLElement, style: unknown, mark?: Set<Reactive>): void
           inline ??= {};
           inline[k] = v;
       }
-      if (css.length) {
-        classList.add(computeStyleClassName(css));
-      }
     }
-    if (inline) {
-      classList.add(computeStyleClassName([null, renderStyle(inline)]));
+    if (css.length > 0) {
+      if (inline) {
+        css.unshift(null, renderStyle(inline));
+      }
+      classList.add(createStyleElement(css));
+    } else if (inline) {
+      el.style.cssText = renderStyle(inline).slice(1, -1);
     }
   } else if (isString(style)) {
     el.style.cssText = style;
@@ -739,7 +741,7 @@ const renderStyle = (style: Record<string, unknown>, mark?: Set<Reactive>): stri
   return "{" + css + "}";
 };
 
-const computeStyleClassName = (css: (string | null)[]) => {
+const createStyleElement = (css: (string | null)[]) => {
   const hash = hashCode(css.join("")).toString(36);
   const className = "css-" + hash;
   if (!document.getElementById(className)) {
