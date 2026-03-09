@@ -117,7 +117,7 @@ declare global {
         [K in keyof IntrinsicElements]: P extends IntrinsicElements[K] ? K : never;
       }[keyof IntrinsicElements]
       | ComponentType<P>;
-    type Raw = (template: string | TemplateStringsArray, ...values: unknown[]) => Element;
+    type Raw = (template: MaybeGetter<string> | TemplateStringsArray, ...values: unknown[]) => Element;
     interface CustomAttributes {}
     interface HtmlCustomAttributes {}
     interface BuiltinElements {}
