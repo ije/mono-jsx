@@ -2,14 +2,14 @@
 
 import type * as Aria from "./aria.d.ts";
 import type * as CSS from "./css.d.ts";
-import type * as Mono from "./jsx.d.ts";
+import type * as Mono from "./mono.d.ts";
 
 export interface BaseCSSProperties extends CSS.Properties<string | number> {
   /**
    * The field-sizing CSS property enables you to control the sizing behavior of elements that are given a default preferred size, such as form control elements. This property enables you to override the default sizing behavior, allowing form controls to adjust in size to fit their contents.
    * @see https://developer.mozilla.org/docs/Web/CSS/field-sizing
    */
-  fieldSizing?: "fixed" | "content";
+  fieldSizing?: "fixed" | "content" | (string & {});
   /**
    * The view-transition-class CSS property provides the selected elements with an identifying class (a <custom-ident>), providing an additional method of styling the view transitions for those elements.
    * @see https://developer.mozilla.org/docs/Web/CSS/view-transition-class
@@ -33,7 +33,7 @@ export interface AtRuleCSSProperties {
     /**
      * Specifies the effect this at-rule will have on the document's view transition behavior.
      */
-    navigation?: "auto" | "none";
+    navigation?: "auto" | "none" | (string & {});
   };
 }
 
@@ -303,12 +303,12 @@ export namespace HTML {
      * Two-way binding prop that automatically creates checked and oninput attributes for signal binding
      * @mono-jsx
      */
-    $checked?: boolean;
+    $checked?: Mono.MaybeGetter<boolean>;
     /**
      * Two-way binding prop that automatically creates value and oninput attributes for signal binding
      * @mono-jsx
      */
-    $value?: string | number;
+    $value?: Mono.MaybeGetter<string | number>;
   }
 
   interface OptionAttributes<T extends EventTarget> extends GlobalAttributes<T> {
@@ -331,7 +331,7 @@ export namespace HTML {
      * Two-way binding prop that automatically creates value and oninput attributes for signal binding
      * @mono-jsx
      */
-    $value?: string | number;
+    $value?: Mono.MaybeGetter<string | number>;
   }
 
   interface TextareaAttributes<T extends EventTarget> extends GlobalAttributes<T> {
@@ -354,7 +354,7 @@ export namespace HTML {
      * Two-way binding prop that automatically creates value and oninput attributes for signal binding
      * @mono-jsx
      */
-    $value?: string;
+    $value?: Mono.MaybeGetter<string>;
   }
 
   interface ButtonAttributes<T extends EventTarget> extends GlobalAttributes<T> {

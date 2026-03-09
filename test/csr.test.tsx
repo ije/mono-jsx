@@ -507,6 +507,36 @@ Deno.test("[csr] signals", sanitizeFalse, async (t) => {
 
     await page.close();
   });
+
+  await t.step("atom ref", async () => {
+    const testUrl = addTestPage(`
+      import { atom } from "mono-jsx/dom";
+      const number = atom(0);
+      function App(this: FC) {
+        return <>
+          <span>{number.ref()}</span>
+          <button disabled={number.ref(n => n > 0)} onClick={() => number.set(prev => prev + 1)}>Click me</button>
+        </>
+      }
+      document.body.mount(<App />);
+    `);
+    const page = await browser.newPage();
+    await page.goto(testUrl);
+
+    const span = await page.$("body > span");
+    assert(span);
+    assertEquals(await span.evaluate((el) => el.textContent), "0");
+
+    const button = await page.$("body > button");
+    assert(button);
+    assertEquals(await button.evaluate((el) => el.disabled), false);
+    await button.click();
+
+    assertEquals(await span.evaluate((el) => el.textContent), "1");
+    assertEquals(await button.evaluate((el) => el.disabled), true);
+
+    await page.close();
+  });
 });
 
 Deno.test("[csr] ref", sanitizeFalse, async () => {

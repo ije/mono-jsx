@@ -1,4 +1,4 @@
-import type { AsyncComponentAttributes, BaseAttributes, ComponentType } from "./jsx.d.ts";
+import type { AsyncComponentAttributes, BaseAttributes, ComponentType, MaybeGetter } from "./jsx.d.ts";
 
 export type WithParams<T> = T & { params?: Record<string, string> };
 
@@ -263,3 +263,5 @@ declare global {
     }
     : never;
 }
+
+export type { AsyncComponentAttributes, BaseAttributes, MaybeGetter };

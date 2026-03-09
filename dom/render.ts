@@ -57,6 +57,12 @@ class Signal extends Reactive {
   watch(callback: () => void, abortSignal: AbortSignal | undefined) {
     onAbort(abortSignal, this.#scope[$watch](this.#key, callback));
   }
+  ref(callback?: (value: unknown) => unknown) {
+    if (callback) {
+      return new Computed(this.#scope, () => callback(this.get()));
+    }
+    return this;
+  }
 }
 
 class Computed extends Reactive {
