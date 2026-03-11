@@ -117,6 +117,9 @@ class InsertMark {
     this.#root = root;
     this.#anchor = anchor;
   }
+  setText(text: string) {
+    this.#anchor.textContent = text;
+  }
   insert(...nodes: ChildNode[]) {
     const parent = this.#anchor.parentElement ?? this.#root;
     for (const node of nodes) {
@@ -311,271 +314,282 @@ const render = (scope: IScope, child: ChildType, root: HTMLElement | DocumentFra
     case "undefined":
       return;
     case "object":
-      if (child !== null) {
-        if (child instanceof ReactiveList) {
-          let { reactive, callback } = child;
-          let insertMark = new InsertMark(root, abortSignal);
-          let list = new Map<unknown, Array<[AbortController, Array<ChildNode>, number]>>();
-          let cleanup = () => {
-            list.forEach((items) => items.forEach(([ac]) => ac.abort()));
-            list.clear();
-          };
-          reactive.reactive(v => {
-            if (!Array.isArray(v)) {
-              v = [v];
+      if (child === null) {
+        return;
+      }
+      if (child instanceof ReactiveList) {
+        let { reactive, callback } = child;
+        let insertMark = new InsertMark(root, abortSignal);
+        let list = new Map<unknown, Array<[AbortController, Array<ChildNode>, number]>>();
+        let cleanup = () => {
+          list.forEach((items) => items.forEach(([ac]) => ac.abort()));
+          list.clear();
+        };
+        reactive.reactive(v => {
+          if (!Array.isArray(v)) {
+            v = [v];
+          }
+          let nodes: ChildNode[] = [];
+          let newList: typeof list = new Map();
+          (v as unknown as unknown[]).forEach((item, index) => {
+            let render = list.get(item)?.shift();
+            if (callback.length >= 2 && render && render[2] !== index) {
+              render[0].abort();
+              render = undefined;
             }
-            let nodes: ChildNode[] = [];
-            let newList: typeof list = new Map();
-            (v as unknown as unknown[]).forEach((item, index) => {
-              let render = list.get(item)?.shift();
-              if (callback.length >= 2 && render && render[2] !== index) {
-                render[0].abort();
-                render = undefined;
-              }
-              if (!render) {
-                const ac = new AbortController();
-                render = [ac, [...renderToFragment(scope, callback(item, index), ac.signal).childNodes], index];
-              }
-              nodes.push(...render[1]);
-              if (newList.has(item)) {
-                newList.get(item)!.push(render);
-              } else {
-                newList.set(item, [render]);
-              }
-            });
-            cleanup();
-            insertMark.insert(...nodes);
-            list = newList;
-          }, abortSignal);
-          onAbort(abortSignal, cleanup);
-          return;
-        }
-        if (child instanceof Reactive) {
-          const textNode = createTextNode();
-          child.reactive(value => {
-            textNode.textContent = String(value);
-          }, abortSignal);
-          root.appendChild(textNode);
-          onAbort(abortSignal, textNode.remove.bind(textNode));
-          return;
-        }
-        if (isVNode(child)) {
-          const [tag, props] = child;
-          switch (tag) {
-            // fragment element
-            case $fragment: {
-              const { children } = props;
-              if (children !== undefined) {
-                renderChildren(scope, children, root, abortSignal);
-              }
-              break;
+            if (!render) {
+              const ac = new AbortController();
+              render = [ac, [...renderToFragment(scope, callback(item, index), ac.signal).childNodes], index];
             }
+            nodes.push(...render[1]);
+            if (newList.has(item)) {
+              newList.get(item)!.push(render);
+            } else {
+              newList.set(item, [render]);
+            }
+          });
+          cleanup();
+          insertMark.insert(...nodes);
+          list = newList;
+        }, abortSignal);
+        onAbort(abortSignal, cleanup);
+        return;
+      }
+      if (child instanceof Reactive) {
+        let insertMark = new InsertMark(root, abortSignal);
+        let ac: AbortController | undefined;
+        child.reactive(value => {
+          if (isVNode(value)) {
+            ac?.abort();
+            ac = new AbortController();
+            insertMark.insert(...renderToFragment(scope, value as ChildType, ac.signal).childNodes);
+          } else {
+            insertMark.setText(
+              value === undefined || value === null || typeof value === "boolean"
+                ? ""
+                : String(value),
+            );
+          }
+          onAbort(abortSignal, () => ac?.abort());
+        }, abortSignal);
+        return;
+      }
+      if (isVNode(child)) {
+        const [tag, props] = child;
+        switch (tag) {
+          // fragment element
+          case $fragment: {
+            const { children } = props;
+            if (children !== undefined) {
+              renderChildren(scope, children, root, abortSignal);
+            }
+            break;
+          }
 
-            // XSS!
-            case $html: {
-              const { innerHTML } = props;
-              const mark = new InsertMark(root, abortSignal);
-              if (innerHTML instanceof Reactive) {
-                let cleanup: (() => void) | undefined;
-                innerHTML.reactive(html => {
-                  cleanup?.();
-                  cleanup = mark.insertHTML(html as string);
-                }, abortSignal);
-                onAbort(abortSignal, () => cleanup?.());
-              } else {
-                onAbort(abortSignal, mark.insertHTML(innerHTML));
-              }
-              break;
+          // XSS!
+          case $html: {
+            const { innerHTML } = props;
+            const mark = new InsertMark(root, abortSignal);
+            if (innerHTML instanceof Reactive) {
+              let cleanup: (() => void) | undefined;
+              innerHTML.reactive(html => {
+                cleanup?.();
+                cleanup = mark.insertHTML(html as string);
+              }, abortSignal);
+              onAbort(abortSignal, () => cleanup?.());
+            } else {
+              onAbort(abortSignal, mark.insertHTML(innerHTML));
             }
+            break;
+          }
 
-            // `<slot>` element
-            case "slot": {
-              const slots = scope[$slots];
-              if (slots) {
-                renderChildren(scope, slots, root, abortSignal);
-              }
-              break;
+          // `<slot>` element
+          case "slot": {
+            const slots = scope[$slots];
+            if (slots) {
+              renderChildren(scope, slots, root, abortSignal);
             }
+            break;
+          }
 
-            // `<show>` and `<hidden>` elements
-            case "show":
-            case "hidden": {
-              // todo: support viewTransition
-              let { when = true, children } = props;
-              if (children !== undefined) {
-                if (when instanceof Reactive) {
-                  let mark = new InsertMark(root, abortSignal);
-                  let ac: AbortController | undefined;
-                  when.reactive(value => {
-                    ac?.abort();
-                    if (tag === "show" ? value : !value) {
-                      ac = new AbortController();
-                      mark.insert(...renderToFragment(scope, children, ac.signal).childNodes);
-                    }
-                  }, abortSignal);
-                  onAbort(abortSignal, () => ac?.abort());
-                } else {
-                  console.warn("[mono-jsx] <" + tag + "> The `when` prop is not a signal/computed.");
-                  if (when) {
-                    renderChildren(scope, children, root, abortSignal);
+          // `<show>` and `<hidden>` elements
+          case "show":
+          case "hidden": {
+            // todo: support viewTransition
+            let { when = true, children } = props;
+            if (children !== undefined) {
+              if (when instanceof Reactive) {
+                let mark = new InsertMark(root, abortSignal);
+                let ac: AbortController | undefined;
+                when.reactive(value => {
+                  ac?.abort();
+                  if (tag === "show" ? value : !value) {
+                    ac = new AbortController();
+                    mark.insert(...renderToFragment(scope, children, ac.signal).childNodes);
                   }
+                }, abortSignal);
+                onAbort(abortSignal, () => ac?.abort());
+              } else {
+                console.warn("[mono-jsx] <" + tag + "> The `when` prop is not a signal/computed.");
+                if (when) {
+                  renderChildren(scope, children, root, abortSignal);
                 }
               }
+            }
+            break;
+          }
+
+          // `<switch>` element
+          case "switch": {
+            // todo: support viewTransition
+            const { value: valueProp, children } = props;
+            if (children !== undefined) {
+              if (valueProp instanceof Reactive) {
+                let mark = new InsertMark(root, abortSignal);
+                let ac: AbortController | undefined;
+                valueProp.reactive(value => {
+                  const slots = children.filter((v: unknown) => isVNode(v) && v[1].slot === String(value));
+                  ac?.abort();
+                  if (slots.length > 0) {
+                    ac = new AbortController();
+                    mark.insert(...renderToFragment(scope, slots, ac.signal).childNodes);
+                  }
+                }, abortSignal);
+                onAbort(abortSignal, () => ac?.abort());
+              } else {
+                renderChildren(
+                  scope,
+                  children.filter((v: unknown) => isVNode(v) && v[1].slot === String(valueProp)),
+                  root,
+                  abortSignal,
+                );
+              }
+            }
+            break;
+          }
+
+          default: {
+            // function component
+            if (typeof tag === "function") {
+              renderFC(tag as ComponentType, props, root, abortSignal);
               break;
             }
 
-            // `<switch>` element
-            case "switch": {
-              // todo: support viewTransition
-              const { value: valueProp, children } = props;
-              if (children !== undefined) {
-                if (valueProp instanceof Reactive) {
-                  let mark = new InsertMark(root, abortSignal);
-                  let ac: AbortController | undefined;
-                  valueProp.reactive(value => {
-                    const slots = children.filter((v: unknown) => isVNode(v) && v[1].slot === String(value));
-                    ac?.abort();
-                    if (slots.length > 0) {
-                      ac = new AbortController();
-                      mark.insert(...renderToFragment(scope, slots, ac.signal).childNodes);
-                    }
-                  }, abortSignal);
-                  onAbort(abortSignal, () => ac?.abort());
-                } else {
-                  renderChildren(
-                    scope,
-                    children.filter((v: unknown) => isVNode(v) && v[1].slot === String(valueProp)),
-                    root,
-                    abortSignal,
-                  );
-                }
-              }
-              break;
-            }
-
-            default: {
-              // function component
-              if (typeof tag === "function") {
-                renderFC(tag as ComponentType, props, root, abortSignal);
+            // regular html element
+            if (isString(tag)) {
+              // custom element
+              if (customElements.has(tag)) {
+                renderFC(customElements.get(tag)!, props, root, abortSignal);
                 break;
               }
 
-              // regular html element
-              if (isString(tag)) {
-                // custom element
-                if (customElements.has(tag)) {
-                  renderFC(customElements.get(tag)!, props, root, abortSignal);
-                  break;
-                }
-
-                const { portal, children, ...attrs } = props;
-                const el = createElement(tag);
-                for (const [attrName, attrValue] of Object.entries(attrs)) {
-                  switch (attrName) {
-                    case "class": {
-                      const updateClassName = (className: string) => {
-                        el.className = [className, ...el.classList.values().filter(name => name.startsWith("css-"))].join(" ");
-                      };
-                      if (isString(attrValue)) {
-                        updateClassName(attrValue);
-                      } else {
-                        let mark: Set<Reactive> | undefined = new Set();
-                        let update = () => updateClassName(cx(attrValue, mark));
-                        update();
-                        for (const reactive of mark) {
-                          reactive.watch(update, abortSignal);
-                        }
-                        mark = undefined;
+              const { portal, children, ...attrs } = props;
+              const el = createElement(tag);
+              for (const [attrName, attrValue] of Object.entries(attrs)) {
+                switch (attrName) {
+                  case "class": {
+                    const updateClassName = (className: string) => {
+                      el.className = [className, ...el.classList.values().filter(name => name.startsWith("css-"))].join(" ");
+                    };
+                    if (isString(attrValue)) {
+                      updateClassName(attrValue);
+                    } else {
+                      let mark: Set<Reactive> | undefined = new Set();
+                      let update = () => updateClassName(cx(attrValue, mark));
+                      update();
+                      for (const reactive of mark) {
+                        reactive.watch(update, abortSignal);
                       }
-                      break;
+                      mark = undefined;
                     }
-
-                    case "style": {
-                      if (isString(attrValue)) {
-                        el.style.cssText = attrValue;
-                      } else {
-                        let mark: Set<Reactive> | undefined = new Set();
-                        let update = () => applyStyle(el, attrValue, mark);
-                        update();
-                        for (const reactive of mark) {
-                          reactive.watch(update, abortSignal);
-                        }
-                        mark = undefined;
-                      }
-                      break;
-                    }
-
-                    case "ref":
-                      if (isFunction(attrValue)) {
-                        const ret = attrValue(el);
-                        if (isFunction(ret)) {
-                          onAbort(abortSignal, ret);
-                        }
-                      } else if (attrValue instanceof Ref) {
-                        attrValue.refs.set(attrValue.name, el);
-                      }
-                      break;
-
-                    case "slot":
-                      // todo: render slot attribute if necessary
-                      break;
-
-                    case "$checked":
-                    case "$value":
-                      if (attrValue instanceof Signal) {
-                        const name = attrName.slice(1);
-                        const isValue = name.charAt(0) === "v";
-                        attrValue.reactive(value => {
-                          (el as any)[name] = isValue ? String(value) : !!value;
-                        }, abortSignal);
-                        el.addEventListener("input", () => attrValue.set((el as any)[name]));
-                        // queueMicrotask(() =>
-                        //   (el as HTMLInputElement).form?.addEventListener(
-                        //     "reset",
-                        //     () => attrValue.set(isValue ? "" : false),
-                        //   )
-                        // );
-                      } else {
-                        setAttribute(el, attrName.slice(1), attrValue);
-                      }
-                      break;
-
-                    case "viewTransition":
-                      // todo: support viewTransition
-                      break;
-
-                    case "action":
-                      if (isFunction(attrValue) && tag === "form") {
-                        el.addEventListener("submit", (evt) => {
-                          evt.preventDefault();
-                          attrValue(new FormData(evt.target as HTMLFormElement), evt);
-                        });
-                      } else {
-                        setAttribute(el, attrName, attrValue);
-                      }
-                      break;
-
-                    default:
-                      if (attrName.startsWith("on") && isFunction(attrValue)) {
-                        el.addEventListener(attrName.slice(2).toLowerCase(), attrValue);
-                      } else if (attrValue instanceof Reactive) {
-                        attrValue.reactive(value => setAttribute(el, attrName, value), abortSignal);
-                      } else {
-                        setAttribute(el, attrName, attrValue);
-                      }
-                      break;
+                    break;
                   }
+
+                  case "style": {
+                    if (isString(attrValue)) {
+                      el.style.cssText = attrValue;
+                    } else {
+                      let mark: Set<Reactive> | undefined = new Set();
+                      let update = () => applyStyle(el, attrValue, mark);
+                      update();
+                      for (const reactive of mark) {
+                        reactive.watch(update, abortSignal);
+                      }
+                      mark = undefined;
+                    }
+                    break;
+                  }
+
+                  case "ref":
+                    if (isFunction(attrValue)) {
+                      const ret = attrValue(el);
+                      if (isFunction(ret)) {
+                        onAbort(abortSignal, ret);
+                      }
+                    } else if (attrValue instanceof Ref) {
+                      attrValue.refs.set(attrValue.name, el);
+                    }
+                    break;
+
+                  case "slot":
+                    // todo: render slot attribute if necessary
+                    break;
+
+                  case "$checked":
+                  case "$value":
+                    if (attrValue instanceof Signal) {
+                      const name = attrName.slice(1);
+                      const isValue = name.charAt(0) === "v";
+                      attrValue.reactive(value => {
+                        (el as any)[name] = isValue ? String(value) : !!value;
+                      }, abortSignal);
+                      el.addEventListener("input", () => attrValue.set((el as any)[name]));
+                      // queueMicrotask(() =>
+                      //   (el as HTMLInputElement).form?.addEventListener(
+                      //     "reset",
+                      //     () => attrValue.set(isValue ? "" : false),
+                      //   )
+                      // );
+                    } else {
+                      setAttribute(el, attrName.slice(1), attrValue);
+                    }
+                    break;
+
+                  case "viewTransition":
+                    // todo: support viewTransition
+                    break;
+
+                  case "action":
+                    if (isFunction(attrValue) && tag === "form") {
+                      el.addEventListener("submit", (evt) => {
+                        evt.preventDefault();
+                        attrValue(new FormData(evt.target as HTMLFormElement), evt);
+                      });
+                    } else {
+                      setAttribute(el, attrName, attrValue);
+                    }
+                    break;
+
+                  default:
+                    if (attrName.startsWith("on") && isFunction(attrValue)) {
+                      el.addEventListener(attrName.slice(2).toLowerCase(), attrValue);
+                    } else if (attrValue instanceof Reactive) {
+                      attrValue.reactive(value => setAttribute(el, attrName, value), abortSignal);
+                    } else {
+                      setAttribute(el, attrName, attrValue);
+                    }
+                    break;
                 }
-                onAbort(abortSignal, el.remove.bind(el));
-                (portal instanceof HTMLElement ? portal : root).appendChild(el);
-                if (children !== undefined) {
-                  renderChildren(scope, children, el, abortSignal);
-                }
+              }
+              onAbort(abortSignal, el.remove.bind(el));
+              (portal instanceof HTMLElement ? portal : root).appendChild(el);
+              if (children !== undefined) {
+                renderChildren(scope, children, el, abortSignal);
               }
             }
           }
-          return;
         }
+        return;
       }
   }
 

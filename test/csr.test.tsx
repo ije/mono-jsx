@@ -504,6 +504,87 @@ Deno.test("[csr] signals", sanitizeFalse, async (t) => {
     await page.close();
   });
 
+  await t.step("atom value is null/undefined/boolean", async () => {
+    const testUrl = addTestPage(`
+      import { atom } from "mono-jsx/dom";
+      const v = atom<string|null|undefined|boolean>(null);
+      function App(this: FC) {
+        let i = 0;
+        return <h1 onClick={() => {
+          switch (i++) {
+            case 0:
+              v.set("Hello, world!");
+              break;
+            case 1:
+              v.set(true);
+              break;
+            case 2:
+              v.set(false);
+              break;
+            case 3:
+              v.set(undefined);
+              break;
+            case 4:
+              v.set(null);
+              break;
+            default:
+              v.set("Hello, world!");
+              break;
+          }
+        }}>{v}</h1>
+      }
+      document.body.mount(<App />);
+    `);
+    const page = await browser.newPage();
+    await page.goto(testUrl);
+
+    const h1 = await page.$("body > h1");
+    assert(h1);
+    assertEquals(await h1.evaluate((el) => el.textContent), ""); // null
+
+    await h1.evaluate((el) => el.click());
+    assertEquals(await h1.evaluate((el) => el.textContent), "Hello, world!");
+
+    await h1.evaluate((el) => el.click());
+    assertEquals(await h1.evaluate((el) => el.textContent), ""); // undefined
+
+    await h1.evaluate((el) => el.click());
+    assertEquals(await h1.evaluate((el) => el.textContent), ""); // true
+
+    await h1.evaluate((el) => el.click());
+    assertEquals(await h1.evaluate((el) => el.textContent), ""); // false
+
+    await h1.evaluate((el) => el.click());
+    assertEquals(await h1.evaluate((el) => el.textContent), ""); // null
+
+    await h1.evaluate((el) => el.click());
+    assertEquals(await h1.evaluate((el) => el.textContent), "Hello, world!");
+
+    await page.close();
+  });
+
+  await t.step("atom(JSX.Element)", async () => {
+    const testUrl = addTestPage(`
+      import { atom } from "mono-jsx/dom";
+      const v = atom<JSX.Element>(<span>Hello, world!</span>);
+      function App(this: FC) {
+        return <h1 onClick={() => v.set(<strong>Hello, mono-jsx!</strong>)}>{v}</h1>
+      }
+      document.body.mount(<App />);
+    `);
+    const page = await browser.newPage();
+    await page.goto(testUrl);
+
+    const h1 = await page.$("body > h1");
+    assert(h1);
+    assertEquals(await h1.evaluate((el) => el.innerHTML), "<span>Hello, world!</span>");
+
+    await h1.evaluate((el) => el.click());
+    assertEquals(await h1.evaluate((el) => el.innerHTML), "<strong>Hello, mono-jsx!</strong>");
+
+    await page.close();
+  });
+
   await t.step("atom(array)", async () => {
     const testUrl = addTestPage(`
       import { atom } from "mono-jsx/dom";
