@@ -874,6 +874,7 @@ mono-jsx binds a scoped signals object to `this` of your component functions. Th
 
 The `this` object has the following built-in properties:
 
+- `init(initValue)`: Initializes the signals.
 - `app`: The app global signals.
 - `context`: The context object defined on the root `<html>` element.
 - `request`: The request object from the `fetch` handler.
@@ -885,14 +886,15 @@ The `this` object has the following built-in properties:
 
 ```ts
 type FC<Signals = {}, Refs = {}> = {
-  readonly app: AppSignals & { refs: AppRefs; url: WithParams<URL> }
-  readonly context: Context;
-  readonly request: WithParams<Request>;
-  readonly session: Session;
-  readonly refs: Refs;
-  readonly computed: <T = unknown>(fn: () => T) => T;
-  readonly $: FC["computed"]; // A shortcut for `FC.computed`.
-  readonly effect: (fn: () => void | (() => void)) => void;
+  init(initValue: Signals): void;
+  app: AppSignals & { refs: AppRefs; url: WithParams<URL> }
+  context: Context;
+  request: WithParams<Request>;
+  session: Session;
+  refs: Refs;
+  computed<T = unknown>(fn: () => T): T;
+  $: FC["computed"]; // A shortcut for `FC.computed`.
+  effect(fn: () => void | (() => void)): void;
 } & Signals;
 
 // define `AppSignals` type
