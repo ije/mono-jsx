@@ -1,9 +1,9 @@
-/// <reference types="../jsx.d.ts" />
+import { ChildPrimitiveType } from "../jsx.d.ts";
 
 export interface Atom<T> {
   get(): T;
   set(value: T | ((prev: T) => T)): void;
-  map(callback: (value: T extends (infer V)[] ? V : T, index: number) => JSX.Element): JSX.Element[];
+  map(callback: (value: T extends (infer V)[] ? V : T, index: number) => ChildPrimitiveType): ChildPrimitiveType[];
   ref(): T;
   ref<V>(callback: (value: T) => V): V;
 }
