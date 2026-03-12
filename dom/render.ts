@@ -312,6 +312,7 @@ const render = (scope: IScope, child: ChildType, root: HTMLElement | DocumentFra
   switch (typeof child) {
     case "boolean":
     case "undefined":
+    case "symbol":
       return;
     case "object":
       if (child === null) {
@@ -326,7 +327,7 @@ const render = (scope: IScope, child: ChildType, root: HTMLElement | DocumentFra
           list.clear();
         };
         reactive.reactive(v => {
-          if (!Array.isArray(v)) {
+          if (!Array.isArray(v) || isVNode(v)) {
             v = [v];
           }
           let nodes: ChildNode[] = [];
@@ -356,22 +357,23 @@ const render = (scope: IScope, child: ChildType, root: HTMLElement | DocumentFra
         return;
       }
       if (child instanceof Reactive) {
-        let insertMark = new InsertMark(root, abortSignal);
         let ac: AbortController | undefined;
+        let insertMark = new InsertMark(root, abortSignal);
         child.reactive(value => {
-          if (isVNode(value)) {
-            ac?.abort();
+          ac?.abort();
+          if (Array.isArray(value) || child instanceof ReactiveList || child instanceof Reactive) {
             ac = new AbortController();
             insertMark.insert(...renderToFragment(scope, value as ChildType, ac.signal).childNodes);
           } else {
+            const vtype = typeof value;
             insertMark.setText(
-              value === undefined || value === null || typeof value === "boolean"
+              vtype === "boolean" || vtype === "undefined" || vtype === "symbol" || value === null
                 ? ""
                 : String(value),
             );
           }
-          onAbort(abortSignal, () => ac?.abort());
         }, abortSignal);
+        onAbort(abortSignal, () => ac?.abort());
         return;
       }
       if (isVNode(child)) {
@@ -589,6 +591,10 @@ const render = (scope: IScope, child: ChildType, root: HTMLElement | DocumentFra
             }
           }
         }
+        return;
+      }
+      if (Array.isArray(child)) {
+        renderChildren(scope, child, root, abortSignal);
         return;
       }
   }

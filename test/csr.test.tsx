@@ -941,6 +941,34 @@ Deno.test("[csr] list rendering", sanitizeFalse, async (t) => {
     ]);
     await page.close();
   });
+
+  await t.step("nested list", async () => {
+    const testUrl = addTestPage(`
+      import { atom } from "mono-jsx/dom";
+      const todos = atom<{content: {text: string, completed: boolean}[]}[]>([{content: [{text: "Buy groceries", completed: false}, {text: "Walk the dog", completed: false}, {text: "Do laundry", completed: false}]}]);
+      function Todos(this: FC) {
+        return <ul>
+          {todos.map((todo) => <li>{todo.content.map((item) => <span>{item.text}</span>)}</li>)}
+        </ul>
+      }
+      document.body.mount(<Todos />);
+    `);
+
+    const page = await browser.newPage();
+    await page.goto(testUrl);
+
+    const ul = await page.$("body > ul");
+    assert(ul);
+
+    assertEquals(await ul.evaluate(el => el.children.length), 1);
+    assertEquals(await ul.evaluate((el) => Array.from(el.children[0].children).map(node => node.textContent)), [
+      "Buy groceries",
+      "Walk the dog",
+      "Do laundry",
+    ]);
+
+    await page.close();
+  });
 });
 
 Deno.test("[csr] async component", sanitizeFalse, async () => {
