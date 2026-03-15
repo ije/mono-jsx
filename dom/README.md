@@ -206,7 +206,8 @@ mono-jsx provides an `html` tag function to render raw HTML, which is similar to
 
 ```tsx
 function App() {
-  return <div>{html`<h1>Hello world!</h1>`}</div>;
+  const title = "Hello world!";
+  return <div>{html`<h1>${title}</h1>`}</div>;
 }
 ```
 
@@ -214,7 +215,8 @@ Variables in the `html` template literal are escaped. To render raw HTML without
 
 ```tsx
 function App() {
-  return <div>{html(`${<h1>Hello world!</h1>}`)}</div>;
+  const title = "<span style='color: blue;'>Hello world!</span>";
+  return <div>{html(`<h1>${title}</h1>`)}</div>;
 }
 ```
 
@@ -330,7 +332,7 @@ export default {
 }
 ```
 
-You can add the `catch` attribute to handle errors in the async component. The `catch` attribute should be a function that returns a JSX element:
+To catch errors in async components, you can use the `catch` prop. The `catch` prop should be a function that returns a JSX element:
 
 ```tsx
 async function Hello() {
@@ -387,6 +389,7 @@ function App(this: FC<{ count: number }>) {
       return this.value * 2;
     }
   });
+
   return (
     <div>
       <span>count:{counter.value}</span>
@@ -397,12 +400,27 @@ function App(this: FC<{ count: number }>) {
 }
 ```
 
-### Using App Signals
+### Using `atom` and `store`
 
 mono-jsx/dom provides two functions to allows you to define global shared signals. You can use them to share signals between components.
 
 - `atom(initValue)`: Creates an atom signal.
 - `store(initValue)`: Creates a signals.
+
+```ts
+export interface Atom<T> {
+  get(): T;
+  set(value: T | ((prev: T) => T)): void;
+  map(callback: (value: T extends (infer V)[] ? V : T, index: number) => JSX.ChildPrimitiveType): JSX.ChildPrimitiveType[];
+  ref(): T;
+  ref<V>(callback: (value: T) => V): V;
+}
+
+export const atom: <T>(initValue: T) => Atom<T>;
+export const store: <T extends Record<string, unknown>>(initValue: T) => T;
+```
+
+Example:
 
 ```tsx
 import { atom, store } from "mono-jsx/dom";
@@ -419,10 +437,12 @@ function Counter(this: FC) {
   )
 }
 
-function Button(this: FC) {
+function Buttons(this: FC) {
   return (
-    <button onClick={() => count.set(prev => prev+1)}>+</button>
-    <button onClick={() => store.text = store.text === 'Count:' ? '计数:' : 'Count:'}>中/English</button>
+    <>
+      <button onClick={() => count.set(prev => prev+1)}>+</button>
+      <button onClick={() => store.text = store.text === 'Count:' ? 'Count:' : '计数:'}>English/中文</button>
+    </>
   )
 }
 
@@ -430,7 +450,7 @@ function App(this: FC) {
   return (
     <>
       <Counter />
-      <Button />
+      <Buttons />
     </>
   )
 }
@@ -457,16 +477,16 @@ function App(this: FC<{ input: string }>) {
 > [!TIP]
 > You can use `this.$` as a shorthand for `this.computed` to create computed signals.
 
-### Using Effects
+### Using Effect
 
-You can use `this.effect` to create side effects based on signals. The effect will run whenever the signal changes:
+You can use `this.effect` to perform side effects in components. The effect will run when the component is mounted and automatically collect used signals as dependencies, and re-run when the dependencies change.
 
 ```tsx
 function App(this: FC<{ count: number }>) {
   this.count = 0;
 
   this.effect(() => {
-    console.log("Count changed:", this.count);
+    console.log("Count:", this.count);
   });
 
   return (
@@ -505,7 +525,7 @@ function App(this: FC<{ show: boolean }>) {
       <show when={this.show}>
         <Counter />
       </show>
-      <button onClick={e => this.show = !this.show }>{this.computed(() => this.show ? 'Hide': 'Show')}</button>
+      <button onClick={() => this.show = !this.show }>{this.$(() => this.show ? 'Hide': 'Show')}</button>
     </div>
   )
 }
