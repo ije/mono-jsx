@@ -202,7 +202,7 @@ function App() {
 
 ### Using `html` Tag Function
 
-mono-jsx provides an `html` tag function to render raw HTML, which is similar to React's `dangerouslySetInnerHTML`.
+mono-jsx injects a global `html` tag function to allow you to render raw HTML, which is similar to React's `dangerouslySetInnerHTML`.
 
 ```tsx
 function App() {
@@ -220,7 +220,7 @@ function App() {
 }
 ```
 
-The `html` function is globally available without importing. You can also use `css` and `js` functions for CSS and JavaScript:
+You can also use `css` and `js` functions for CSS and JavaScript:
 
 ```tsx
 function App() {
