@@ -161,7 +161,7 @@ mono-jsx supports [pseudo classes](https://developer.mozilla.org/en-US/docs/Web/
 
 ### Using View Transition
 
-mono-jsx supports [View Transition](https://developer.mozilla.org/en-US/docs/Web/API/View_Transitions_API) to create smooth transitions between views. To use view transitions, add the `viewTransition` attribute to the following components:
+mono-jsx supports [View Transition](https://developer.mozilla.org/en-US/docs/Web/API/View_Transitions_API) to create smooth transitions between views. To use view transitions, add the `viewTransition` prop to the following components:
 
  - `<show viewTransition="view-transition-name">`
  - `<hidden viewTransition="view-transition-name">`
@@ -192,7 +192,7 @@ function App(this: FC<{ show: boolean }>) {
 }
 ```
 
-You can also set the `viewTransition` attribute a html element which contains signal children.
+You can also set the `viewTransition` prop a html element which contains signal children.
 
 ```tsx
 function App(this: FC<{ message: string }>) {
@@ -203,7 +203,7 @@ function App(this: FC<{ message: string }>) {
 }
 ```
 
-You can also set the view transition name in the style property with the `viewTransition` attribute set to `true`.
+You can also set the view transition name in the style property with the `viewTransition` prop set to `true`.
 
 ```tsx
 function App(this: FC<{ message: string }>) {
@@ -216,7 +216,7 @@ function App(this: FC<{ message: string }>) {
 
 ### Using `<slot>` Element
 
-mono-jsx uses [`<slot>`](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/slot) elements to render slotted content (equivalent to React's `children` property). You can also add the `name` attribute to define named slots:
+mono-jsx uses [`<slot>`](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/slot) elements to render slotted content (equivalent to React's `children` property). You can also add the `name` prop to define named slots:
 
 ```tsx
 function Container() {
@@ -244,11 +244,12 @@ function App() {
 
 ### Using `html` Tag Function
 
-mono-jsx provides an `html` tag function to render raw HTML, which is similar to React's `dangerouslySetInnerHTML`.
+mono-jsx injects a global `html` tag function to allow you to render raw HTML, which is similar to React's `dangerouslySetInnerHTML`.
 
 ```tsx
 function App() {
-  return <div>{html`<h1>Hello world!</h1>`}</div>;
+  const title = "Hello world!";
+  return <div>{html`<h1>${title}</h1>`}</div>;
 }
 ```
 
@@ -256,11 +257,12 @@ Variables in the `html` template literal are escaped. To render raw HTML without
 
 ```tsx
 function App() {
-  return <div>{html(`${<h1>Hello world!</h1>}`)}</div>;
+  const title = "<span style='color: blue;'>Hello world!</span>";
+  return <div>{html(`<h1>${title}</h1>`)}</div>;
 }
 ```
 
-The `html` function is globally available without importing. You can also use `css` and `js` functions for CSS and JavaScript:
+You can also use `css` and `js` functions for CSS and JavaScript:
 
 ```tsx
 function App() {
@@ -318,7 +320,7 @@ function Button(this: FC<{ count: 0 }>, props: { role: string }) {
 }
 ```
 
-mono-jsx allows you to use a function as the value of the `action` attribute of the `<form>` element. The function will be called on form submission, and the `FormData` object will contain the form data.
+mono-jsx allows you to use a function as the value of the `action` prop of the `<form>` element. The function will be called on form submission, and the `FormData` object will contain the form data.
 
 ```tsx
 function App() {
@@ -336,15 +338,15 @@ function App() {
 mono-jsx supports async components that return a `Promise` or an async function. With streaming rendering, async components are rendered asynchronously, allowing you to fetch data or perform other async operations before rendering the component.
 
 ```tsx
-async function Loader(props: { url: string }) {
+async function JsonViewer(props: { url: string }) {
   const data = await fetch(props.url).then((res) => res.json());
-  return <JsonViewer data={data} />;
+  return <ObjectViewer data={data} />;
 }
 
 export default {
   fetch: (req) => (
     <html>
-      <Loader url="https://api.example.com/data" pending={<p>Loading...</p>} />
+      <JsonViewer url="https://api.example.com/data" />
     </html>
   )
 }
@@ -396,7 +398,7 @@ export default {
 }
 ```
 
-You can set the `rendering` attribute to `"eager"` to force synchronous rendering (the `pending` property will be ignored):
+You can set the `rendering` prop to `"eager"` to force synchronous rendering (the `pending` property will be ignored):
 
 ```tsx
 export default {
@@ -410,7 +412,9 @@ export default {
 }
 ```
 
-You can add the `catch` attribute to handle errors in the async component. The `catch` attribute should be a function that returns a JSX element:
+## Error Handling
+
+You can add the `catch` prop when using a function component. This allows you to catch errors in components and display a fallback UI:
 
 ```tsx
 async function Hello() {
@@ -426,6 +430,8 @@ export default {
   )
 }
 ```
+
+The `catch` prop should be a function that gets the caught error as the first argument and returns a JSX element.
 
 ## Lazy Rendering
 
@@ -471,7 +477,7 @@ export default {
 }
 ```
 
-You can also use [signals](#using-signals) for `name` or `props` attributes of a component. Changing the signal value will trigger the component to re-render with the new name or props:
+You can also use [signals](#using-signals) for `name` or `props` props of a component. Changing the signal value will trigger the component to re-render with the new name or props:
 
 ```tsx
 import { Profile, Projects, Settings } from "./pages.tsx"
@@ -622,7 +628,7 @@ function App(this: FC<{ input: string }>) {
 
 ### Using Effects
 
-You can use `this.effect` to create side effects based on signals. The effect will run whenever the signal changes:
+You can use `this.effect` to perform side effects in components. The effect will run when the component is mounted and automatically collect used signals as dependencies, and re-run when the dependencies change.
 
 ```tsx
 function App(this: FC<{ count: number }>) {
@@ -729,7 +735,7 @@ function App(this: FC<{ ok: boolean }>) {
 
 ### Using `<switch>` Element with Signals
 
-The `<switch>` element renders different content based on the `value` prop. Elements with matching `slot` attributes are displayed when their value matches, otherwise default slots are shown. Like `<show>`, you can use signals to control the value on the client side.
+The `<switch>` element renders different content based on the `value` prop. Elements with matching `slot` props are displayed when their value matches, otherwise default slots are shown. Like `<show>`, you can use signals to control the value on the client side.
 
 ```tsx
 function App(this: FC<{ lang: "en" | "zh" | "🙂" }>) {
@@ -754,7 +760,7 @@ function App(this: FC<{ lang: "en" | "zh" | "🙂" }>) {
 
 ### Form Input Two-way Binding
 
-You can use the `$value` attribute to bind a signal to the value of a form input element. The `$value` attribute is a two-way data binding, which means that when the input value changes, the signal will be updated, and when the signal changes, the input value will be updated.
+You can use the `$value` prop to bind a signal to the value of a form input element. The `$value` prop is a two-way data binding, which means that when the input value changes, the signal will be updated, and when the signal changes, the input value will be updated.
 
 ```tsx
 function App(this: FC<{ value: string }>) {
@@ -767,7 +773,7 @@ function App(this: FC<{ value: string }>) {
 }
 ```
 
-You can also use the `$checked` attribute to bind a signal to the checked state of a checkbox or radio input element.
+You can also use the `$checked` prop to bind a signal to the checked state of a checkbox or radio input element.
 
 ```tsx
 function App(this: FC<{ checked: boolean }>) {
@@ -914,7 +920,7 @@ See the [Using Signals](#using-signals) section for more details on how to use s
 
 ### Using Refs
 
-You can use `this.refs` to access refs in your components. Refs are defined using the `ref` attribute in JSX, and they allow you to access DOM elements directly. The `refs` object is a map of ref names to DOM elements.
+You can use `this.refs` to access refs in your components. Refs are defined using the `ref` prop in JSX, and they allow you to access DOM elements directly. The `refs` object is a map of ref names to DOM elements.
 
 ```tsx
 function App(this: WithRefs<FC, { input?: HTMLInputElement }>) {
@@ -950,7 +956,7 @@ function Layout(this: FC) {
 }
 ```
 
-The `<component>` element also supports the `ref` attribute, which allows you to control the component rendering manually. The `ref` will be a `ComponentElement` that has the `name`, `props`, and `refresh` properties:
+The `<component>` element also supports the `ref` prop, which allows you to control the component rendering manually. The `ref` will be a `ComponentElement` that has the `name`, `props`, and `refresh` properties:
 
 - `name`: The name of the component to render.
 - `props`: The props to pass to the component.
@@ -1110,7 +1116,7 @@ function Post(this: FC) {
 
 ### Using Route Form
 
-mono-jsx allows you to define a `FormHandler` function for route components to handle form data from form submissions on the current route page on the client side. To submit the form data to the `FormHandler` function, you need to set the `route` attribute on the `<form>` element.
+mono-jsx allows you to define a `FormHandler` function for route components to handle form data from form submissions on the current route page on the client side. To submit the form data to the `FormHandler` function, you need to set the `route` prop on the `<form>` element.
 
 mono-jsx provides two built-in elements to allow you to control the post-submit behavior:
 
@@ -1175,7 +1181,7 @@ MyRoute.FormHandler = function(this: FC, data: FormData) {
 }
 ```
 
-You can also use the `name` attribute to specify the name of the formslot element. And you can use the `formslot` attribute to specify the name of the slot to insert the HTML into.
+You can also use the `name` prop to specify the name of the formslot element. And you can use the `formslot` prop to specify the name of the slot to insert the HTML into.
 
 ```tsx
 function MyRoute(this: FC) {
@@ -1194,7 +1200,7 @@ MyRoute.FormHandler = function(this: FC, data: FormData) {
 }
 ```
 
-`formslot` element accepts the `onUpdate` attribute to set a callback function that will be called when the formslot element is updated.
+`formslot` element accepts the `onUpdate` prop to set a callback function that will be called when the formslot element is updated.
 
 ```tsx
 function MyRoute(this: FC) {
@@ -1212,7 +1218,7 @@ MyRoute.FormHandler = function(this: FC, data: FormData) {
 }
 ```
 
-The `hidden` attribute can be used to hide the formslot payload from the form handler.
+The `hidden` prop can be used to hide the formslot payload from the form handler.
 
 ```tsx
 <formslot onUpdate={(evt) => console.log("message updated:", evt.target.textContent)} hidden />
@@ -1234,7 +1240,7 @@ function App(this: FC) {
 
 ### Navigation between Pages
 
-To navigate between pages, you can use `<a>` elements with `href` attributes that match the defined routes. The router will intercept the click events of these links and fetch the corresponding route component without reloading the page:
+To navigate between pages, you can use `<a>` elements with `href` props that match the defined routes. The router will intercept the click events of these links and fetch the corresponding route component without reloading the page:
 
 ```tsx
 export default {
@@ -1253,7 +1259,7 @@ export default {
 
 ### Nav Links
 
-Links under the `<nav>` element will be treated as navigation links by the router. When the `href` of a nav link matches a route, an active class will be added to the link element. By default, the active class is `active`, but you can customize it by setting the `data-active-class` attribute on the `<nav>` element. You can add styles for the active link using nested CSS selectors in the `style` attribute of the `<nav>` element.
+Links under the `<nav>` element will be treated as navigation links by the router. When the `href` of a nav link matches a route, an active class will be added to the link element. By default, the active class is `active`, but you can customize it by setting the `data-active-class` prop on the `<nav>` element. You can add styles for the active link using nested CSS selectors in the `style` prop of the `<nav>` element.
 
 ```tsx
 export default {
@@ -1377,7 +1383,7 @@ function Icon() {
 
 ## Customizing HTML Response
 
-You can add `status` or `headers` attributes to the root `<html>` element to customize the HTTP response:
+You can add `status` or `headers` props to the root `<html>` element to customize the HTTP response:
 
 ```tsx
 export default {
@@ -1398,7 +1404,7 @@ export default {
 
 ### Using htmx
 
-mono-jsx integrates with [htmx](https://htmx.org/) and [typed-htmx](https://github.com/Desdaemon/typed-htmx). To use htmx, add the `htmx` attribute to the root `<html>` element:
+mono-jsx integrates with [htmx](https://htmx.org/) and [typed-htmx](https://github.com/Desdaemon/typed-htmx). To use htmx, add the `htmx` prop to the root `<html>` element:
 
 ```tsx
 export default {
@@ -1426,7 +1432,7 @@ export default {
 
 #### Adding htmx Extensions
 
-You can add htmx [extensions](https://htmx.org/docs/#extensions) by adding the `htmx-ext-*` attribute to the root `<html>` element:
+You can add htmx [extensions](https://htmx.org/docs/#extensions) by adding the `htmx-ext-*` prop to the root `<html>` element:
 
 ```tsx
 export default {
@@ -1442,7 +1448,7 @@ export default {
 
 #### Specifying htmx Version
 
-You can specify the htmx version by setting the `htmx` attribute to a specific version:
+You can specify the htmx version by setting the `htmx` prop to a specific version:
 
 ```tsx
 export default {
@@ -1458,7 +1464,7 @@ export default {
 
 #### Setting Up htmx Manually
 
-By default, mono-jsx imports htmx from the [esm.sh](https://esm.sh/) CDN when you set the `htmx` attribute. You can also set up htmx manually with your own CDN or local copy:
+By default, mono-jsx imports htmx from the [esm.sh](https://esm.sh/) CDN when you set the `htmx` prop. You can also set up htmx manually with your own CDN or local copy:
 
 ```tsx
 export default {

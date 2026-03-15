@@ -119,7 +119,7 @@ mono-jsx supports [pseudo classes](https://developer.mozilla.org/en-US/docs/Web/
 <!--
 ### Using View Transition
 
-mono-jsx supports [View Transition](https://developer.mozilla.org/en-US/docs/Web/API/View_Transitions_API) to create smooth transitions between views. To use view transitions, add the `viewTransition` attribute to the following components:
+mono-jsx supports [View Transition](https://developer.mozilla.org/en-US/docs/Web/API/View_Transitions_API) to create smooth transitions between views. To use view transitions, add the `viewTransition` prop to the following components:
 
  - `<show viewTransition="view-transition-name">`
  - `<hidden viewTransition="view-transition-name">`
@@ -148,7 +148,7 @@ function App(this: FC<{ show: boolean }>) {
 }
 ```
 
-You can also set the `viewTransition` attribute a html element which contains signal children.
+You can also set the `viewTransition` prop a html element which contains signal children.
 
 ```tsx
 function App(this: FC<{ message: string }>) {
@@ -159,7 +159,7 @@ function App(this: FC<{ message: string }>) {
 }
 ```
 
-You can also set the view transition name in the style property with the `viewTransition` attribute set to `true`.
+You can also set the view transition name in the style property with the `viewTransition` prop set to `true`.
 
 ```tsx
 function App(this: FC<{ message: string }>) {
@@ -174,7 +174,7 @@ function App(this: FC<{ message: string }>) {
 
 ### Using `<slot>` Element
 
-mono-jsx uses [`<slot>`](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/slot) elements to render slotted content (equivalent to React's `children` property). You can also add the `name` attribute to define named slots:
+mono-jsx uses [`<slot>`](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/slot) elements to render slotted content (equivalent to React's `children` property). You can also add the `name` prop to define named slots:
 
 ```tsx
 function Container() {
@@ -250,7 +250,7 @@ function Button() {
 }
 ```
 
-mono-jsx allows you to use a function as the value of the `action` attribute of the `<form>` element. The function will be called on form submission, and the `FormData` object will contain the form data.
+mono-jsx allows you to use a function as the value of the `action` prop of the `<form>` element. The function will be called on form submission, and the `FormData` object will contain the form data.
 
 ```tsx
 function App() {
@@ -268,18 +268,18 @@ function App() {
 mono-jsx supports async components that return a `Promise` or an async function. With streaming rendering, async components are rendered asynchronously, allowing you to fetch data or perform other async operations before rendering the component.
 
 ```tsx
-async function Loader(props: { url: string }) {
+async function JsonViewer(props: { url: string }) {
   const data = await fetch(props.url).then((res) => res.json());
-  return <JsonViewer data={data} />;
+  return <ObjectViewer data={data} />;
 }
 
-export default {
-  fetch: (req) => (
-    <html>
-      <Loader url="https://api.example.com/data" pending={<p>Loading...</p>} />
-    </html>
+function App() {
+  return (
+    <JsonViewer url="https://example.com/data.json" />
   )
 }
+
+document.body.mount(<App />);
 ```
 
 <!--
@@ -302,13 +302,13 @@ async function* Chat(props: { prompt: string }) {
   }
 }
 
-export default {
-  fetch: (req) => (
-    <html>
-      <Chat prompt="Tell me a story" pending={<span style="color:grey">●</span>} />
-    </html>
+function App() {
+  return (
+    <Chat prompt="Tell me a story" pending={<span style="color:grey">●</span>} />
   )
 }
+
+document.body.mount(<App />);
 ```
 
 -->
@@ -321,18 +321,20 @@ async function Sleep({ ms }) {
   return <slot />;
 }
 
-export default {
-  fetch: (req) => (
-    <html>
-      <Sleep ms={1000} pending={<p>Loading...</p>}>
-        <p>After 1 second</p>
-      </Sleep>
-    </html>
+function App() {
+  return (
+    <Sleep ms={1000} pending={<p>Loading...</p>}>
+      <p>After 1 second</p>
+    </Sleep>
   )
 }
+
+document.body.mount(<App />);
 ```
 
-To catch errors in async components, you can use the `catch` prop. The `catch` prop should be a function that returns a JSX element:
+## Error Handling
+
+You can add the `catch` prop when using a function component. This allows you to catch errors in components and display a fallback UI:
 
 ```tsx
 async function Hello() {
@@ -340,14 +342,17 @@ async function Hello() {
   return <p>Hello world!</p>;
 }
 
-export default {
-  fetch: (req) => (
-    <html>
-      <Hello catch={err => <p>{err.message}</p>} />
-    </html>
+function App() {
+  return (
+    <Hello catch={err => <p>{err.message}</p>} />
   )
 }
+
+document.body.mount(<App />);
 ```
+
+
+The `catch` prop should be a function that gets the caught error as the first argument and returns a JSX element.
 
 ## Using Signals
 
@@ -586,7 +591,7 @@ function App(this: FC<{ ok: boolean }>) {
 
 ### Using `<switch>` Element with Signals
 
-The `<switch>` element renders different content based on the `value` prop. Elements with matching `slot` attributes are displayed when their value matches, otherwise default slots are shown. Like `<show>`, you can use signals to control the value on the client side.
+The `<switch>` element renders different content based on the `value` prop. Elements with matching `slot` props are displayed when their value matches, otherwise default slots are shown. Like `<show>`, you can use signals to control the value on the client side.
 
 ```tsx
 function App(this: FC<{ lang: "en" | "zh" | "🙂" }>) {
@@ -611,7 +616,7 @@ function App(this: FC<{ lang: "en" | "zh" | "🙂" }>) {
 
 ### Form Input Two-way Binding
 
-You can use the `$value` attribute to bind a signal to the value of a form input element. The `$value` attribute is a two-way data binding, which means that when the input value changes, the signal will be updated, and when the signal changes, the input value will be updated.
+You can use the `$value` prop to bind a signal to the value of a form input element. The `$value` prop is a two-way data binding, which means that when the input value changes, the signal will be updated, and when the signal changes, the input value will be updated.
 
 ```tsx
 function App(this: FC<{ value: string }>) {
@@ -624,7 +629,7 @@ function App(this: FC<{ value: string }>) {
 }
 ```
 
-You can also use the `$checked` attribute to bind a signal to the checked state of a checkbox or radio input element.
+You can also use the `$checked` prop to bind a signal to the checked state of a checkbox or radio input element.
 
 ```tsx
 function App(this: FC<{ checked: boolean }>) {
@@ -724,7 +729,7 @@ See the [Using Signals](#using-signals) section for more details on how to use s
 
 ### Using Refs
 
-You can use `this.refs` to access refs in your components. Refs are defined using the `ref` attribute in JSX, and they allow you to access DOM elements directly. The `refs` object is a map of ref names to DOM elements.
+You can use `this.refs` to access refs in your components. Refs are defined using the `ref` prop in JSX, and they allow you to access DOM elements directly. The `refs` object is a map of ref names to DOM elements.
 
 ```tsx
 function App(this: WithRefs<FC, { input?: HTMLInputElement }>) {
