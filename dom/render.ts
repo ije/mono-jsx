@@ -621,11 +621,20 @@ const renderChildren = (
 };
 
 const renderFC = (fc: ComponentType, props: Record<string, unknown>, root: HTMLElement | DocumentFragment, abortSignal?: AbortSignal) => {
+  let el: ReturnType<typeof fc>;
   let scope = createScope(props.children as ChildType[] | undefined, abortSignal) as unknown as IScope;
-  let v: ReturnType<typeof fc>;
+  let catchFn = props.catch as ((err: unknown) => VNode) | undefined;
   call$expr(scope, true);
-  v = fc.call(scope, props);
-  if (v instanceof Promise) {
+  try {
+    el = fc.call(scope, props);
+  } catch (err) {
+    if (!catchFn) {
+      throw err;
+    }
+    el = catchFn(err);
+    catchFn = undefined;
+  }
+  if (el instanceof Promise) {
     let pendingNodes: ChildNode[] | undefined;
     if (isVNode(props.pending)) {
       pendingNodes = [...renderToFragment(scope, props.pending as ChildType, abortSignal).childNodes];
@@ -634,34 +643,31 @@ const renderFC = (fc: ComponentType, props: Record<string, unknown>, root: HTMLE
       pendingNodes = [createTextNode()];
     }
     root.append(...pendingNodes);
-    v.then((nodes) => {
+    el.then((nodes) => {
       call$expr(scope, false);
       pendingNodes[0].replaceWith(...renderToFragment(scope, nodes as ChildType, abortSignal).childNodes);
     }).catch((err) => {
-      if (isFunction(props.catch)) {
-        const v = props.catch(err);
-        if (isVNode(v)) {
-          pendingNodes[0].replaceWith(...renderToFragment(scope, v as ChildType, abortSignal).childNodes);
-        }
-      } else {
-        console.error(err);
+      if (!catchFn) {
+        throw err;
       }
+      pendingNodes[0].replaceWith(...renderToFragment(scope, catchFn(err) as ChildType, abortSignal).childNodes);
     }).finally(() => {
+      call$expr(scope, false);
       // remove pendingNodes elements
       pendingNodes.forEach(node => node.remove());
     });
   } else {
     call$expr(scope, false);
-    if (isPlainObject(v) && !isVNode(v)) {
-      if (Symbol.asyncIterator in v) {
+    if (isPlainObject(el) && !isVNode(el)) {
+      if (Symbol.asyncIterator in el) {
         //  todo: async generator
-      } else if (Symbol.iterator in v) {
-        for (const node of v) {
+      } else if (Symbol.iterator in el) {
+        for (const node of el) {
           render(scope, node as ChildType, root, abortSignal);
         }
       }
     } else {
-      render(scope, v as ChildType, root, abortSignal);
+      render(scope, el as ChildType, root, abortSignal);
     }
   }
 };

@@ -844,12 +844,17 @@ async function renderFC(rc: RenderContext, fcFn: ComponentType, props: JSX.Intri
     ? (Array.isArray(children) ? (isVNode(children) ? [children as ChildType] : children) : [children])
     : undefined;
   const fc: FCScope = { id: scopeId, signals, slots, refs: 0 };
+  const catchFn = props.catch as ((err: unknown) => JSX.Element) | undefined;
   try {
     const v = fcFn.call(signals, props);
     if (isObject(v) && !isVNode(v)) {
       if (v instanceof Promise) {
+        let promise = v;
+        if (catchFn) {
+          promise = promise.catch(catchFn);
+        }
         if (eager || (props.rendering ?? fcFn.rendering) === "eager") {
-          await renderNode({ ...rc, fc }, (await v) as ChildType);
+          await renderNode({ ...rc, fc }, (await promise) as ChildType);
           markSignals(rc, signals);
         } else {
           const chunkIdAttr = 'chunk-id="' + (rc.flags.chunk++).toString(36) + '"';
@@ -858,7 +863,7 @@ async function renderFC(rc: RenderContext, fcFn: ComponentType, props: JSX.Intri
             await renderNode(rc, props.pending);
           }
           write("</m-portal>");
-          rc.suspenses.push(v.then(async (node) => {
+          rc.suspenses.push(promise.then(async (node) => {
             let buf = "";
             let write = (chunk: string) => {
               buf += chunk;
@@ -913,13 +918,11 @@ async function renderFC(rc: RenderContext, fcFn: ComponentType, props: JSX.Intri
       markSignals(rc, signals);
     }
   } catch (err) {
-    if (err instanceof Error) {
-      if (props.catch) {
-        await renderNode(rc, props.catch(err)).catch(() => {});
-      } else {
-        console.error(err);
-        write("<script>console.error(" + stringify(err.stack ?? err.message) + ")</script>");
-      }
+    if (catchFn) {
+      await renderNode(rc, catchFn(err)).catch(() => {});
+    } else {
+      console.error(err);
+      write("<script>console.error(" + stringify(err instanceof Error ? err.stack ?? err.message : String(err)) + ")</script>");
     }
   }
 }
