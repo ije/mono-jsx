@@ -69,10 +69,6 @@ export type SessionOptions = {
  */
 export interface RenderOptions extends Partial<HtmxExts> {
   /**
-   * Initial signals of the application.
-   */
-  app?: Record<string, unknown>;
-  /**
    * The context object to be passed to components.
    */
   context?: Record<string, unknown>;

@@ -191,22 +191,6 @@ export interface Session {
 declare global {
   interface FCExtension<FC> {
     /**
-     * The global signals shared across the application.
-     */
-    readonly app: {
-      /**
-       * The `app.refs` object stores variables in the application scope.
-       * It is similar to `refs`, but it is shared across all components in the application.
-       *
-       * **⚠ This is a client-side only API.**
-       */
-      readonly refs: Record<string, HTMLElement>;
-      /**
-       * The `app.url` object contains the current URL.
-       */
-      readonly url: WithParams<URL>;
-    };
-    /**
      * The `request` object contains the current request.
      *
      * **⚠ This is a server-side only API.**
@@ -226,29 +210,6 @@ declare global {
      */
     readonly session: Session;
   }
-
-  /**
-   * Defines the `this.app` type.
-   */
-  type WithAppSignals<T, AppSignals = {}, AppRefs = Record<string, HTMLElement>> = T extends FC<infer S, infer R> ? FC<S, R> & {
-      /**
-       * The global signals shared across the application.
-       */
-      readonly app: {
-        /**
-         * The `app.refs` object stores variables in the application scope.
-         * It is similar to `refs`, but it is shared across all components in the application.
-         *
-         * **⚠ This is a client-side only API.**
-         */
-        readonly refs: AppRefs;
-        /**
-         * The `app.url` object contains the current URL.
-         */
-        readonly url: WithParams<URL>;
-      } & Omit<AppSignals, "refs" | "url">;
-    }
-    : never;
 
   /**
    * Defines the `this.context` type.

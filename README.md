@@ -508,14 +508,15 @@ export default {
 }
 ```
 
-You can use the `<show>` element to control when to render a component:
+You can also use the `<show>` element to control when to render a component:
 
 ```tsx
-async function Lazy(this: FC<{ show: boolean }>, props: { url: string }) {
+async function App(this: FC<{ show: boolean }>) {
+  this.show = false;
   return (
     <div>
       <show when={this.show}>
-        <component name="Foo" props={{ bar: "baz" }} pending={<p>Loading...</p>} />
+        <component as={<Foo bar="baz" />} pending={<p>Loading...</p>} />
       </show>
      <button onClick={() => this.show = true }>Load `Foo` Component</button>
     </div>
@@ -524,8 +525,8 @@ async function Lazy(this: FC<{ show: boolean }>, props: { url: string }) {
 
 export default {
   fetch: (req) => (
-    <html request={req} components={{ Foo }}>
-      <Lazy />
+    <html request={req}>
+      <App />
     </html>
   )
 }
@@ -562,35 +563,35 @@ function Counter(this: FC<{ count: number }>, props: { initialCount?: number }) 
 
 ### Using App Signals
 
-You can define app signals by adding the `app` prop to the root `<html>` element. The app signals are available in all components via `this.app.<SignalName>`. Changes to the app signals will trigger re-renders in all components that use them:
+You can define app signals by using the `createApp` function. The app signals are available in all components. Changes to the app signals will trigger re-renders in all components that use them:
 
 ```tsx
-interface IAppSignals {
-  themeColor: string;
-}
+import { createSignals } from "mono-jsx";
 
-function Header(this: WithAppSignals<FC, IAppSignals>) {
+const app = createSignals({ themeColor: "#232323" })
+
+function Header(this: FC) {
   return (
     <header>
-      <h1 style={{ color: this.app.themeColor }}>Welcome to mono-jsx!</h1>
+      <h1 style={{ color: app.themeColor }}>Welcome to mono-jsx!</h1>
     </header>
   )
 }
 
-function Footer(this: WithAppSignals<FC, IAppSignals>) {
+function Footer(this: FC) {
   return (
     <footer>
-      <p style={{ color: this.app.themeColor }}>(c) 2025 mono-jsx.</p>
+      <p style={{ color: app.themeColor }}>(c) 2025 mono-jsx.</p>
     </footer>
   )
 }
 
-function Main(this: WithAppSignals<FC, IAppSignals>) {
+function Main(this: FC) {
   return (
     <main>
       <p>
         <label>Theme Color: </label>
-        <input type="color" $value={this.app.themeColor} />
+        <input type="color" $value={app.themeColor} />
       </p>
     </main>
   )
@@ -598,7 +599,7 @@ function Main(this: WithAppSignals<FC, IAppSignals>) {
 
 export default {
   fetch: (req) => (
-    <html app={{ themeColor: "#232323" }}>
+    <html request={req} expose={{ app }}>
       <Header />
       <Main />
       <Footer />
@@ -606,6 +607,9 @@ export default {
   )
 }
 ```
+
+> [!TIP]
+> You need to add the created app variables to the `expose` prop of the root `<html>` element to make them accessible in the client side.
 
 ### Using Computed Signals
 
@@ -881,7 +885,6 @@ mono-jsx binds a scoped signals object to `this` of your component functions. Th
 The `this` object has the following built-in properties:
 
 - `init(initValue)`: Initializes the signals.
-- `app`: The app global signals.
 - `context`: The context object defined on the root `<html>` element.
 - `request`: The request object from the `fetch` handler.
 - `session`: The session storage.
@@ -893,7 +896,6 @@ The `this` object has the following built-in properties:
 ```ts
 type FC<Signals = {}, Refs = {}> = {
   init(initValue: Signals): void;
-  app: AppSignals & { refs: AppRefs; url: WithParams<URL> }
   context: Context;
   request: WithParams<Request>;
   session: Session;
@@ -902,11 +904,6 @@ type FC<Signals = {}, Refs = {}> = {
   $: FC["computed"]; // A shortcut for `FC.computed`.
   effect(fn: () => void | (() => void)): void;
 } & Signals;
-
-// define `AppSignals` type
-function Component(this: WithAppSignals<FC, { title: string }>) {
-  this.app.title // type: 'string'
-}
 
 // define `Context` type
 function Component(this: WithContext<FC, { secret: string }>) {
@@ -935,23 +932,6 @@ function App(this: WithRefs<FC, { input?: HTMLInputElement }>) {
       <input ref={this.refs.input} type="text" />
       <button onClick={() => this.refs.input?.focus()}>Focus</button>
     </div>
-  )
-}
-```
-
-You can also use `this.app.refs` to access app-level refs:
-
-```tsx
-function Layout(this: FC) {
-  return (
-    <>
-    <header>
-      <h1 ref={this.refs.h1}>Welcome to mono-jsx!</h1>
-    </header>
-    <main>
-      <slot />
-    </main>
-    </>
   )
 }
 ```
@@ -1222,20 +1202,6 @@ The `hidden` prop can be used to hide the formslot payload from the form handler
 
 ```tsx
 <formslot onUpdate={(evt) => console.log("message updated:", evt.target.textContent)} hidden />
-```
-
-### Using `this.app.url` Signal
-
-`this.app.url` is an app-level signal that contains the current route URL and parameters. The `this.app.url` signal is automatically updated when the route changes, so you can use it to display the current URL in your components or control the view with `<show>`, `<hidden>` or `<switch>` elements:
-
-```tsx
-function App(this: FC) {
-  return (
-    <div>
-      <h1>Current Pathname: {this.$(() => this.app.url.pathname)}</h1>
-    </div>
-  )
-}
 ```
 
 ### Navigation between Pages

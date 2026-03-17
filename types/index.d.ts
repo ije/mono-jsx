@@ -15,3 +15,8 @@ export function monoRoutes(
   routes: Record<string, ComponentType<any> | Promise<{ default: ComponentType<any> }>>,
   handler: (req: Request) => Response,
 ): Record<string, (req: Request) => Response>;
+
+/**
+ * `createSignals` creates a signals object.
+ */
+export function createSignals(initValue: Record<string, unknown>): Record<string, unknown>;

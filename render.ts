@@ -255,7 +255,7 @@ async function render(
   componentMode?: boolean,
   routeForm?: boolean,
 ) {
-  const { app, context, request, routeFC } = options;
+  const { context, request, routeFC } = options;
   const suspenses: Promise<string>[] = [];
   const signals: Signals = {
     app: {},
@@ -274,7 +274,6 @@ async function render(
     fidGenerator: new FunctionIdGenerator(),
     extraJS: [],
   };
-  signals.app = Object.assign(createThisProxy(rc, 0), app);
 
   // a flag to decide which runtime JS should be sent to the client
   let runtimeFlag = 0;
@@ -429,9 +428,6 @@ async function render(
     }
   }
   await renderNode(rc, node as ChildType);
-  if (rc.flags.scope > 0 && !componentMode) {
-    markSignals(rc, signals.app);
-  }
   await finalize();
 }
 
@@ -1178,11 +1174,6 @@ function createThisProxy(rc: RenderContext, scopeId: number): Record<string, unk
           return (init: Record<string, unknown>) => {
             Object.assign(target, init);
           };
-        case "app":
-          if (scopeId === 0) {
-            return null;
-          }
-          return rc.signals.app;
         case "context":
           return context;
         case "request":
