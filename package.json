@@ -23,21 +23,6 @@
       "types": "./types/jsx-runtime.d.ts",
       "node": "./jsx-runtime.mjs",
       "import": "./jsx-runtime.mjs"
-    },
-    "./dom": {
-      "types": "./types/dom/index.d.ts",
-      "node": "./dom/index.mjs",
-      "import": "./dom/index.mjs"
-    },
-    "./dom/jsx-runtime": {
-      "types": "./types/dom/jsx-runtime.d.ts",
-      "node": "./dom/jsx-runtime.mjs",
-      "import": "./dom/jsx-runtime.mjs"
-    },
-    "./dom/jsx-dev-runtime": {
-      "types": "./types/dom/jsx-runtime.d.ts",
-      "node": "./dom/jsx-runtime.mjs",
-      "import": "./dom/jsx-runtime.mjs"
     }
   },
   "scripts": {
@@ -45,9 +30,7 @@
   },
   "files": [
     "./*.mjs",
-    "./dom/*.mjs",
-    "./types/*.d.ts",
-    "./types/dom/*.d.ts"
+    "./types/*.d.ts"
   ],
   "license": "MIT",
   "repository": {
