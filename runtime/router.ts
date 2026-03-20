@@ -128,16 +128,19 @@ customElements.define(
           return;
         }
 
+        const hrefAttr = (e.target as HTMLAnchorElement).getAttribute("href");
+        if (!hrefAttr || hrefAttr.startsWith("#")) {
+          return;
+        }
+
         const { download, href, rel, target } = e.target as HTMLAnchorElement;
-        const url = new URL(href, loc.href);
 
         // skip if the link is for downloading, external, or has a target of _blank
         if (
           download
           || rel === "external"
           || target === "_blank"
-          || url.origin !== loc.origin
-          || isActivated(url)
+          || !href.startsWith(loc.origin)
         ) {
           return;
         }
