@@ -24,7 +24,7 @@ const browser = await puppeteer.launch({
 const ac = new AbortController();
 const sanitizeFalse = { sanitizeResources: false, sanitizeOps: false };
 
-Deno.test.beforeAll(() => {
+Deno.test.beforeAll(async () => {
   Deno.serve({ port: 8687, onListen: () => {}, signal: ac.signal }, (request) => {
     const url = new URL(request.url);
     if (url.pathname === "/favicon.ico") {
@@ -149,11 +149,40 @@ Deno.test.beforeAll(() => {
     );
   });
 
-  // function App(this: FC) {
-  //   return null;
-  // }
-  // console.log(addTestPage(<App />));
-  // await new Promise(() => {});
+  const DEBUG = 0;
+  if (DEBUG) {
+    // deno-lint-ignore no-inner-declarations
+    function App(this: FC) {
+      return (
+        <>
+          <header>
+            <nav style={{ "& .current": { fontWeight: "bold" } }} data-active-class="current">
+              <ul>
+                <li>
+                  <a href="/">Home</a>
+                </li>
+                <li>
+                  <a href="/about">About</a>
+                </li>
+                <li>
+                  <a href="/post/hello-world">Hello World</a>
+                </li>
+                <li>
+                  <a href="/e404">E404</a>
+                </li>
+              </ul>
+            </nav>
+            <em>{this.$(() => this.app.url.href)}</em>
+          </header>
+          <router>
+            <p>Page not found</p>
+          </router>
+        </>
+      );
+    }
+    console.log(addTestPage(<App />));
+    await new Promise(() => {});
+  }
 });
 
 Deno.test.afterAll(async () => {
