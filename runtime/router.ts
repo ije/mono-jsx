@@ -6,25 +6,22 @@ declare global {
 
 const doc = document;
 const loc = location;
-const stripHash = (href: string) => href.split("#", 1)[0];
-const isLocationHref = (href: string) => stripHash(href) === stripHash(loc.href);
+const isActivated = ({ origin, pathname }: URL) => origin === loc.origin && pathname === loc.pathname;
 
 customElements.define(
   "m-router",
   class extends HTMLElement {
-    #fallback?: ChildNode[];
-    #onClick?: (e: MouseEvent) => void;
-    #onPopstate?: (e: PopStateEvent) => void;
     #ac?: AbortController;
     #cache = new Map<string, string>();
+    #fallback?: ChildNode[];
     #isBlank = true;
+
+    #onClick?: (e: MouseEvent) => void;
+    #onPopstate?: (e: PopStateEvent) => void;
 
     async #fetchPage(href: string): Promise<[html: string, js: string | undefined] | null> {
       const ac = new AbortController();
-      const headers = {
-        "x-route": "true",
-        "x-flags": $FLAGS,
-      };
+      const headers = { "x-route": "true", "x-flags": $FLAGS };
       this.#ac?.abort();
       this.#ac = ac;
       const res = await fetch(href, { headers, signal: ac.signal });
@@ -52,7 +49,7 @@ customElements.define(
       doc.querySelectorAll<HTMLAnchorElement>("nav a").forEach((link) => {
         const { href, classList } = link;
         const activeClass = link.closest("nav")?.getAttribute("data-active-class") ?? "active";
-        if (isLocationHref(href)) {
+        if (isActivated(new URL(href))) {
           classList.add(activeClass);
         } else {
           classList.remove(activeClass);
@@ -95,11 +92,11 @@ customElements.define(
 
     navigate(href: string, options?: { replace?: boolean }) {
       const url = new URL(href, loc.href);
-      if (url.origin !== loc.origin) {
+      if (url.origin !== loc.origin || href.startsWith("#")) {
         loc.href = href;
         return;
       }
-      if (!isLocationHref(url.href)) {
+      if (!isActivated(url)) {
         this.#navigate(href, options);
       }
     }
@@ -128,6 +125,11 @@ customElements.define(
         // skip if the event is already prevented or if any modifier keys are pressed
         // or if the link is not a regular link
         if (e.defaultPrevented || e.altKey || e.ctrlKey || e.metaKey || e.shiftKey || !(e.target instanceof HTMLAnchorElement)) {
+          return;
+        }
+
+        const hrefAttr = (e.target as HTMLAnchorElement).getAttribute("href");
+        if (!hrefAttr || hrefAttr.startsWith("#")) {
           return;
         }
 
