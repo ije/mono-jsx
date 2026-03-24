@@ -4,15 +4,18 @@ declare global {
   var $router: { navigate: (url: string, options?: { replace?: boolean }) => void } | undefined;
 }
 
+const win = window;
 const doc = document;
 const loc = location;
-const isActivated = ({ origin, pathname }: URL) => origin === loc.origin && pathname === loc.pathname;
+const isActivated = (url: URL) => url.origin === loc.origin && getRouteKey(url) === getRouteKey(loc);
+const getRouteKey = ({ pathname, search }: URL | Location) => pathname + search;
 
 customElements.define(
   "m-router",
   class extends HTMLElement {
     #ac?: AbortController;
     #cache = new Map<string, string>();
+    #currentRoute = getRouteKey(loc);
     #fallback?: ChildNode[];
     #isBlank = true;
 
@@ -57,7 +60,8 @@ customElements.define(
       });
     }
 
-    async #navigate(href: string, options?: { replace?: boolean }) {
+    async #load(href: string, options?: { replace?: boolean }) {
+      this.#currentRoute = getRouteKey(new URL(href, loc.href));
       const p = this.#fetchPage(href).then(ret => {
         if (ret) {
           const [html, js] = ret;
@@ -97,7 +101,7 @@ customElements.define(
         return;
       }
       if (!isActivated(url)) {
-        this.#navigate(href, options);
+        this.#load(href, options);
       }
     }
 
@@ -149,18 +153,22 @@ customElements.define(
         this.navigate(href);
       };
 
-      this.#onPopstate = () => this.#navigate(loc.href);
+      this.#onPopstate = () => {
+        if (getRouteKey(loc) !== this.#currentRoute) {
+          this.#load(loc.href);
+        }
+      };
 
-      addEventListener("popstate", this.#onPopstate);
+      win.addEventListener("popstate", this.#onPopstate);
       doc.addEventListener("click", this.#onClick);
       setTimeout(() => this.#updateNavLinks());
-      globalThis.$router = this;
+      win.$router = this;
     }
 
     disconnectedCallback() {
-      removeEventListener("popstate", this.#onPopstate!);
+      win.removeEventListener("popstate", this.#onPopstate!);
       doc.removeEventListener("click", this.#onClick!);
-      delete globalThis.$router;
+      delete win.$router;
       this.#ac?.abort();
       this.#ac = undefined;
       this.#cache.clear();

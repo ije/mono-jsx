@@ -1167,6 +1167,85 @@ Deno.test("[ssr-runtime] <router>", sanitizeFalse, async () => {
   await page.close();
 });
 
+Deno.test("[ssr-runtime] <router> ignores hash-only history changes", sanitizeFalse, async () => {
+  function App(this: FC) {
+    return (
+      <>
+        <header>
+          <nav>
+            <a href="/about">About</a>
+            <a href="#section1">Section 1</a>
+          </nav>
+          <em>{this.$(() => this.app.url.href)}</em>
+        </header>
+        <router>
+          <p>Page not found</p>
+        </router>
+        <div style={{ height: "100vh" }} />
+        <section id="section1">
+          <h2>Section 1</h2>
+        </section>
+      </>
+    );
+  }
+
+  const routeRequests: string[] = [];
+  const testUrl = addTestPage(<App />);
+  const page = await browser.newPage();
+  page.on("request", (request) => {
+    if (request.headers()["x-route"] === "true") {
+      routeRequests.push(request.url());
+    }
+  });
+
+  await page.goto(testUrl);
+
+  let link = await page.$("nav a[href='/about']");
+  assert(link);
+  await link.click();
+  await page.waitForNetworkIdle();
+
+  let h1 = await page.$("h1");
+  assert(h1);
+  assertEquals(await h1.evaluate((el: HTMLElement) => el.textContent), "About");
+  assertEquals(routeRequests, ["http://localhost:8687/about"]);
+
+  link = await page.$("nav a[href='#section1']");
+  assert(link);
+  await link.click();
+  await page.waitForFunction(() => location.hash === "#section1");
+  await sleep(50);
+
+  assertEquals(routeRequests, ["http://localhost:8687/about"]);
+  h1 = await page.$("h1");
+  assert(h1);
+  assertEquals(await h1.evaluate((el: HTMLElement) => el.textContent), "About");
+
+  await page.goBack();
+  await page.waitForFunction(() => location.pathname === "/about" && location.hash === "");
+  await sleep(50);
+
+  assertEquals(routeRequests, ["http://localhost:8687/about"]);
+  h1 = await page.$("h1");
+  assert(h1);
+  assertEquals(await h1.evaluate((el: HTMLElement) => el.textContent), "About");
+
+  await page.goForward();
+  await page.waitForFunction(() => location.pathname === "/about" && location.hash === "#section1");
+  await sleep(50);
+
+  assertEquals(routeRequests, ["http://localhost:8687/about"]);
+  h1 = await page.$("h1");
+  assert(h1);
+  assertEquals(await h1.evaluate((el: HTMLElement) => el.textContent), "About");
+
+  const em = await page.$("em");
+  assert(em);
+  assertEquals(await em.evaluate((el: HTMLElement) => el.textContent), "http://localhost:8687/about");
+
+  await page.close();
+});
+
 Deno.test("[ssr-runtime] route form", sanitizeFalse, async () => {
   const testUrl = addTestPage(
     <>
