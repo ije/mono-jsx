@@ -1368,17 +1368,16 @@ mono-jsx provides a built-in RPC API that allows you to call functions on the se
 import { createRPC } from "mono-jsx"
 
 const rpc = createRPC({
-  greet: (name: string) => ({ message: `Hello, ${name}!` }),
+  whoami: () => ({ name: "John" })
 })
 
-function App(this: FC<{ message: string }>) {
-  const onClick = async () => {
-    this.message = (await rpc.greet("World")).message
-  }
+function App(this: FC<{ user?: { name: string } }>) {
   return (
     <div>
-      <p>{this.message}</p>
-      <button onClick={onClick}>Click Me</button>
+      <show when={this.user}>
+        <p>Welcome, {this.user!.name}!</p>
+      </show>
+      <button onClick={async () => this.user = await rpc.whoami()}>Who am I?</button>
     </div>
   )
 }
