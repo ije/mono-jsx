@@ -192,6 +192,7 @@ declare global {
   interface FCExtension<FC> {
     /**
      * The global signals shared across the application.
+     * @deprecated Use `create` instead.
      */
     readonly app: {
       /**
@@ -259,6 +260,7 @@ declare global {
 
   /**
    * Defines the `this.app` type.
+   * @deprecated `this.app` is deprecated.
    */
   type WithAppSignals<T, AppSignals = {}, AppRefs extends Record<string, HTMLElement> = Record<string, HTMLElement>> = T extends
     FC<infer S, infer R> ? FC<S, R> & {
