@@ -1431,7 +1431,7 @@ export default {
       request={req}
       expose={{ rpc }}
       session={{ cookie: { secret: "..." } }}
-      context={{ admin: { isAdmin: (id: string) => id === 1 } }}
+      context={{ admin: { isAdmin: (id: number) => id === 1 } }}
     >
       <App />
     </html>
