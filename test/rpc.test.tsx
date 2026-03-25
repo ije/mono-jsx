@@ -9,10 +9,6 @@ import { VERSION } from "../version.ts";
 const cookieSecret = "this-is-a-test-cookie-secret";
 const rpcSymbol = Symbol.for("mono.rpc");
 
-const browser = await puppeteer.launch({
-  executablePath: (await chrome()).executablePath,
-  args: ["--no-sandbox", "--disable-gpu", "--disable-extensions", "--disable-sync", "--disable-background-networking"],
-});
 const sanitizeFalse = { sanitizeResources: false, sanitizeOps: false };
 
 async function createSignedSessionCookieValue(sessionStore: Record<string, unknown>, secret: string) {
@@ -35,10 +31,6 @@ async function render(node: JSX.Element, renderOptions: RenderOptions = {}) {
   assert(res instanceof Response, "Response is not a Response object");
   return res;
 }
-
-Deno.test.afterAll(async () => {
-  await browser.close();
-});
 
 Deno.test("[rpc] createRPC validates and tags rpc objects", () => {
   const rpc = createRPC({
@@ -217,6 +209,10 @@ Deno.test("[rpc-runtime] calls the exposed rpc api from the browser", sanitizeFa
   const testPort = 8688;
   const testPageUrl = `http://localhost:${testPort}`;
   const ac = new AbortController();
+  const browser = await puppeteer.launch({
+    executablePath: (await chrome()).executablePath,
+    args: ["--no-sandbox", "--disable-gpu", "--disable-extensions", "--disable-sync", "--disable-background-networking"],
+  });
   const rpc = createRPC({
     greet: (name: string) => ({ message: `Hello, ${name}!` }),
     whoami: function(this: RPC<{ greeting: string }>) {
@@ -268,67 +264,73 @@ Deno.test("[rpc-runtime] calls the exposed rpc api from the browser", sanitizeFa
     );
   }
 
-  await new Promise((resolve) => {
-    Deno.serve({ port: testPort, onListen: resolve, signal: ac.signal }, (request) => {
-      const url = new URL(request.url);
-      if (url.pathname === "/favicon.ico") {
-        return new Response(null, { status: 404 });
-      }
-      return (
-        <html
-          request={request}
-          context={{ greeting: "Hello, " }}
-          session={{ cookie: { secret: cookieSecret } }}
-          expose={{ rpc }}
-        >
-          <body>
-            <RPCApp />
-          </body>
-        </html>
-      );
-    });
-  });
-
-  const rpcId = String(Reflect.get(rpc, rpcSymbol));
-  const sessionValue = await createSignedSessionCookieValue({ user: { name: "@ije" } }, cookieSecret);
-  const rpcRequests: Array<{ headers: Record<string, string>; body: string | undefined }> = [];
-  const page = await browser.newPage();
-
-  page.on("request", async (request) => {
-    if (request.headers()["x-rpc"] === "true") {
-      rpcRequests.push({
-        headers: request.headers(),
-        body: await request.fetchPostData(),
+  try {
+    await new Promise((resolve) => {
+      Deno.serve({ port: testPort, onListen: resolve, signal: ac.signal }, (request) => {
+        const url = new URL(request.url);
+        if (url.pathname === "/favicon.ico") {
+          return new Response(null, { status: 404 });
+        }
+        return (
+          <html
+            request={request}
+            context={{ greeting: "Hello, " }}
+            session={{ cookie: { secret: cookieSecret } }}
+            expose={{ rpc }}
+          >
+            <body>
+              <RPCApp />
+            </body>
+          </html>
+        );
       });
+    });
+
+    const rpcId = String(Reflect.get(rpc, rpcSymbol));
+    const sessionValue = await createSignedSessionCookieValue({ user: { name: "@ije" } }, cookieSecret);
+    const rpcRequests: Array<{ headers: Record<string, string>; body: string | undefined }> = [];
+    const page = await browser.newPage();
+
+    try {
+      page.on("request", async (request) => {
+        if (request.headers()["x-rpc"] === "true") {
+          rpcRequests.push({
+            headers: request.headers(),
+            body: await request.fetchPostData(),
+          });
+        }
+      });
+
+      await page.browserContext().setCookie({
+        name: "session",
+        value: sessionValue,
+        domain: "localhost",
+        path: "/",
+      });
+      await page.goto(testPageUrl);
+
+      assertEquals(await page.evaluate(() => typeof (window as any).rpc?.greet), "function");
+      assertEquals(await page.evaluate(() => typeof (window as any).rpc?.missing), "undefined");
+
+      await page.click("#greet");
+      await page.waitForFunction(() => document.querySelector("#message")?.textContent === "Hello, World!");
+
+      await page.click("#whoami");
+      await page.waitForFunction(() => document.querySelector("#message")?.textContent === "Hello, @ije");
+
+      await page.click("#fail");
+      await page.waitForFunction(() => document.querySelector("#error")?.textContent === "RPC failed");
+
+      assertEquals(rpcRequests.length, 3);
+      assertEquals(rpcRequests[0].headers["x-rpc-id"], rpcId);
+      assertEquals(rpcRequests[0].body, JSON.stringify({ fn: "greet", args: ["World"] }));
+      assertEquals(rpcRequests[1].body, JSON.stringify({ fn: "whoami", args: [] }));
+      assertEquals(rpcRequests[2].body, JSON.stringify({ fn: "fail", args: [] }));
+    } finally {
+      await page.close();
     }
-  });
-
-  await page.browserContext().setCookie({
-    name: "session",
-    value: sessionValue,
-    domain: "localhost",
-    path: "/",
-  });
-  await page.goto(testPageUrl);
-
-  assertEquals(await page.evaluate(() => typeof (window as any).rpc?.greet), "function");
-  assertEquals(await page.evaluate(() => typeof (window as any).rpc?.missing), "undefined");
-
-  await page.click("#greet");
-  await page.waitForFunction(() => document.querySelector("#message")?.textContent === "Hello, World!");
-
-  await page.click("#whoami");
-  await page.waitForFunction(() => document.querySelector("#message")?.textContent === "Hello, @ije");
-
-  await page.click("#fail");
-  await page.waitForFunction(() => document.querySelector("#error")?.textContent === "RPC failed");
-
-  assertEquals(rpcRequests.length, 3);
-  assertEquals(rpcRequests[0].headers["x-rpc-id"], rpcId);
-  assertEquals(rpcRequests[0].body, JSON.stringify({ fn: "greet", args: ["World"] }));
-  assertEquals(rpcRequests[1].body, JSON.stringify({ fn: "whoami", args: [] }));
-  assertEquals(rpcRequests[2].body, JSON.stringify({ fn: "fail", args: [] }));
-
-  await page.close();
-  ac.abort();
+  } finally {
+    ac.abort();
+    await browser.close();
+  }
 });
