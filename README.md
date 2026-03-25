@@ -1421,7 +1421,7 @@ const rpc = createRPC({
 
 function App(this: FC) {
   return (
-    <button onClick={async () => console.log(await this.rpc.whoami())}>Who am I?</button>
+    <button onClick={async () => console.log(await rpc.whoami())}>Who am I?</button>
   )
 }
 
