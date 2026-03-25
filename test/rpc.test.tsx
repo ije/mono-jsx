@@ -8,7 +8,6 @@ import { VERSION } from "../version.ts";
 
 const cookieSecret = "this-is-a-test-cookie-secret";
 const rpcSymbol = Symbol.for("mono.rpc");
-
 const sanitizeFalse = { sanitizeResources: false, sanitizeOps: false };
 
 async function createSignedSessionCookieValue(sessionStore: Record<string, unknown>, secret: string) {
