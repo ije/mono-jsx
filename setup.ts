@@ -59,6 +59,8 @@ async function install() {
   if (globalThis.Deno) {
     await (new Deno.Command("deno", {
       args: ["add", "npm:mono-jsx"],
+      stdout: "inherit",
+      stderr: "inherit",
     })).spawn().status;
   } else {
     let npm = "npm";
@@ -68,7 +70,7 @@ async function install() {
       npm = "pnpm";
     }
     const { spawnSync } = await import("node:child_process");
-    spawnSync(npm, ["add", "mono-jsx"]);
+    spawnSync(npm, ["add", "mono-jsx"], { stdio: "inherit" });
   }
 }
 
@@ -80,18 +82,12 @@ export async function setup() {
   if (globalThis.Deno && await exists("deno.jsonc")) {
     await install();
     console.log("Please add the following options to your deno.jsonc file:");
-    console.log(
-      [
-        `{`,
-        `  "compilerOptions": {`,
-        `    %c"jsx": "react-jsx",`,
-        `    "jsxImportSource": "mono-jsx",%c`,
-        `  }`,
-        `}`,
-      ].join("\n"),
-      "color:green",
-      "",
-    );
+    console.log("{");
+    console.log('  "compilerOptions": {');
+    console.log('    \x1b[32m"jsx": "react-jsx",\x1b[0m');
+    console.log('    \x1b[32m"jsxImportSource": "mono-jsx",\x1b[0m');
+    console.log("  }");
+    console.log("}");
     return;
   }
   let tsConfigFilename = globalThis.Deno ? "deno.json" : "tsconfig.json";
@@ -103,21 +99,21 @@ export async function setup() {
     // ignore
   }
   const compilerOptions = tsConfig.compilerOptions ?? (tsConfig.compilerOptions = {});
-  if (compilerOptions.jsx === "react-jsx" && compilerOptions.jsxImportSource === "mono-jsx") {
-    console.log("%cmono-jsx already setup.", "color:grey");
-    return;
-  }
+  compilerOptions.lib ??= globalThis.Deno ? ["dom", "esnext", "deno.ns"] : ["dom", "esnext"];
+  compilerOptions.jsx = "react-jsx";
+  compilerOptions.jsxImportSource = "mono-jsx";
   if (!globalThis.Deno) {
-    compilerOptions.lib ??= ["dom", "esnext"];
     compilerOptions.module ??= "esnext";
     compilerOptions.moduleResolution ??= "bundler";
     compilerOptions.allowImportingTsExtensions ??= true;
     compilerOptions.noEmit ??= true;
   }
-  compilerOptions.jsx = "react-jsx";
-  compilerOptions.jsxImportSource = "mono-jsx";
   await writeFile(tsConfigFilename, JSON.stringify(tsConfig, null, 2));
-  console.log("✅ mono-jsx setup complete.");
+  console.log("\x1b[32m✅ mono-jsx setup complete.\x1b[0m");
+}
+
+if (import.meta.main) {
+  await setup();
 }
 
 async function exists(path: string) {
