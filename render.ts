@@ -2,13 +2,13 @@ import type { Session } from "./types/mono.d.ts";
 import type { ChildType, ComponentType, VNode } from "./types/jsx.d.ts";
 import type { MaybeModule, RenderOptions, SessionOptions } from "./types/render.d.ts";
 import { customElements } from "./jsx.ts";
-import { COMPONENT, CX, EVENT, FORM, ROUTER, SIGNALS, STYLE, SUSPENSE } from "./runtime/index.ts";
-import { COMPONENT_JS, CX_JS, EVENT_JS, FORM_JS, ROUTER_JS, SIGNALS_JS, STYLE_JS, SUSPENSE_JS } from "./runtime/index.ts";
+import { COMPONENT, CX, EVENT, FORM, ROUTER, RPC, SIGNALS, STYLE, SUSPENSE } from "./runtime/index.ts";
+import { COMPONENT_JS, CX_JS, EVENT_JS, FORM_JS, ROUTER_JS, RPC_JS, SIGNALS_JS, STYLE_JS, SUSPENSE_JS } from "./runtime/index.ts";
 import { RENDER_ATTR, RENDER_SWITCH, RENDER_TOGGLE } from "./runtime/index.ts";
 import { RENDER_ATTR_JS, RENDER_SWITCH_JS, RENDER_TOGGLE_JS } from "./runtime/index.ts";
 import { IdGen, isObject, NullPrototypeObject } from "./runtime/utils.ts";
 import { cx, escapeHTML, hashCode, isFunction, isPlainObject, isString, styleToCSS, toHyphenCase } from "./runtime/utils.ts";
-import { $fragment, $html, $vnode } from "./symbols.ts";
+import { $fragment, $html, $rpc, $vnode } from "./symbols.ts";
 import { VERSION } from "./version.ts";
 
 interface RenderContext {
@@ -95,22 +95,71 @@ const stringify = JSON.stringify;
 const isVNode = (v: unknown): v is VNode => Array.isArray(v) && v.length === 3 && v[2] === $vnode;
 const isReactive = (v: unknown): v is Signal | Compute => v instanceof Signal || v instanceof Compute;
 const isFC = (v: unknown): v is ComponentType => isFunction(v) && v.name.charCodeAt(0) <= /*Z*/ 90;
+const identifierRegex = /^[A-Za-z_$][0-9A-Za-z_$]*$/;
 const escapeCSSText = (str: string): string => str.replace(/[><]/g, (m) => m.charCodeAt(0) === 60 ? "&lt;" : "&gt;");
 const toAttrStringLit = (str: string) => '"' + escapeHTML(str) + '"';
+const errorStringify = (err: unknown) => err instanceof Error ? err.message : String(err);
 
 /** Renders a `<html>` element to a `Response` object. */
-function renderToWebStream(root: VNode, options: RenderOptions): Response {
+function renderToWebStream(root: VNode, options: RenderOptions): Response | Promise<Response> {
   const { routes, components } = options;
   const request: Request & { URL?: URL; params?: Record<string, string> } | undefined = options.request;
   const headers = new Headers();
   const reqHeaders = request?.headers;
-  const compHeader = reqHeaders?.get("x-component");
+  const componentName = reqHeaders?.get("x-component");
   const routeForm = reqHeaders?.has("x-route-form");
+  const rpc = reqHeaders?.has("x-rpc");
+
+  if (rpc) {
+    if (!request || request.method !== "POST") {
+      return new Response(null, { status: 405 });
+    }
+    const rpcIdHeader = reqHeaders?.get("x-rpc-id");
+    if (!rpcIdHeader) {
+      return Response.json({ error: "RPC ID is required" }, { status: 400 });
+    }
+    const rpcId = Number(rpcIdHeader);
+    if (!Number.isInteger(rpcId)) {
+      return Response.json({ error: "RPC ID is invalid" }, { status: 400 });
+    }
+    const { session, context, expose } = options;
+    let rpcTarget: Record<string | symbol, unknown> | undefined;
+    if (expose) {
+      for (const value of Object.values(expose)) {
+        if (isPlainObject(value) && value[$rpc] === rpcId) {
+          rpcTarget = value;
+          break;
+        }
+      }
+    }
+    if (!rpcTarget) {
+      return Response.json({ error: "RPC target not found" }, { status: 404 });
+    }
+    return request.json().then(async (payload) => {
+      const { fn, args } = isObject(payload) ? payload as { fn?: unknown; args?: unknown } : {};
+      if (!isString(fn) || !Array.isArray(args)) {
+        return Response.json({ error: "RPC payload is invalid" }, { status: 400 });
+      }
+      const rpcFunction = rpcTarget[fn];
+      if (!isFunction(rpcFunction)) {
+        return Response.json({ error: "RPC function not found: " + fn }, { status: 404 });
+      }
+      try {
+        const rpcSession = session ? await createSession(request, session) : undefined;
+        const result = await rpcFunction.apply(createRPCThis(request, context, rpcSession), args);
+        return Response.json({ result });
+      } catch (err) {
+        return Response.json({ error: errorStringify(err) }, { status: 500 });
+      }
+    }).catch((err) => {
+      return Response.json({ error: "Failed to parse RPC payload: " + errorStringify(err) }, { status: 400 });
+    });
+  }
 
   let status = options.status;
   let routeFC: MaybeModule<ComponentType<any>> | undefined = request ? Reflect.get(request, "routeFC") : undefined;
-  let component = compHeader
-    ? (compHeader.startsWith("@comp_") ? componentsMap.getById(Number(compHeader.slice(6))) : components?.[compHeader])
+  let component = componentName
+    ? (componentName.startsWith("@comp_") ? componentsMap.getById(Number(componentName.slice(6))) : components?.[componentName])
     : null;
 
   if (request) {
@@ -216,7 +265,7 @@ function renderToWebStream(root: VNode, options: RenderOptions): Response {
       }),
       { headers },
     );
-  } else if (compHeader) {
+  } else if (componentName) {
     return new Response("Component not found: " + component, { status: 404 });
   }
 
@@ -350,6 +399,20 @@ async function render(
         js += "$F(" + id + ",function(...a){return(" + fnStr + ").apply(this,a)});";
       }
       fidGenerator.clear();
+    }
+    if (options.expose) {
+      for (const [key, value] of Object.entries(options.expose)) {
+        if (identifierRegex.test(key)) {
+          if (isPlainObject(value)) {
+            if ($rpc in value) {
+              treeshake(RPC, RPC_JS, true);
+              js += "window." + key + "=$RPC(" + value[$rpc] + "," + stringify(Object.keys(value)) + ");";
+            }
+          }
+        } else {
+          console.warn("[mono-jsx] The key of the `expose` prop is not a valid JavaScript identifier: " + key);
+        }
+      }
     }
     if ((runtimeFlag & COMPONENT) || (runtimeFlag & ROUTER) || (runtimeFlag & FORM)) {
       const { scope, chunk } = flags;
@@ -1247,6 +1310,24 @@ function createThisProxy(rc: RenderContext, scopeId: number): Record<string, unk
     },
   });
   return thisProxy;
+}
+
+function createRPCThis(
+  request: Request,
+  context: Record<string, unknown> | undefined,
+  session: Session | undefined,
+): Record<string, unknown> {
+  const scope = new NullPrototypeObject();
+  Object.assign(scope, { request, context });
+  Object.defineProperty(scope, "session", {
+    get() {
+      if (!session) {
+        throw new TypeError("[mono-jsx] The `session` props in the `<html>` element are required.");
+      }
+      return session;
+    },
+  });
+  return scope;
 }
 
 async function createSession(request: Request, options: SessionOptions): Promise<Session> {

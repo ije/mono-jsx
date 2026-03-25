@@ -11,6 +11,7 @@ mono-jsx is a JSX runtime that renders the `<html>` element to a `Response` obje
 - 💡 Complete Web API TypeScript definitions
 - ⏳ Streaming rendering
 - 🗂️ Built-in router (SPA mode)
+- 📡 Built-in remote procedure call (RPC) API
 - 🔑 Session storage
 - 🥷 [htmx](#using-htmx) integration
 - 🌎 Universal, works in Node.js, Deno, Bun, Cloudflare Workers, etc.
@@ -1295,7 +1296,7 @@ export default {
 
 ## Using Session
 
-mono-jsx provides a built-in session storage that allows you to manage user sessions. To use the session storage, you need to set the `session` prop on the root `<html>` element with the `cookie.secret` option.
+mono-jsx provides a built-in session storage that allows you to manage sessions. To use session storage, you need to set the `session` prop on the root `<html>` element with the `cookie.secret` option.
 
 ```tsx
 function Index(this: FC) {
@@ -1356,28 +1357,96 @@ function Component(this: FC) {
 }
 ```
 
-## Caching
+> [!WARNING]
+> The session storage stores data with cookies. **Therefore, you should never store sensitive data in the session storage.**
 
-mono-jsx renders HTML dynamically per request; large apps may tax your CPU resources. To improve rendering performance, mono-jsx introduces two built-in elements that can cache the rendered HTML of the children:
+## Using RPC
 
-- `<cache>` with specified `key` and `maxAge`
-- `<static>` for elements that rarely change, such as `<svg>`
+mono-jsx provides a built-in RPC API that allows you to call functions on the server from the client side. You can use the `createRPC` function to create a RPC object that contains the functions you want to call on the client side, and then pass it to the `expose` prop on the root `<html>` element.
 
 ```tsx
-function BlogPage() {
+import { createRPC } from "mono-jsx"
+
+const rpc = createRPC({
+  greet: (name: string) => ({ message: `Hello, ${name}!` }),
+})
+
+function App(this: FC<{ message: string }>) {
+  const onClick = async () => {
+    this.message = (await rpc.greet("World")).message
+  }
   return (
-    <cache key="blog" maxAge={86400}>
-      <Blog />
-    </cache>
+    <div>
+      <p>{this.message}</p>
+      <button onClick={onClick}>Click Me</button>
+    </div>
   )
 }
 
-function Icon() {
-  return (
-    <static>
-      <svg>...</svg>
-    </static>
+export default {
+  fetch: (req) => (
+    <html request={req} expose={{ rpc }}>
+      <App />
+    </html>
   )
+}
+```
+
+> [!NOTE]
+> mono-jsx sends the rpc invoke result to the client side as a JSON object.
+
+### Accessing request info in RPC functions
+
+You can access the request info in RPC functions by using the `this` scope:
+
+- `this.request`: The [request](#accessing-request-info) object.
+- `this.context`: The [context](#using-context) object.
+- `this.session`: The [session](#session-storage-api) storage.
+
+```ts
+type Admin = {
+  isAdmin: (id: number) => boolean;
+}
+
+const rpc = createRPC({
+  whoami: function (this: WithContext<RPC, { admin: Admin }>) {
+    const { admin } = this.context;
+    const user =  this.session.get<{ name: string }>("user")
+    return {
+      ip: this.request.headers.get("x-real-ip"),
+      isAdmin: user ? admin.isAdmin(user.id) : false,
+      user: user,
+    }
+  },
+})
+
+function App(this: FC) {
+  return (
+    <button onClick={async () => console.log(await this.rpc.whoami())}>Who am I?</button>
+  )
+}
+
+export default {
+  fetch: (req) => (
+    <html
+      request={req}
+      expose={{ rpc }}
+      session={{ cookie: { secret: "..." } }}
+      context={{ admin: { isAdmin: (id: string) => id === 1 } }}
+    >
+      <App />
+    </html>
+  )
+}
+```
+
+To use `this` in RPC functions, you can't use the arrow function syntax. You need to use the function declaration syntax. And the `RPC` type is defined as follows:
+
+```ts
+type RPC<Context extends Record<string, unknown> = {}> = {
+  request: Request;
+  context: Context;
+  session: Session;
 }
 ```
 

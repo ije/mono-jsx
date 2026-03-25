@@ -81,6 +81,10 @@ export interface RenderOptions extends Partial<HtmxExts> {
    */
   components?: Record<string, MaybeModule<ComponentType<any>>>;
   /**
+   * The functions to be exposed server variables to the client.
+   */
+  expose?: Record<string, unknown>;
+  /**
    * Routes to be used by the `<router>` element.
    */
   routes?: Record<string, MaybeModule<ComponentType<any>>>;
