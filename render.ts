@@ -1322,7 +1322,7 @@ function createRPCThis(
   Object.defineProperty(scope, "session", {
     get() {
       if (!session) {
-        throw new TypeError("[mono-jsx] The `session` props in the `<html>` element are required.");
+        throw new TypeError("[mono-jsx] The `session` prop in the `<html>` element is required.");
       }
       return session;
     },
