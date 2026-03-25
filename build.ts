@@ -116,6 +116,7 @@ if (import.meta.main) {
     "component.js": await buildRuntime("component"),
     "router.js": await buildRuntime("router"),
     "form.js": await buildRuntime("form"),
+    "rpc.js": await buildRuntime("rpc"),
   };
 
   await Deno.writeTextFile(

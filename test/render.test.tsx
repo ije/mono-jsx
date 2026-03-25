@@ -1408,10 +1408,9 @@ Deno.test("[ssr] this.request", async () => {
 
 Deno.test("[ssr] this.context", async () => {
   function App(this: WithContext<FC, { foo: string }>) {
-    const { context } = this;
     return (
       <div>
-        <p>{context.foo}</p>
+        <p>{this.context.foo}</p>
       </div>
     );
   }

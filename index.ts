@@ -28,3 +28,17 @@ export function monoRoutes(
   }
   return handlers;
 }
+
+let rpcIndex = 0;
+
+export function createRPC<V extends Record<string, (...args: any[]) => any>>(
+  rpcFunctions: V,
+): { [K in keyof V]: (...args: Parameters<V[K]>) => Promise<Awaited<ReturnType<V[K]>>> } {
+  for (const [key, value] of Object.entries(rpcFunctions)) {
+    if (typeof value !== "function") {
+      throw new Error(`createRPC: ${key} is not a function`);
+    }
+  }
+  Reflect.set(rpcFunctions, Symbol.for("mono.rpc"), rpcIndex++);
+  return rpcFunctions;
+}

@@ -11,7 +11,8 @@ export const cssIds = new Set<number>();
 export const isString = (v: unknown): v is string => typeof v === "string";
 export const isFunction = (v: unknown): v is Function => typeof v === "function";
 export const isObject = (v: unknown): v is object => typeof v === "object" && v !== null;
-export const isPlainObject = (v: unknown): v is Record<string, unknown> => !!v && (v.constructor === Object || v.constructor === undefined);
+export const isPlainObject = (v: unknown): v is Record<string | symbol, unknown> =>
+  isObject(v) && (v.constructor === Object || v.constructor === undefined);
 export const toHyphenCase = (k: string) => k.replace(/[a-z][A-Z]/g, (m) => m.charAt(0) + "-" + m.charAt(1).toLowerCase());
 
 export class IdGen<T> extends Map<T, number> {

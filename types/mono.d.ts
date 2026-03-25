@@ -195,19 +195,19 @@ declare global {
      */
     readonly app: {
       /**
-       * The `app.refs` object stores variables in the application scope.
+       * The `app.refs` stores variables in the application scope.
        * It is similar to `refs`, but it is shared across all components in the application.
        *
        * **⚠ This is a client-side only API.**
        */
       readonly refs: Record<string, HTMLElement>;
       /**
-       * The `app.url` object contains the current URL.
+       * The `app.url` represents the current URL.
        */
       readonly url: WithParams<URL>;
     };
     /**
-     * The `request` object contains the current request.
+     * The `request` represents the current request.
      *
      * **⚠ This is a server-side only API.**
      */
@@ -220,7 +220,13 @@ declare global {
       }
     >;
     /**
-     * The `session` object contains the current session.
+     * The `context` represents the current context.
+     *
+     * **⚠ This is a server-side only API.**
+     */
+    readonly context: Record<string, unknown>;
+    /**
+     * The `session` represents the current session.
      *
      * **⚠ This is a server-side only API.**
      */
@@ -228,22 +234,47 @@ declare global {
   }
 
   /**
+   * The `RPC` represents the current RPC request context.
+   */
+  interface RPC<Context extends Record<string, unknown> = {}> {
+    /**
+     * The `request` represents the current request.
+     *
+     * **⚠ This is a server-side only API.**
+     */
+    request: Request;
+    /**
+     * The `context` represents the current context.
+     *
+     * **⚠ This is a server-side only API.**
+     */
+    context: Context;
+    /**
+     * The `session` represents the current session.
+     *
+     * **⚠ This is a server-side only API.**
+     */
+    session: Session;
+  }
+
+  /**
    * Defines the `this.app` type.
    */
-  type WithAppSignals<T, AppSignals = {}, AppRefs = Record<string, HTMLElement>> = T extends FC<infer S, infer R> ? FC<S, R> & {
+  type WithAppSignals<T, AppSignals = {}, AppRefs extends Record<string, HTMLElement> = Record<string, HTMLElement>> = T extends
+    FC<infer S, infer R> ? FC<S, R> & {
       /**
        * The global signals shared across the application.
        */
       readonly app: {
         /**
-         * The `app.refs` object stores variables in the application scope.
+         * The `app.refs` stores variables in the application scope.
          * It is similar to `refs`, but it is shared across all components in the application.
          *
          * **⚠ This is a client-side only API.**
          */
         readonly refs: AppRefs;
         /**
-         * The `app.url` object contains the current URL.
+         * The `app.url` represents the current URL.
          */
         readonly url: WithParams<URL>;
       } & Omit<AppSignals, "refs" | "url">;
@@ -253,7 +284,7 @@ declare global {
   /**
    * Defines the `this.context` type.
    */
-  type WithContext<T, Context = {}> = T extends FC<infer S, infer R> ? FC<S, R> & {
+  type WithContext<T, Context extends Record<string, unknown>> = T extends FC<infer S, infer R> ? FC<S, R> & {
       /**
        * The rendering context object.
        *
@@ -261,6 +292,9 @@ declare global {
        */
       readonly context: Context;
     }
+    : T extends RPC ? RPC & {
+        readonly context: Context;
+      }
     : never;
 }
 
