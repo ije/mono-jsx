@@ -266,7 +266,7 @@ function renderToWebStream(root: VNode, options: RenderOptions): Response | Prom
       { headers },
     );
   } else if (componentName) {
-    return new Response("Component not found: " + component, { status: 404 });
+    return new Response("Component not found: " + componentName, { status: 404 });
   }
 
   headers.set("content-type", "text/html; charset=utf-8");
