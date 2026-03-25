@@ -1318,7 +1318,7 @@ function createRPCThis(
   session: Session | undefined,
 ): Record<string, unknown> {
   const scope = new NullPrototypeObject();
-  Object.assign(scope, { request, context });
+  Object.assign(scope, { request, context: context ?? {} });
   Object.defineProperty(scope, "session", {
     get() {
       if (!session) {
