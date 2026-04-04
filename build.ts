@@ -119,6 +119,8 @@ if (import.meta.main) {
     "rpc.js": await buildRuntime("rpc"),
   };
 
+  await Deno.writeTextFile("./version.ts", `export const VERSION = "${pkgJson.version}";` + eol);
+
   await Deno.writeTextFile(
     "./runtime/index.ts",
     [
@@ -144,10 +146,8 @@ if (import.meta.main) {
     console.log(`· ${moduleName}.mjs %c(${formatBytes(size)}, ${formatBytes(gzippedSize)} gzipped)`, "color:grey");
   }
 
-  await Deno.writeTextFile("./version.ts", `export const VERSION = "${pkgJson.version}";` + eol);
-
   await Deno.mkdir("./bin", { recursive: true });
-  Deno.writeTextFile("./bin/mono-jsx", binJS, { mode: 0o755 });
+  await Deno.writeTextFile("./bin/mono-jsx", binJS, { mode: 0o755 });
 
   console.log("%cBuild complete! (%d ms)", "color:grey", performance.now() - start);
   stop();
