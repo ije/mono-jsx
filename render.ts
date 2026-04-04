@@ -845,7 +845,7 @@ async function renderNode(rc: RenderContext, node: ChildType, stripSlotProp?: bo
                     break;
                   case "route":
                     if (tag === "form") {
-                      buffer += ' onsubmit="$onrfs(event)"';
+                      buffer += ' onsubmit="$onRFS(event)"';
                       rc.flags.runtime |= FORM;
                       break;
                     }

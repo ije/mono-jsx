@@ -1,5 +1,5 @@
 declare global {
-  var $onrfs: (event: SubmitEvent) => Promise<void>;
+  var $onRFS: (event: SubmitEvent) => Promise<void>;
 }
 
 const document = window.document;
@@ -32,7 +32,7 @@ customElements.define(
   },
 );
 
-window.$onrfs = async (e) => {
+window.$onRFS = async (e) => {
   e.preventDefault();
   const formEl = e.target as HTMLFormElement;
   if (!formEl.checkValidity()) {
