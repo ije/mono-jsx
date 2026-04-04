@@ -1402,7 +1402,7 @@ You can access the request info in RPC functions by using the `this` scope:
 - `this.context`: The [context](#using-context) object.
 - `this.session`: The [session](#session-storage-api) storage.
 
-```ts
+```tsx
 type Admin = {
   isAdmin: (id: number) => boolean;
 }
