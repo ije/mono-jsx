@@ -190,7 +190,7 @@ Deno.test.afterAll(async () => {
   await browser.close();
 });
 
-Deno.test("[ssr-runtime] async component", sanitizeFalse, async () => {
+Deno.test("[runtime] async component", sanitizeFalse, async () => {
   const Blah = () => Promise.resolve(<h2>Building User Interfaces.</h2>);
   const Sleep = async ({ ms }: { ms: number }) => {
     await new Promise((resolve) => setTimeout(resolve, ms));
@@ -226,7 +226,7 @@ Deno.test("[ssr-runtime] async component", sanitizeFalse, async () => {
   await page.close();
 });
 
-Deno.test("[ssr-runtime] async generator component", sanitizeFalse, async () => {
+Deno.test("[runtime] async generator component", sanitizeFalse, async () => {
   const words = ["Welcome", " ", "to", " ", "mono-jsx", "!"];
 
   async function* Words() {
@@ -254,7 +254,7 @@ Deno.test("[ssr-runtime] async generator component", sanitizeFalse, async () => 
   await page.close();
 });
 
-Deno.test("[ssr-runtime] signals(text)", sanitizeFalse, async () => {
+Deno.test("[runtime] signals(text)", sanitizeFalse, async () => {
   function Hello(this: FC<{ text: string }>, props: { text: string }) {
     this.text = props.text;
     return (
@@ -284,7 +284,7 @@ Deno.test("[ssr-runtime] signals(text)", sanitizeFalse, async () => {
   await page.close();
 });
 
-Deno.test("[ssr-runtime] signals(number)", sanitizeFalse, async () => {
+Deno.test("[runtime] signals(number)", sanitizeFalse, async () => {
   function Counter(this: FC<{ count: number }>, props: { initialValue: number }) {
     this.count = props.initialValue;
     return (
@@ -322,7 +322,7 @@ Deno.test("[ssr-runtime] signals(number)", sanitizeFalse, async () => {
   await page.close();
 });
 
-Deno.test("[ssr-runtime] signals(boolean)", sanitizeFalse, async () => {
+Deno.test("[runtime] signals(boolean)", sanitizeFalse, async () => {
   function App(this: FC<{ disable: boolean }>) {
     this.disable = false;
     return (
@@ -354,7 +354,7 @@ Deno.test("[ssr-runtime] signals(boolean)", sanitizeFalse, async () => {
   await page.close();
 });
 
-Deno.test("[ssr-runtime] app signals", sanitizeFalse, async () => {
+Deno.test("[runtime] app signals", sanitizeFalse, async () => {
   function Display(this: WithAppSignals<FC, { count: number }>, props: { bold?: boolean }) {
     if (props.bold) {
       return <strong>{this.app.count}</strong>;
@@ -407,7 +407,7 @@ Deno.test("[ssr-runtime] app signals", sanitizeFalse, async () => {
   await page.close();
 });
 
-Deno.test("[ssr-runtime] computed signals", sanitizeFalse, async () => {
+Deno.test("[runtime] computed signals", sanitizeFalse, async () => {
   function Counter(this: WithAppSignals<FC<{ count: number }>, { count: number }>) {
     this.count = 0;
     return (
@@ -445,7 +445,7 @@ Deno.test("[ssr-runtime] computed signals", sanitizeFalse, async () => {
   await page.close();
 });
 
-Deno.test("[ssr-runtime] computed registration order ($C before $F)", sanitizeFalse, async () => {
+Deno.test("[runtime] computed registration order ($C before $F)", sanitizeFalse, async () => {
   function App(this: FC<{ count: number }>) {
     this.count = 0;
     return (
@@ -491,7 +491,7 @@ Deno.test("[ssr-runtime] computed registration order ($C before $F)", sanitizeFa
   await page.close();
 });
 
-Deno.test("[ssr-runtime] computed class name", sanitizeFalse, async () => {
+Deno.test("[runtime] computed class name", sanitizeFalse, async () => {
   function App(this: FC<{ foo: string; bar: string }>) {
     this.foo = "foo";
     this.bar = "bar";
@@ -520,7 +520,7 @@ Deno.test("[ssr-runtime] computed class name", sanitizeFalse, async () => {
   await page.close();
 });
 
-Deno.test("[ssr-runtime] computed style", sanitizeFalse, async () => {
+Deno.test("[runtime] computed style", sanitizeFalse, async () => {
   function App(this: FC<{ color: string }>) {
     this.color = "blue";
     return (
@@ -548,7 +548,7 @@ Deno.test("[ssr-runtime] computed style", sanitizeFalse, async () => {
   await page.close();
 });
 
-Deno.test("[ssr-runtime] computed nesting style", sanitizeFalse, async () => {
+Deno.test("[runtime] computed nesting style", sanitizeFalse, async () => {
   function App(this: FC<{ color: string }>) {
     this.color = "blue";
     return (
@@ -578,7 +578,7 @@ Deno.test("[ssr-runtime] computed nesting style", sanitizeFalse, async () => {
   await page.close();
 });
 
-Deno.test("[ssr-runtime] effect", sanitizeFalse, async () => {
+Deno.test("[runtime] effect", sanitizeFalse, async () => {
   function Effect(this: WithAppSignals<FC<{ count: number }>, { themeColor: string }>) {
     this.count = 0;
 
@@ -676,7 +676,7 @@ Deno.test("[ssr-runtime] effect", sanitizeFalse, async () => {
   await page.close();
 });
 
-Deno.test("[ssr-runtime] $value", sanitizeFalse, async () => {
+Deno.test("[runtime] $value", sanitizeFalse, async () => {
   function App(this: FC<{ value: string }>) {
     this.value = "";
     return (
@@ -715,7 +715,7 @@ Deno.test("[ssr-runtime] $value", sanitizeFalse, async () => {
   await page.close();
 });
 
-Deno.test("[ssr-runtime] $checked", sanitizeFalse, async () => {
+Deno.test("[runtime] $checked", sanitizeFalse, async () => {
   function App(this: FC<{ checked: boolean }>) {
     this.checked = false;
     return (
@@ -754,7 +754,7 @@ Deno.test("[ssr-runtime] $checked", sanitizeFalse, async () => {
   await page.close();
 });
 
-Deno.test("[ssr-runtime] <show>", sanitizeFalse, async () => {
+Deno.test("[runtime] <show>", sanitizeFalse, async () => {
   function Toggle(this: FC<{ show: boolean }>) {
     this.show = false;
     return (
@@ -791,7 +791,7 @@ Deno.test("[ssr-runtime] <show>", sanitizeFalse, async () => {
   await page.close();
 });
 
-Deno.test("[ssr-runtime] <hidden>", sanitizeFalse, async () => {
+Deno.test("[runtime] <hidden>", sanitizeFalse, async () => {
   function Hidden(this: FC<{ hidden: boolean }>) {
     this.hidden = true;
     return (
@@ -828,7 +828,7 @@ Deno.test("[ssr-runtime] <hidden>", sanitizeFalse, async () => {
   await page.close();
 });
 
-Deno.test("[ssr-runtime] <switch>", sanitizeFalse, async () => {
+Deno.test("[runtime] <switch>", sanitizeFalse, async () => {
   function Switch(this: FC<{ lang: string }>) {
     this.lang = "emoji";
     return (
@@ -882,7 +882,7 @@ Deno.test("[ssr-runtime] <switch>", sanitizeFalse, async () => {
   await page.close();
 });
 
-Deno.test("[ssr-runtime] <component>", sanitizeFalse, async () => {
+Deno.test("[runtime] <component>", sanitizeFalse, async () => {
   function App(this: FC<{ show: boolean }>) {
     this.show = false;
     return (
@@ -904,7 +904,7 @@ Deno.test("[ssr-runtime] <component>", sanitizeFalse, async () => {
   await page.close();
 });
 
-Deno.test("[ssr-runtime] <component is>", sanitizeFalse, async () => {
+Deno.test("[runtime] <component is>", sanitizeFalse, async () => {
   function Greeting(props: { message: string }) {
     return <h1>{props.message}!</h1>;
   }
@@ -930,7 +930,7 @@ Deno.test("[ssr-runtime] <component is>", sanitizeFalse, async () => {
   await page.close();
 });
 
-Deno.test("[ssr-runtime] <component> controled by <toggle>", sanitizeFalse, async () => {
+Deno.test("[runtime] <component> controled by <toggle>", sanitizeFalse, async () => {
   function App(this: FC<{ show: boolean }>) {
     this.show = false;
     return (
@@ -965,7 +965,7 @@ Deno.test("[ssr-runtime] <component> controled by <toggle>", sanitizeFalse, asyn
   await page.close();
 });
 
-Deno.test("[ssr-runtime] <component> with signal name/props", sanitizeFalse, async () => {
+Deno.test("[runtime] <component> with signal name/props", sanitizeFalse, async () => {
   function App(this: FC<{ tab: "a" | "b" | "c" }>) {
     this.tab = "a";
     return (
@@ -1013,7 +1013,7 @@ Deno.test("[ssr-runtime] <component> with signal name/props", sanitizeFalse, asy
   await page.close();
 });
 
-Deno.test("[ssr-runtime] <component> ref", sanitizeFalse, async () => {
+Deno.test("[runtime] <component> ref", sanitizeFalse, async () => {
   function App(this: WithRefs<FC, { comp: ComponentElement }>) {
     return (
       <div>
@@ -1064,7 +1064,7 @@ Deno.test("[ssr-runtime] <component> ref", sanitizeFalse, async () => {
   await page.close();
 });
 
-Deno.test("[ssr-runtime] <router>", sanitizeFalse, async () => {
+Deno.test("[runtime] <router>", sanitizeFalse, async () => {
   function App(this: FC) {
     return (
       <>
@@ -1167,7 +1167,7 @@ Deno.test("[ssr-runtime] <router>", sanitizeFalse, async () => {
   await page.close();
 });
 
-Deno.test("[ssr-runtime] <router> ignores hash-only history changes", sanitizeFalse, async () => {
+Deno.test("[runtime] <router> ignores hash-only history changes", sanitizeFalse, async () => {
   function App(this: FC) {
     return (
       <>
@@ -1246,7 +1246,7 @@ Deno.test("[ssr-runtime] <router> ignores hash-only history changes", sanitizeFa
   await page.close();
 });
 
-Deno.test("[ssr-runtime] route form", sanitizeFalse, async () => {
+Deno.test("[runtime] route form", sanitizeFalse, async () => {
   const testUrl = addTestPage(
     <>
       <nav>
@@ -1320,7 +1320,7 @@ Deno.test("[ssr-runtime] route form", sanitizeFalse, async () => {
   await page.close();
 });
 
-Deno.test("[ssr-runtime] <formslot> with `onUpdate` callback", sanitizeFalse, async () => {
+Deno.test("[runtime] <formslot> with `onUpdate` callback", sanitizeFalse, async () => {
   function App(this: FC<{ message: string }>) {
     this.message = "";
     return (
@@ -1370,7 +1370,7 @@ Deno.test("[ssr-runtime] <formslot> with `onUpdate` callback", sanitizeFalse, as
   await page.close();
 });
 
-Deno.test("[ssr-runtime] <form> action callback", sanitizeFalse, async () => {
+Deno.test("[runtime] <form> action callback", sanitizeFalse, async () => {
   const testUrl = addTestPage(
     <>
       <p></p>
@@ -1402,7 +1402,7 @@ Deno.test("[ssr-runtime] <form> action callback", sanitizeFalse, async () => {
   await page.close();
 });
 
-Deno.test("[ssr-runtime] refs", sanitizeFalse, async (t) => {
+Deno.test("[runtime] refs", sanitizeFalse, async (t) => {
   await t.step("without types", async () => {
     function App(this: FC) {
       this.effect(() => {
@@ -1462,7 +1462,7 @@ Deno.test("[ssr-runtime] refs", sanitizeFalse, async (t) => {
   });
 });
 
-Deno.test("[ssr-runtime] ref callback", sanitizeFalse, async () => {
+Deno.test("[runtime] ref callback", sanitizeFalse, async () => {
   function App(this: FC) {
     return (
       <div
@@ -1484,7 +1484,7 @@ Deno.test("[ssr-runtime] ref callback", sanitizeFalse, async () => {
   await page.close();
 });
 
-Deno.test("[ssr-runtime] set session cookie", sanitizeFalse, async () => {
+Deno.test("[runtime] set session cookie", sanitizeFalse, async () => {
   function Login(this: FC) {
     this.session.set("user", "@ije");
     return <p>Logged in</p>;
@@ -1556,7 +1556,7 @@ Deno.test("[ssr-runtime] set session cookie", sanitizeFalse, async () => {
   await page.close();
 });
 
-Deno.test("[ssr-runtime] set session cookie (SPA)", sanitizeFalse, async () => {
+Deno.test("[runtime] set session cookie (SPA)", sanitizeFalse, async () => {
   function App(this: FC) {
     return (
       <router>
@@ -1600,7 +1600,7 @@ Deno.test("[ssr-runtime] set session cookie (SPA)", sanitizeFalse, async () => {
   await page.close();
 });
 
-Deno.test("[ssr-runtime] htmx integration", { ...sanitizeFalse, ignore: false }, async () => {
+Deno.test("[runtime] htmx integration", { ...sanitizeFalse, ignore: false }, async () => {
   const testUrl = addTestPage(
     <button type="button" hx-post="/clicked" hx-swap="outerHTML">
       Click Me
