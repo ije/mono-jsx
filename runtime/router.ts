@@ -61,8 +61,13 @@ customElements.define(
     }
 
     async #load(href: string, options?: { replace?: boolean }) {
-      this.#currentRoute = getRouteKey(new URL(href, loc.href));
+      const url = new URL(href, loc.href);
+      this.#currentRoute = getRouteKey(url);
       const p = this.#fetchPage(href).then(ret => {
+        if (typeof $signals !== "undefined") {
+          // update app.url signal
+          $signals(0).url = url;
+        }
         if (ret) {
           const [html, js] = ret;
           this.#cache.set(href, html);
@@ -71,10 +76,6 @@ customElements.define(
         } else {
           this.#cache.delete(href);
           this.#setContent(this.#fallback ?? []);
-          if (typeof $signals !== "undefined") {
-            // update app.url signal when page not found
-            $signals(0).url = new URL(href);
-          }
         }
       });
       // use cached page and refetch the page in the background

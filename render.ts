@@ -362,7 +362,7 @@ async function render(
       const url = "new URL(" + stringify(request.url) + ")";
       const urlWithParams = params ? "Object.assign(" + url + "," + stringify(params) + ")" : url;
       if (componentMode) {
-        if (!routeForm) {
+        if (!routeForm && params) {
           js += "$signals(0).url=" + urlWithParams + ";";
         }
       } else {
