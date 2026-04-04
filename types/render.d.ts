@@ -1,6 +1,5 @@
 /// <reference path="./htmx.d.ts" />
 
-import { inflate } from "node:zlib";
 import type { ComponentType } from "./jsx.d.ts";
 
 export type MaybeModule<T> = T | Promise<{ default: T; FormHandler?: Function }>;
