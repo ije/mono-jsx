@@ -760,6 +760,7 @@ async function renderNode(rc: RenderContext, node: ChildType, stripSlotProp?: bo
                   rc.write(buf);
                 }
               } else {
+                console.warn("[mono-jsx] <" + tag + "> The `key` prop is required for caching.");
                 await renderChildren(rc, children, true);
               }
             }
