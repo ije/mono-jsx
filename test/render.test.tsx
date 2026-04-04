@@ -1541,7 +1541,7 @@ Deno.test("[ssr] <cache>", async () => {
     [
       `<!DOCTYPE html>`,
       `<html lang="en"><body>`,
-      `<!-- cache-hit -->`,
+      `<!-- cache(hit) -->`,
       `<h1>👋</h1>`,
       `<!-- /cache -->`,
       `</body></html>`,
@@ -1577,11 +1577,11 @@ Deno.test("[ssr] <static>", async () => {
     [
       `<!DOCTYPE html>`,
       `<html lang="en"><body>`,
-      `<!-- cache-hit -->`,
+      `<!-- static(cache-hit) -->`,
       `<svg>`,
       `<circle cx="10" cy="10" r="10" />`,
       `</svg>`,
-      `<!-- /cache -->`,
+      `<!-- /static -->`,
       `</body></html>`,
     ].join(""),
   );
