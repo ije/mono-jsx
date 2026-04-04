@@ -1,5 +1,6 @@
 /// <reference path="./htmx.d.ts" />
 
+import { inflate } from "node:zlib";
 import type { ComponentType } from "./jsx.d.ts";
 
 export type MaybeModule<T> = T | Promise<{ default: T; FormHandler?: Function }>;
@@ -61,7 +62,7 @@ export type SessionOptions = {
    * The cookie options to be used by the session.
    */
   cookie?: CookieOptions;
-  // TODO: add session store options
+  // TODO: add session storage options
 };
 
 /**

@@ -426,7 +426,7 @@ async function render(
         if ((Object.keys(sessionStore)).length > 0) {
           const data = JSON.stringify([
             sessionStore,
-            Math.floor((expires ? expires.getTime() : Date.now() + (maxAge ?? 1800_000)) / 1000),
+            Math.floor((expires ? expires.getTime() : Date.now() + (maxAge ?? 1800) * 1000) / 1000),
           ]);
           const signature = await subtle.sign(
             "HMAC",
