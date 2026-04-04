@@ -167,6 +167,10 @@ export interface Session {
    */
   readonly isDirty: boolean;
   /**
+   * If true, the session is expired.
+   */
+  readonly isExpired: boolean;
+  /**
    * Gets a value from the session.
    */
   get<T = unknown>(key: string): T | undefined;

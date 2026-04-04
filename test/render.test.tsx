@@ -1518,6 +1518,70 @@ Deno.test("[ssr] this.session", async () => {
   );
 });
 
+Deno.test("[ssr] session.isExpired", async () => {
+  const secret = "secret";
+  async function signSessionCookie(map: Record<string, unknown>, expUnixSeconds: number) {
+    const data = JSON.stringify([map, expUnixSeconds]);
+    const encoder = new TextEncoder();
+    const signature = await crypto.subtle.sign(
+      "HMAC",
+      await crypto.subtle.importKey("raw", encoder.encode(secret), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]),
+      encoder.encode(data),
+    );
+    return "session=" + btoa(data) + "." + btoa(String.fromCharCode(...new Uint8Array(signature)));
+  }
+  function App(this: FC) {
+    const user = this.session.get("user");
+    return (
+      <div>
+        {this.session.isExpired ? "expired" : "ok"}|{user === undefined ? "" : String(user)}
+      </div>
+    );
+  }
+  const validCookie = await signSessionCookie({ user: "@ije" }, Math.floor(Date.now() / 1000) + 3600);
+  const expiredCookie = await signSessionCookie({ user: "@ije" }, Math.floor(Date.now() / 1000) - 3600);
+  const opts = { session: { cookie: { secret } } };
+  assertEquals(
+    await renderToString(<App />, { ...opts, request: new Request("https://example.com") }),
+    [
+      `<!DOCTYPE html>`,
+      `<html lang="en"><body>`,
+      `<div>`,
+      `ok|`,
+      `</div>`,
+      `</body></html>`,
+    ].join(""),
+  );
+  assertEquals(
+    await renderToString(<App />, {
+      ...opts,
+      request: new Request("https://example.com", { headers: { cookie: validCookie } }),
+    }),
+    [
+      `<!DOCTYPE html>`,
+      `<html lang="en"><body>`,
+      `<div>`,
+      `ok|@ije`,
+      `</div>`,
+      `</body></html>`,
+    ].join(""),
+  );
+  assertEquals(
+    await renderToString(<App />, {
+      ...opts,
+      request: new Request("https://example.com", { headers: { cookie: expiredCookie } }),
+    }),
+    [
+      `<!DOCTYPE html>`,
+      `<html lang="en"><body>`,
+      `<div>`,
+      `expired|`,
+      `</div>`,
+      `</body></html>`,
+    ].join(""),
+  );
+});
+
 Deno.test("[ssr] <cache>", async () => {
   assertEquals(
     await renderToString(

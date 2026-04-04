@@ -1343,17 +1343,39 @@ export default {
 ### Session Storage API
 
 ```ts
-function Component(this: FC) {
-  // set a value in the session
-  this.session.set("user", { name: "John" })
-  // get a value from the session
-  this.session.get<{ name: string }>("user") // { name: "John" }
-  // get all entries from the session
-  this.session.entries() // [["user", { name: "John" }]]
-  // delete a value from the session
-  this.session.delete("user")
-  // destroy the session
-  this.session.destroy()
+export interface Session {
+  /**
+   * The session ID.
+   */
+  readonly sessionId: string;
+  /**
+   * If true, update the session cookie to the client.
+   */
+  readonly isDirty: boolean;
+  /**
+   * If true, the session is expired.
+   */
+  readonly isExpired: boolean;
+  /**
+   * Gets a value from the session.
+   */
+  get<T = unknown>(key: string): T | undefined;
+  /**
+   * Gets all the entries from the session.
+   */
+  all(): Record<string, unknown>;
+  /**
+   * Sets a value in the session.
+   */
+  set(key: string, value: string | number | boolean | any[] | Record<string, unknown>): void;
+  /**
+   * Deletes a value from the session.
+   */
+  delete(key: string): void;
+  /**
+   * Destroys the session.
+   */
+  destroy(): void;
 }
 ```
 

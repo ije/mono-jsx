@@ -1335,12 +1335,16 @@ async function createSession(request: Request, options: SessionOptions): Promise
   let sessionId: string | undefined;
   let sessionStore = new Map<string, any>();
   let isDirty = false;
+  let isExpired = false;
   let session: Session = {
     get sessionId() {
       return sessionId ?? "";
     },
     get isDirty() {
       return isDirty;
+    },
+    get isExpired() {
+      return isExpired;
     },
     get: (key) => sessionStore.get(key),
     all: () => Object.fromEntries(sessionStore.entries()),
@@ -1378,8 +1382,12 @@ async function createSession(request: Request, options: SessionOptions): Promise
         );
         if (verified) {
           const [map, exp] = JSON.parse(data);
-          if (typeof exp === "number" && exp * 1000 > Date.now()) {
-            sessionStore = new Map(Object.entries(map));
+          if (typeof exp === "number") {
+            if (exp * 1000 > Date.now()) {
+              sessionStore = new Map(Object.entries(map));
+            } else {
+              isExpired = true;
+            }
             sessionId = sid;
           }
         }

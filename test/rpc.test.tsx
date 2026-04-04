@@ -10,8 +10,12 @@ const cookieSecret = "this-is-a-test-cookie-secret";
 const rpcSymbol = Symbol.for("mono.rpc");
 const sanitizeFalse = { sanitizeResources: false, sanitizeOps: false };
 
-async function createSignedSessionCookieValue(sessionStore: Record<string, unknown>, secret: string) {
-  const data = JSON.stringify([sessionStore, Math.floor(Date.now() / 1000) + 1800]);
+async function createSignedSessionCookieValue(
+  sessionStore: Record<string, unknown>,
+  secret: string,
+  expUnixSeconds: number = Math.floor(Date.now() / 1000) + 1800,
+) {
+  const data = JSON.stringify([sessionStore, expUnixSeconds]);
   const encoder = new TextEncoder();
   const signature = await crypto.subtle.sign(
     { name: "HMAC", hash: "SHA-256" },
@@ -92,6 +96,36 @@ Deno.test("[rpc] handles rpc requests with context and session", async () => {
   assertEquals(res.status, 200);
   assertEquals(res.headers.get("content-type"), "application/json");
   assertEquals(await res.json(), { result: "Hello, @ije" });
+});
+
+Deno.test("[rpc] session.isExpired when cookie TTL has passed", async () => {
+  const rpc = createRPC({
+    expired: function(this: RPC) {
+      return this.session.isExpired;
+    },
+  });
+  const rpcId = Reflect.get(rpc, rpcSymbol);
+  const expiredSession = await createSignedSessionCookieValue(
+    { user: { name: "@ije" } },
+    cookieSecret,
+    Math.floor(Date.now() / 1000) - 60,
+  );
+  const res = await render(<div />, {
+    expose: { rpc },
+    request: new Request("https://example.com", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        "cookie": `session=${expiredSession}`,
+        "x-rpc": "true",
+        "x-rpc-id": String(rpcId),
+      },
+      body: JSON.stringify({ fn: "expired", args: [] }),
+    }),
+    session: { cookie: { secret: cookieSecret } },
+  });
+  assertEquals(res.status, 200);
+  assertEquals(await res.json(), { result: true });
 });
 
 Deno.test("[rpc] validates rpc request metadata and serializes failures", async () => {
