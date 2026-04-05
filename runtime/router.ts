@@ -63,7 +63,11 @@ customElements.define(
     async #load(href: string, options?: { replace?: boolean }) {
       const url = new URL(href, loc.href);
       this.#currentRoute = getRouteKey(url);
-      const p = this.#fetchPage(href).then(ret => {
+      let JS: string | undefined;
+      if (this.#cache.has(href)) {
+        this.#setContent(this.#cache.get(href)!);
+      } else {
+        const ret = await this.#fetchPage(href);
         if (typeof $signals !== "undefined") {
           // update app.url signal
           $signals(0).url = url;
@@ -72,27 +76,19 @@ customElements.define(
           const [html, js] = ret;
           this.#cache.set(href, html);
           this.#setContent(html);
-          return js;
+          JS = js;
         } else {
           this.#cache.delete(href);
           this.#setContent(this.#fallback ?? []);
         }
-      });
-      // use cached page and refetch the page in the background
-      if (this.#cache.has(href)) {
-        this.#setContent(this.#cache.get(href)!);
-      } else {
-        await p;
       }
       history[options?.replace ? "replaceState" : "pushState"]({}, "", href);
       this.#updateNavLinks();
       // scroll to the top of the page after navigation
       window.scrollTo(0, 0);
-      p.then(js => {
-        if (js) {
-          doc.body.appendChild(doc.createElement("script")).textContent = js;
-        }
-      });
+      if (JS) {
+        doc.body.appendChild(doc.createElement("script")).textContent = JS;
+      }
     }
 
     navigate(href: string, options?: { replace?: boolean }) {
