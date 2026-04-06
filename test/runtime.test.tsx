@@ -52,6 +52,26 @@ Deno.test.beforeAll(async () => {
     }
     Logout.dynamic = true;
 
+    function MetaHome(this: FC) {
+      return <h1 class="meta-home">Meta Home</h1>;
+    }
+    MetaHome.metadata = {
+      title: "Meta Home Title",
+      description: "Meta home description",
+    };
+
+    function MetaPost(this: FC) {
+      return <h1 class="meta-post">Post: {this.request.params!.slug}</h1>;
+    }
+    MetaPost.getMetadata = async function(this: FC) {
+      const slug = this.request.params!.slug;
+      await Promise.resolve();
+      return {
+        title: `Post ${slug}`,
+        description: `Description for ${slug}`,
+      };
+    };
+
     function Dash(this: FC) {
       const user = this.session.get<string>("user");
       if (!user) {
@@ -73,6 +93,10 @@ Deno.test.beforeAll(async () => {
     return (
       <html
         request={request}
+        metadata={{
+          description: "Global default description",
+          sitewide: "MonoTestSite",
+        }}
         app={{
           count: 0,
           themeColor: "",
@@ -108,6 +132,8 @@ Deno.test.beforeAll(async () => {
           "/dash": Dash,
           "/login": Login,
           "/logout": Logout,
+          "/meta": MetaHome,
+          "/meta/post/:slug": MetaPost,
           "/chat": (() => {
             function Chat(this: FC) {
               return (
@@ -146,6 +172,7 @@ Deno.test.beforeAll(async () => {
       >
         <head>
           <title>Test</title>
+          <metadata />
         </head>
         <body>
           {testRoutes.get(url.pathname) ?? (
@@ -1172,6 +1199,56 @@ Deno.test("[runtime] <router>", sanitizeFalse, async () => {
   em = await page.$("em");
   assert(em);
   assertEquals(await em.evaluate((el: HTMLElement) => el.textContent), "http://localhost:8687/e404");
+
+  await page.close();
+});
+
+Deno.test("[runtime] route metadata and getMetadata", sanitizeFalse, async () => {
+  const page = await browser.newPage();
+
+  const titleTexts = () => page.evaluate(() => [...document.querySelectorAll("title")].map((t) => t.textContent));
+
+  await page.goto("http://localhost:8687/meta");
+  assertEquals(await titleTexts(), ["Test", "Meta Home Title"]);
+  const metaHomeDesc = await page.$eval('meta[name="description"]', (el: HTMLMetaElement) => el.content);
+  assertEquals(metaHomeDesc, "Meta home description");
+  const h1Home = await page.$("h1.meta-home");
+  assert(h1Home);
+  assertEquals(await h1Home.evaluate((el: HTMLElement) => el.textContent), "Meta Home");
+
+  await page.goto("http://localhost:8687/meta/post/hello-world");
+  assertEquals(await titleTexts(), ["Test", "Post hello-world"]);
+  const metaPostDesc = await page.$eval('meta[name="description"]', (el: HTMLMetaElement) => el.content);
+  assertEquals(metaPostDesc, "Description for hello-world");
+  const h1Post = await page.$("h1.meta-post");
+  assert(h1Post);
+  assertEquals(await h1Post.evaluate((el: HTMLElement) => el.textContent), "Post: hello-world");
+
+  await page.close();
+});
+
+Deno.test("[runtime] global metadata and merge with route", sanitizeFalse, async () => {
+  const page = await browser.newPage();
+
+  await page.goto("http://localhost:8687/about");
+  assertEquals(
+    await page.$eval('meta[name="description"]', (el: HTMLMetaElement) => el.content),
+    "Global default description",
+  );
+  assertEquals(
+    await page.$eval('meta[name="sitewide"]', (el: HTMLMetaElement) => el.content),
+    "MonoTestSite",
+  );
+
+  await page.goto("http://localhost:8687/meta");
+  assertEquals(
+    await page.$eval('meta[name="description"]', (el: HTMLMetaElement) => el.content),
+    "Meta home description",
+  );
+  assertEquals(
+    await page.$eval('meta[name="sitewide"]', (el: HTMLMetaElement) => el.content),
+    "MonoTestSite",
+  );
 
   await page.close();
 });

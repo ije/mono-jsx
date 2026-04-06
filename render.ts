@@ -56,6 +56,7 @@ interface RenderContext {
   request?: Request;
   session?: Session;
   routeFC?: MaybeModule<ComponentType<any>>;
+  metadata?: Record<string, string>;
   svg?: boolean;
 }
 
@@ -191,7 +192,7 @@ function renderToWebStream(root: VNode, options: RenderOptions): Response | Prom
       }
       try {
         const rpcSession = session ? await createSession(request, session) : undefined;
-        const result = await rpcFunction.apply(createRPCThis(request, context, rpcSession), args);
+        const result = await rpcFunction.apply(createInvokeScope(request, context, rpcSession), args);
         return Response.json({ result });
       } catch (err) {
         return Response.json({ error: errorStringify(err) }, { status: 500 });
@@ -352,7 +353,7 @@ async function render(
   componentMode?: boolean,
   routeForm?: boolean,
 ) {
-  const { app, context, request, routeFC } = options;
+  const { app, context, request, routeFC, metadata } = options;
   const suspenses: Promise<string>[] = [];
   const signals: Signals = {
     app: {},
@@ -367,6 +368,7 @@ async function render(
     request,
     signals,
     routeFC,
+    metadata,
     flags: { scope: 0, chunk: 0, runtime: 0 },
     fidGenerator: new FunctionIdGenerator(),
   };
@@ -641,7 +643,11 @@ async function renderNode(rc: RenderContext, node: ChildType, stripSlotProp?: bo
           // `<switch>` element
           case "switch": {
             const { value: valueProp, children } = props;
-            if (children !== undefined) {
+            if (rc.svg && valueProp === undefined) {
+              write("<switch>");
+              await renderChildren(rc, children);
+              write("</switch>");
+            } else if (children !== undefined) {
               let slots = Array.isArray(children) ? (isVNode(children) ? [children] : children) : [children];
               let matchedSlot: [string, ChildType] | undefined;
               let namedSlots: ChildType[] = [];
@@ -782,6 +788,33 @@ async function renderNode(rc: RenderContext, node: ChildType, stripSlotProp?: bo
             break;
           }
 
+          case "metadata": {
+            if (rc.svg) {
+              write("<metadata>");
+              await renderChildren(rc, props.children);
+              write("</metadata>");
+            } else if (rc.routeFC) {
+              let { metadata, getMetadata } = await rc.routeFC;
+              if (isFunction(getMetadata)) {
+                const { request, context, session } = rc;
+                if (!request) {
+                  throw new TypeError("[mono-jsx] The `request` prop in the `<html>` element is required.");
+                }
+                metadata = await getMetadata.call(createInvokeScope(request, context, session));
+              }
+              let buf = "";
+              for (const [key, value] of Object.entries(Object.assign({}, rc.metadata, metadata))) {
+                if (key === "title") {
+                  buf += "<title>" + value + "</title>";
+                } else {
+                  buf += "<meta name=" + toAttrStringLit(key) + " content=" + toAttrStringLit(value) + ">";
+                }
+              }
+              write(buf);
+            }
+            break;
+          }
+
           case "cache":
           case "static": {
             const { $stack, key = $stack, maxAge, children } = props;
@@ -888,8 +921,8 @@ async function renderNode(rc: RenderContext, node: ChildType, stripSlotProp?: bo
               }
               let buffer = "<" + tag;
               let attrModifiers = "";
-              let isSingleEl = props.children === undefined;
-              let isSvgSelfClosingElement = rc.svg && isSingleEl;
+              let noChildren = props.children === undefined;
+              let isSvgSelfClosingElement = rc.svg && noChildren;
               for (let [propName, propValue] of Object.entries(props)) {
                 switch (propName) {
                   case "children":
@@ -921,7 +954,7 @@ async function renderNode(rc: RenderContext, node: ChildType, stripSlotProp?: bo
                 if (attrModifiers) {
                   write(attrModifiers);
                 }
-                if (!isSingleEl) {
+                if (!noChildren) {
                   await renderChildren(tag === "svg" ? { ...rc, svg: true } : rc, props.children);
                 }
                 if (!isSvgSelfClosingElement) {
@@ -1366,7 +1399,7 @@ function createThisProxy(rc: RenderContext, scopeId: number): Record<string, unk
   return thisProxy;
 }
 
-function createRPCThis(
+function createInvokeScope(
   request: Request,
   context: Record<string, unknown> | undefined,
   session: Session | undefined,

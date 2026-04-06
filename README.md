@@ -1274,10 +1274,14 @@ You can also use the `navigate` method of the `<router>` element to navigate to 
 ```tsx
 function App(this: FC<{}, { router: RouterElement }>) {
   return (
-    <header>
-      <button onClick={() => this.refs.router.navigate("/about", { replace: false, refresh: false})}>About</button>
-    </header>
-    <router ref={this.refs.router} />
+    <>
+      <header>
+        <button
+          onClick={() => this.refs.router.navigate("/about", { replace: false, refresh: false })}
+        >About</button>
+      </header>
+      <router ref={this.refs.router} />
+    </>
   )
 }
 ```
@@ -1296,6 +1300,63 @@ export default {
         <a href="/blog">Blog</a>
       </nav>
       <router />
+    </html>
+  )
+}
+```
+
+## Adding Page Metadata
+
+You can add metadata to the route component by setting the `metadata` property on the route component.
+
+```tsx
+function Home(this: FC) {
+  return <p>Home</p>
+}
+Home.metadata = {
+  title: "Home",
+  description: "Home page",
+}
+
+const routes = {
+  "/": Home,
+}
+```
+
+Or use `getMetadata` property on the route component to dynamically generate the metadata.
+
+```tsx
+async function Post(this: FC) {
+  const post = await getPost(this.request.params.slug)
+  return <div>
+    <h1>{post.title}</h1>
+    <h2>{post.description}</h2>
+    <div>{post.content}</div>
+  </div>
+}
+
+Post.getMetadata = async function(this: FC) {
+  const post = await getPost(this.request.params.slug)
+  return {
+    title: post.title,
+    description: post.description,
+  }
+}
+
+const routes = {
+  "/post/:slug": Post,
+}
+```
+
+You can also add metadata to the root `<html>` element by setting the `metadata` prop on the root `<html>` element. This will be added to all the pages in your app.
+
+```tsx
+export default {
+  fetch: (req) => (
+    <html request={req} routes={routes} metadata={{ title: "My App" }}>
+      <head>
+        <metadata />
+      </head>
     </html>
   )
 }

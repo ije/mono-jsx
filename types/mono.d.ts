@@ -4,7 +4,7 @@ export type WithParams<T> = T & { params?: Record<string, string> };
 
 export interface Elements {
   /**
-   * A built-in element of mono-jsx that is used to load components lazily,
+   * The `<component>` element is used to load components lazily,
    * which can improve performance by reducing the initial load time of the application.
    * @mono-jsx
    */
@@ -37,7 +37,7 @@ export interface Elements {
   };
 
   /**
-   * A built-in element of mono-jsx that provides SPA routing.
+   * The `<router>` element provides SPA routing.
    * @mono-jsx
    */
   router: BaseAttributes & AsyncComponentAttributes & {
@@ -57,7 +57,7 @@ export interface Elements {
   };
 
   /**
-   * A built-in element of mono-jsx that caches the rendered content of the child nodes
+   * The `<cache>` element caches the rendered content of the child nodes
    * with the given key and TTL.
    * @mono-jsx
    */
@@ -73,14 +73,14 @@ export interface Elements {
   };
 
   /**
-   * A built-in element of mono-jsx that treats the child nodes as static content,
+   * The `<static>` element treats the child nodes as static content,
    * When the child nodes are rendered once, they will be cached in memory and reused on subsequent renders.
    * @mono-jsx
    */
   static: BaseAttributes;
 
   /**
-   * A built-in element of mono-jsx that redirects to the given URL in the client side.
+   * The `<redirect>` element redirects to the given URL in the client side.
    * @mono-jsx
    */
   redirect: {
@@ -96,7 +96,7 @@ export interface Elements {
   };
 
   /**
-   * A built-in element of mono-jsx that sets custom validation
+   * The `<invalid>` element sets custom validation
    * state for the form elements.
    * @mono-jsx
    */
@@ -108,7 +108,7 @@ export interface Elements {
   };
 
   /**
-   * A built-in element of mono-jsx that is used to display the content of the route form
+   * The `<formslot>` element is used to display the content of the route form
    * in the `form` element.
    * @mono-jsx
    */

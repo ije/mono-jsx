@@ -87,6 +87,10 @@ export interface RenderOptions extends Partial<HtmxExts> {
    */
   routes?: Record<string, MaybeModule<ComponentType<any>>>;
   /**
+   * Global metadata.
+   */
+  metadata?: Record<string, string>;
+  /**
    * Current `Request` object to be passed to components.
    */
   request?: Request;

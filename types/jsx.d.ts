@@ -5,7 +5,7 @@ export type ChildType = MaybeArray<MaybeGetter<ChildPrimitiveType>>;
 export type MaybeArray<T> = T | T[];
 export type MaybeGetter<T> = T | { get: () => T };
 export type MaybePromise<T> = T | Promise<T>;
-export type MaybeModule<T> = T | Promise<{ default: T } & T>;
+export type MaybeModule<T> = T | Promise<{ default: T } & ComponentConfig>;
 export type MaybePromiseOrGenerator<T> = T | Promise<T> | Generator<T> | AsyncGenerator<T>;
 
 export interface BaseAttributes {
@@ -56,13 +56,16 @@ export type VNode = readonly [
   $vnode: symbol,
 ];
 
-export interface ComponentType<P = {}> {
-  (props: P): MaybePromiseOrGenerator<VNode | string | null>;
+export interface ComponentConfig {
   FormHandler?: ComponentType<FormData>;
   getMetadata?: () => MaybePromise<Record<string, string>>;
   metadata?: Record<string, string>;
   dynamic?: boolean;
   rendering?: string;
+}
+
+export interface ComponentType<P = {}> extends ComponentConfig {
+  (props: P): MaybePromiseOrGenerator<VNode | string | null>;
 }
 
 export interface MonoBuiltinElements {
