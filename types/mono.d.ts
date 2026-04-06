@@ -148,10 +148,28 @@ export type ComponentElement = {
 };
 
 /**
+ * The options for the `navigate` method of the `<router>` element.
+ */
+export type RouterNavigateOptions = {
+  /**
+   * If true, `history.replaceState` will be called instead of `history.pushState`.
+   * This is useful when you want to replace the current navigation without adding a new entry to the history.
+   */
+  replace?: boolean;
+  /**
+   * If true, the router will ignore the cache and fetch the page HTML from the server.
+   */
+  refresh?: boolean;
+};
+
+/**
  * The `<router>` element.
  */
 export type RouterElement = {
-  navigate: (url: string | URL, options?: { replace?: boolean }) => Promise<void>;
+  /**
+   * Navigates to the given URL.
+   */
+  navigate: (url: string | URL, options?: RouterNavigateOptions) => Promise<void>;
 };
 
 /**

@@ -964,8 +964,6 @@ The `<component>` element also supports the `ref` prop, which allows you to cont
 - `refresh`: A method to re-render the component with the current name and props.
 
 ```tsx
-import type { ComponentElement } from "mono-jsx";
-
 function App(this: WithRefs<FC, { component: ComponentElement }>) {
   this.effect(() => {
     // updating the component name and props will trigger a re-render of the component
@@ -1110,8 +1108,21 @@ You can access the `params` object in your route components to get the values of
 ```tsx
 // router pattern: "/post/:id"
 function Post(this: FC) {
-  this.request.url         // "http://localhost:3000/post/123"
-  this.request.params?.id  // "123"
+  console.log(this.request.url)         // "http://localhost:3000/post/123"
+  console.log(this.request.params?.id)  // "123"
+}
+```
+
+You can use `this.app.url` signal to get route URL and parameters:
+
+```tsx
+function Post(this: FC) {
+  return (
+    <div>
+      <p>Current URL: {this.$(() => this.app.url.href)}</p>
+      <p>Post id: {this.$(() => this.app.url.params?.id)}</p>
+    </div>
+  )
 }
 ```
 
@@ -1227,7 +1238,7 @@ The `hidden` prop can be used to hide the formslot payload from the form handler
 
 ### Using `this.app.url` Signal
 
-`this.app.url` is an app-level signal that contains the current route URL and parameters. The `this.app.url` signal is automatically updated when the route changes, so you can use it to display the current URL in your components or control the view with `<show>`, `<hidden>` or `<switch>` elements:
+The `this.app.url` in a component is an app-level signal that contains the current route URL and parameters. It is automatically updated when the route changes, so you can use it to display the current URL in your components or control the view with `<show>`, `<hidden>` or `<switch>` elements:
 
 ```tsx
 function App(this: FC) {
@@ -1254,6 +1265,19 @@ export default {
       </nav>
       <router />
     </html>
+  )
+}
+```
+
+You can also use the `navigate` method of the `<router>` element to navigate to a new route programmatically.
+
+```tsx
+function App(this: FC<{}, { router: RouterElement }>) {
+  return (
+    <header>
+      <button onClick={() => this.refs.router.navigate("/about", { replace: false, refresh: false})}>About</button>
+    </header>
+    <router ref={this.refs.router} />
   )
 }
 ```
@@ -1291,6 +1315,30 @@ export default {
       </router>
     </html>
   )
+}
+```
+
+### Route Caching
+
+By default, the router client caches the html content from the server. To disable the caching, you can add the `dynamic` option to the route component.
+
+```tsx
+// Home is a static route that can be cached on the client side
+function Home(this: FC) {
+  return <p>Home</p>
+}
+
+// Dash is a dynamic route that will not be cached on the client side
+// it will be fetched from the server on every navigation
+function Dash(this: FC) {
+  const user = this.session.get<{ name: string }>("user")
+  return <p>Welcome back, {user?.name}!</p>
+}
+Dash.dynamic = true;
+
+const routes = {
+  "/": Home,
+  "/dash": Dash,
 }
 ```
 

@@ -1,4 +1,4 @@
-import type { ComponentElement } from "../types/mono.d.ts";
+import type { ComponentElement, RouterElement } from "../types/mono.d.ts";
 import { assert, assertEquals } from "jsr:@std/assert@1.0.19";
 import puppeteer from "npm:puppeteer-core@24.37.5";
 import chrome from "npm:puppeteer-chromium-resolver@24.0.3";
@@ -40,6 +40,36 @@ Deno.test.beforeAll(async () => {
       );
     }
 
+    function Login(this: FC) {
+      this.session.set("user", "@ije");
+      return <redirect to="/dash" />;
+    }
+    Login.dynamic = true;
+
+    function Logout(this: FC) {
+      this.session.destroy();
+      return <redirect to="/" />;
+    }
+    Logout.dynamic = true;
+
+    function Dash(this: FC) {
+      const user = this.session.get<string>("user");
+      if (!user) {
+        return (
+          <div>
+            <a href="/login">Login</a>
+          </div>
+        );
+      }
+      return (
+        <div>
+          <h1>Welcome, {user}!</h1>
+          <a href="/logout">Logout</a>
+        </div>
+      );
+    }
+    Dash.dynamic = true;
+
     return (
       <html
         request={request}
@@ -75,30 +105,9 @@ Deno.test.beforeAll(async () => {
           "/post/:slug": function(this: FC) {
             return <h1>Post: {this.request.params!.slug}</h1>;
           },
-          "/dash": function(this: FC) {
-            const user = this.session.get<string>("user");
-            if (!user) {
-              return (
-                <div>
-                  <a href="/login">Login</a>
-                </div>
-              );
-            }
-            return (
-              <div>
-                <h1>Welcome, {user}!</h1>
-                <a href="/logout">Logout</a>
-              </div>
-            );
-          },
-          "/login": function(this: FC) {
-            this.session.set("user", "@ije");
-            return <redirect to="/dash" />;
-          },
-          "/logout": function(this: FC) {
-            this.session.destroy();
-            return <redirect to="/" />;
-          },
+          "/dash": Dash,
+          "/login": Login,
+          "/logout": Logout,
           "/chat": (() => {
             function Chat(this: FC) {
               return (
@@ -1163,6 +1172,141 @@ Deno.test("[runtime] <router>", sanitizeFalse, async () => {
   em = await page.$("em");
   assert(em);
   assertEquals(await em.evaluate((el: HTMLElement) => el.textContent), "http://localhost:8687/e404");
+
+  await page.close();
+});
+
+Deno.test("[runtime] <router> navigate(href, options)", sanitizeFalse, async () => {
+  function App(this: WithRefs<FC, { router: RouterElement }>) {
+    return (
+      <>
+        <header>
+          <button
+            type="button"
+            class="nav-about"
+            onClick={() => void this.refs.router.navigate("/about", { replace: false, refresh: false })}
+          >
+            About
+          </button>
+          <button type="button" class="nav-home-push" onClick={() => void this.refs.router.navigate("/", { replace: false })}>
+            Home push
+          </button>
+          <button
+            type="button"
+            class="nav-about-replace"
+            onClick={() => void this.refs.router.navigate("/about", { replace: true })}
+          >
+            About replace
+          </button>
+          <button
+            type="button"
+            class="nav-about-refresh"
+            onClick={() => void this.refs.router.navigate("/about", { replace: false, refresh: true })}
+          >
+            About refresh
+          </button>
+          <em>{this.$(() => this.app.url.href)}</em>
+        </header>
+        <router ref={this.refs.router}>
+          <p>Page not found</p>
+        </router>
+      </>
+    );
+  }
+
+  const routeRequests: string[] = [];
+  const testUrl = addTestPage(<App />);
+  const page = await browser.newPage();
+  page.on("request", (request) => {
+    if (request.headers()["x-route"] === "true") {
+      routeRequests.push(request.url());
+    }
+  });
+
+  await page.goto(testUrl);
+
+  let p = await page.$("m-router p");
+  assert(p);
+  assertEquals(await p.evaluate((el: HTMLElement) => el.textContent), "Page not found");
+
+  const aboutBtn = await page.$("button.nav-about");
+  assert(aboutBtn);
+  await aboutBtn.click();
+  await page.waitForNetworkIdle();
+
+  let h1 = await page.$("h1");
+  assert(h1);
+  assertEquals(await h1.evaluate((el: HTMLElement) => el.textContent), "About");
+
+  let em = await page.$("em");
+  assert(em);
+  assertEquals(await em.evaluate((el: HTMLElement) => el.textContent), "http://localhost:8687/about");
+  assertEquals(routeRequests, ["http://localhost:8687/about"]);
+
+  routeRequests.length = 0;
+  await page.goto(testUrl);
+
+  const homePushBtn = await page.$("button.nav-home-push");
+  assert(homePushBtn);
+  await homePushBtn.click();
+  await page.waitForNetworkIdle();
+
+  h1 = await page.$("h1");
+  assert(h1);
+  assertEquals(await h1.evaluate((el: HTMLElement) => el.textContent), "Home");
+
+  const aboutReplaceBtn = await page.$("button.nav-about-replace");
+  assert(aboutReplaceBtn);
+  await aboutReplaceBtn.click();
+  await page.waitForNetworkIdle();
+
+  h1 = await page.$("h1");
+  assert(h1);
+  assertEquals(await h1.evaluate((el: HTMLElement) => el.textContent), "About");
+  assertEquals(routeRequests, ["http://localhost:8687/", "http://localhost:8687/about"]);
+
+  await page.goBack();
+  await page.waitForNetworkIdle();
+
+  p = await page.$("m-router p");
+  assert(p);
+  assertEquals(await p.evaluate((el: HTMLElement) => el.textContent), "Page not found");
+
+  routeRequests.length = 0;
+  await page.goto(testUrl);
+
+  const aboutForCache = await page.$("button.nav-about");
+  assert(aboutForCache);
+  await aboutForCache.click();
+  await page.waitForNetworkIdle();
+
+  const homeForCache = await page.$("button.nav-home-push");
+  assert(homeForCache);
+  await homeForCache.click();
+  await page.waitForNetworkIdle();
+  assertEquals(routeRequests, ["http://localhost:8687/about", "http://localhost:8687/"]);
+
+  await aboutForCache.click();
+  await page.waitForNetworkIdle();
+  assertEquals(routeRequests, ["http://localhost:8687/about", "http://localhost:8687/"]);
+
+  await homeForCache.click();
+  await page.waitForNetworkIdle();
+  assertEquals(routeRequests, ["http://localhost:8687/about", "http://localhost:8687/"]);
+
+  const aboutRefreshBtn = await page.$("button.nav-about-refresh");
+  assert(aboutRefreshBtn);
+  await aboutRefreshBtn.click();
+  await page.waitForNetworkIdle();
+
+  h1 = await page.$("h1");
+  assert(h1);
+  assertEquals(await h1.evaluate((el: HTMLElement) => el.textContent), "About");
+  assertEquals(routeRequests, [
+    "http://localhost:8687/about",
+    "http://localhost:8687/",
+    "http://localhost:8687/about",
+  ]);
 
   await page.close();
 });

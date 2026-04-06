@@ -15,20 +15,6 @@ export const isPlainObject = (v: unknown): v is Record<string | symbol, unknown>
   isObject(v) && (v.constructor === Object || v.constructor === undefined);
 export const toHyphenCase = (k: string) => k.replace(/[a-z][A-Z]/g, (m) => m.charAt(0) + "-" + m.charAt(1).toLowerCase());
 
-export class IdGen<T> extends Map<T, number> {
-  #seq = 0;
-  gen(v: T) {
-    return this.get(v) ?? this.set(v, this.#seq++).get(v)!;
-  }
-  getById(id: number): T | void {
-    for (const [v, i] of this.entries()) {
-      if (i === id) {
-        return v;
-      }
-    }
-  }
-}
-
 /** calculates the hash code (32-bit) of a string. */
 export const hashCode = (str: string) => {
   let hash = 0;

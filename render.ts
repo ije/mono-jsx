@@ -1,19 +1,52 @@
+import type { ChildType, ComponentType, MaybeModule, VNode } from "./types/jsx.d.ts";
 import type { Session } from "./types/mono.d.ts";
-import type { ChildType, ComponentType, VNode } from "./types/jsx.d.ts";
-import type { MaybeModule, RenderOptions, SessionOptions } from "./types/render.d.ts";
+import type { RenderOptions, SessionOptions } from "./types/render.d.ts";
 import { customElements } from "./jsx.ts";
-import { COMPONENT, CX, EVENT, FORM, ROUTER, RPC, SIGNALS, STYLE, SUSPENSE } from "./runtime/index.ts";
-import { COMPONENT_JS, CX_JS, EVENT_JS, FORM_JS, ROUTER_JS, RPC_JS, SIGNALS_JS, STYLE_JS, SUSPENSE_JS } from "./runtime/index.ts";
-import { RENDER_ATTR, RENDER_SWITCH, RENDER_TOGGLE } from "./runtime/index.ts";
-import { RENDER_ATTR_JS, RENDER_SWITCH_JS, RENDER_TOGGLE_JS } from "./runtime/index.ts";
-import { IdGen, isObject, NullPrototypeObject } from "./runtime/utils.ts";
-import { cx, escapeHTML, hashCode, isFunction, isPlainObject, isString, styleToCSS, toHyphenCase } from "./runtime/utils.ts";
 import { $fragment, $html, $rpc, $vnode } from "./symbols.ts";
 import { VERSION } from "./version.ts";
+import {
+  COMPONENT,
+  COMPONENT_JS,
+  CX,
+  CX_JS,
+  EVENT,
+  EVENT_JS,
+  FORM,
+  FORM_JS,
+  REDIRECT,
+  REDIRECT_JS,
+  RENDER_ATTR,
+  RENDER_ATTR_JS,
+  RENDER_SWITCH,
+  RENDER_SWITCH_JS,
+  RENDER_TOGGLE,
+  RENDER_TOGGLE_JS,
+  ROUTER,
+  ROUTER_JS,
+  RPC,
+  RPC_JS,
+  SIGNALS,
+  SIGNALS_JS,
+  STYLE,
+  STYLE_JS,
+  SUSPENSE,
+  SUSPENSE_JS,
+} from "./runtime/index.ts";
+import {
+  cx,
+  escapeHTML,
+  hashCode,
+  isFunction,
+  isObject,
+  isPlainObject,
+  isString,
+  NullPrototypeObject,
+  styleToCSS,
+  toHyphenCase,
+} from "./runtime/utils.ts";
 
 interface RenderContext {
   write: (chunk: string) => void;
-  extraJS: Array<string>;
   suspenses: Array<Promise<string>>;
   fc?: FCScope;
   flags: Flags;
@@ -85,6 +118,20 @@ class Ref {
   ) {}
 }
 
+class IdGen<T> extends Map<T, number> {
+  #seq = 0;
+  gen(v: T) {
+    return this.get(v) ?? this.set(v, this.#seq++).get(v)!;
+  }
+  getById(id: number): T | void {
+    for (const [v, i] of this.entries()) {
+      if (i === id) {
+        return v;
+      }
+    }
+  }
+}
+
 const cdn = "https://raw.esm.sh"; // the cdn for loading htmx and its extensions
 const encoder = new TextEncoder();
 const voidTags = new Set("area,base,br,col,embed,hr,img,input,keygen,link,meta,param,source,track,wbr".split(","));
@@ -94,7 +141,6 @@ const subtle = crypto.subtle;
 const stringify = JSON.stringify;
 const isVNode = (v: unknown): v is VNode => Array.isArray(v) && v.length === 3 && v[2] === $vnode;
 const isReactive = (v: unknown): v is Signal | Compute => v instanceof Signal || v instanceof Compute;
-const isFC = (v: unknown): v is ComponentType => isFunction(v) && v.name.charCodeAt(0) <= /*Z*/ 90;
 const identifierRegex = /^[A-Za-z_$][0-9A-Za-z_$]*$/;
 const escapeCSSText = (str: string): string => str.replace(/[><]/g, (m) => m.charCodeAt(0) === 60 ? "&lt;" : "&gt;");
 const toAttrStringLit = (str: string) => '"' + escapeHTML(str) + '"';
@@ -108,9 +154,8 @@ function renderToWebStream(root: VNode, options: RenderOptions): Response | Prom
   const reqHeaders = request?.headers;
   const componentName = reqHeaders?.get("x-component");
   const routeForm = reqHeaders?.has("x-route-form");
-  const rpc = reqHeaders?.has("x-rpc");
 
-  if (rpc) {
+  if (reqHeaders?.has("x-rpc")) {
     if (!request || request.method !== "POST") {
       return new Response(null, { status: 405 });
     }
@@ -210,7 +255,7 @@ function renderToWebStream(root: VNode, options: RenderOptions): Response | Prom
 
   if (reqHeaders?.has("x-route") || routeForm) {
     if (!routeFC) {
-      return Response.json({ error: { message: "Route not found" }, status }, { headers, status });
+      return Response.json({ error: "Route not found", status }, { headers, status });
     }
     component = routeFC;
   }
@@ -222,23 +267,24 @@ function renderToWebStream(root: VNode, options: RenderOptions): Response | Prom
         async start(controller) {
           try {
             if (component instanceof Promise) {
-              const module = await component;
-              component = module.default;
-              if (module.FormHandler && !(component as any).FormHandler) {
-                (component as any).FormHandler = module.FormHandler;
+              const { default: defaultExport, ...rest } = await component;
+              if (isFunction(defaultExport)) {
+                component = defaultExport;
+                Object.assign(component, rest);
               }
             }
             let propsHeader = reqHeaders?.get("x-props");
             let props = propsHeader ? JSON.parse(propsHeader) : {};
             let html = "";
             let js = "";
-            let json = "";
+            let buf = "";
             let vnode: VNode = [component as ComponentType<any>, props, $vnode];
             if (routeForm && request?.method === "POST") {
-              if (typeof (component as any).FormHandler !== "function") {
+              const FormHandler = (component as any).FormHandler;
+              if (!FormHandler || !isFunction(FormHandler)) {
                 throw new Error((component as any).name + ".FormHandler is undefined or not a function");
               }
-              vnode = [(component as any).FormHandler, await request.formData(), $vnode];
+              vnode = [FormHandler, await request.formData(), $vnode];
             }
             await render(
               vnode,
@@ -248,15 +294,17 @@ function renderToWebStream(root: VNode, options: RenderOptions): Response | Prom
               true,
               routeForm,
             );
-            json = "[" + stringify(html);
+            buf = "[" + stringify(html);
             if (js) {
-              json += "," + stringify(js);
+              buf += "," + stringify(js);
             }
-            controller.enqueue(encoder.encode(json + "]"));
+            if ((component as any).dynamic) {
+              // no cache
+              buf += ",true";
+            }
+            controller.enqueue(encoder.encode(buf + "]"));
           } catch (err) {
-            controller.enqueue(encoder.encode(
-              '["",' + stringify('console.log("[mono-jsx]",' + stringify((err as Error).stack)) + "]",
-            ));
+            controller.enqueue(encoder.encode(stringify({ error: errorStringify(err) })));
             console.error(err);
           } finally {
             controller.close();
@@ -321,7 +369,6 @@ async function render(
     routeFC,
     flags: { scope: 0, chunk: 0, runtime: 0 },
     fidGenerator: new FunctionIdGenerator(),
-    extraJS: [],
   };
   signals.app = Object.assign(createThisProxy(rc, 0), app);
 
@@ -331,7 +378,7 @@ async function render(
   // finalize creates runtime JS for client
   // it may be called recursively when thare are unresolved suspenses
   const finalize = async () => {
-    const { extraJS, fidGenerator, session, flags } = rc;
+    const { fidGenerator, session, flags } = rc;
     const computes = signals.computes;
     const hasEffect = signals.effects.length > 0;
     const treeshake = (flag: number, code: string, force?: boolean) => {
@@ -353,10 +400,8 @@ async function render(
     treeshake(SUSPENSE, SUSPENSE_JS, suspenses.length > 0);
     treeshake(COMPONENT, COMPONENT_JS);
     treeshake(ROUTER, ROUTER_JS);
+    treeshake(REDIRECT, REDIRECT_JS);
     treeshake(FORM, FORM_JS);
-    if (js.length > 0) {
-      js = "(()=>{" + js + "})();/*!*/";
-    }
     if ((runtimeFlag & ROUTER) && (runtimeFlag & SIGNALS) && request) {
       const { params } = request as Request & { params?: Record<string, string> };
       const url = "new URL(" + stringify(request.url) + ")";
@@ -455,11 +500,8 @@ async function render(
           cookie += "; SameSite=" + sameSite;
         }
         // set cookie via client side runtime
-        js += "document.cookie=" + toAttrStringLit(cookie) + ";";
+        js = "document.cookie=" + toAttrStringLit(cookie) + ";" + js;
       }
-    }
-    if (extraJS.length > 0) {
-      js += extraJS.splice(0, extraJS.length).join("");
     }
     if (js.length > 0) {
       writeJS(js);
@@ -669,11 +711,11 @@ async function renderNode(rc: RenderContext, node: ChildType, stripSlotProp?: bo
             };
             if (isVNode(as)) {
               const [fc, props] = as;
-              if (isFC(fc)) {
+              if (isFunction(fc)) {
                 attrs += ' name="@comp_' + componentsMap.gen(fc) + '"';
                 writeAttr("props", props);
               }
-            } else if (isFC(is)) {
+            } else if (isFunction(is)) {
               attrs += ' name="@comp_' + componentsMap.gen(is) + '"';
               writeAttr("props");
             } else if (props.name) {
@@ -712,7 +754,14 @@ async function renderNode(rc: RenderContext, node: ChildType, stripSlotProp?: bo
             }
             write("<m-router" + attrs + ">");
             if (routeFC) {
-              await renderFC(rc, routeFC instanceof Promise ? (await routeFC).default : routeFC, {}, true);
+              if (routeFC instanceof Promise) {
+                routeFC = (await routeFC).default;
+                if (!routeFC || !isFunction(routeFC)) {
+                  console.warn("[mono-jsx] <router> The `default` export is not a function component.");
+                  break;
+                }
+              }
+              await renderFC(rc, routeFC, {}, true);
             }
             // render fallback (404) elements
             if (children) {
@@ -769,11 +818,15 @@ async function renderNode(rc: RenderContext, node: ChildType, stripSlotProp?: bo
 
           case "redirect": {
             const { to, replace } = props;
-            if (to) {
-              rc.extraJS.push(
-                '{let u=decodeURI("' + encodeURI(String(to)) + '");if(window.$router){$router.navigate(u' + (replace ? ",!1" : "")
-                  + ")}else{location.href=u}}",
-              );
+            if (isString(to) || to instanceof URL) {
+              let buf = "<m-redirect";
+              buf += " to=" + toAttrStringLit(String(to));
+              if (replace) {
+                buf += " replace";
+              }
+              buf += "></m-redirect>";
+              write(buf);
+              rc.flags.runtime |= REDIRECT;
             }
             break;
           }
@@ -986,7 +1039,7 @@ async function renderFC(rc: RenderContext, fcFn: ComponentType, props: JSX.Intri
       await renderNode(rc, catchFn(err)).catch(() => {});
     } else {
       console.error(err);
-      write("<script>console.error(" + stringify(err instanceof Error ? err.stack ?? err.message : String(err)) + ")</script>");
+      write("<script>console.error(" + stringify(err) + ")</script>");
     }
   }
 }

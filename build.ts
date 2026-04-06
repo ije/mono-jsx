@@ -115,6 +115,7 @@ if (import.meta.main) {
     "suspense.js": await buildRuntime("suspense"),
     "component.js": await buildRuntime("component"),
     "router.js": await buildRuntime("router"),
+    "redirect.js": await buildRuntime("redirect"),
     "form.js": await buildRuntime("form"),
     "rpc.js": await buildRuntime("rpc"),
   };

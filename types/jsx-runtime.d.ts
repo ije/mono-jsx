@@ -17,4 +17,6 @@ declare global {
     // extends the `<html>` element attributes
     interface HtmlCustomAttributes extends RenderOptions {}
   }
+  type ComponentElement = Mono.ComponentElement;
+  type RouterElement = Mono.RouterElement;
 }

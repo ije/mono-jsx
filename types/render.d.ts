@@ -1,8 +1,6 @@
 /// <reference path="./htmx.d.ts" />
 
-import type { ComponentType } from "./jsx.d.ts";
-
-export type MaybeModule<T> = T | Promise<{ default: T; FormHandler?: Function }>;
+import type { ComponentType, MaybeModule } from "./jsx.d.ts";
 
 /**
  * Htmx extensions.

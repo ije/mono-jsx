@@ -14,20 +14,21 @@ customElements.define(
   "m-router",
   class extends HTMLElement {
     #ac?: AbortController;
-    #cache = new Map<string, string>();
+    #cache = new Map<string, string | Node[]>();
     #currentRoute = getRouteKey(loc);
     #fallback?: ChildNode[];
-    #isBlank = true;
+    #viewTransition = true;
 
     #onClick?: (e: MouseEvent) => void;
     #onPopstate?: (e: PopStateEvent) => void;
 
-    async #fetchPage(href: string): Promise<[html: string, js: string | undefined] | null> {
-      const ac = new AbortController();
-      const headers = { "x-route": "true", "x-flags": $FLAGS };
+    async #fetchPage(url: URL) {
       this.#ac?.abort();
-      this.#ac = ac;
-      const res = await fetch(href, { headers, signal: ac.signal });
+      this.#ac = new AbortController();
+      const res = await fetch(url, {
+        headers: { "x-route": "true", "x-flags": $FLAGS },
+        signal: this.#ac.signal,
+      });
       if (res.status === 404) {
         return null;
       }
@@ -35,17 +36,21 @@ customElements.define(
         this.replaceChildren();
         throw new Error("Failed to fetch route: " + res.status + " " + res.statusText);
       }
-      return res.json();
+      const ret = await res.json();
+      if (!Array.isArray(ret)) {
+        throw new Error(ret?.error ? ret.error : "Invalid response from server");
+      }
+      return ret as [string, string | undefined, boolean | undefined];
     }
 
     #setContent(body: string | Node[]) {
       const update = () => typeof body === "string" ? this.innerHTML = body : this.replaceChildren(...body);
-      if (this.hasAttribute("vt") && doc.startViewTransition && !this.#isBlank) {
+      if (this.hasAttribute("vt") && doc.startViewTransition && !this.#viewTransition) {
         doc.startViewTransition(update);
       } else {
         update();
       }
-      this.#isBlank = false;
+      this.#viewTransition = false;
     }
 
     #updateNavLinks() {
@@ -60,29 +65,31 @@ customElements.define(
       });
     }
 
-    async #load(href: string, options?: { replace?: boolean }) {
-      const url = new URL(href, loc.href);
+    async #load(url: URL, options?: { replace?: boolean; refresh?: boolean }) {
       this.#currentRoute = getRouteKey(url);
       let JS: string | undefined;
-      if (this.#cache.has(href)) {
-        this.#setContent(this.#cache.get(href)!);
+      let cachedContent = this.#cache.get(this.#currentRoute);
+      if (cachedContent !== undefined && !options?.refresh && !this.hasAttribute("no-cache")) {
+        this.#setContent(cachedContent);
       } else {
-        const ret = await this.#fetchPage(href);
+        const ret = await this.#fetchPage(url);
         if (typeof $signals !== "undefined") {
           // update app.url signal
           $signals(0).url = url;
         }
+        let content: string | Node[];
+        let noCache: boolean | undefined;
         if (ret) {
-          const [html, js] = ret;
-          this.#cache.set(href, html);
-          this.#setContent(html);
-          JS = js;
+          [content, JS, noCache] = ret;
         } else {
-          this.#cache.delete(href);
-          this.#setContent(this.#fallback ?? []);
+          content = this.#fallback ?? [];
         }
+        if (!noCache) {
+          this.#cache.set(this.#currentRoute, content);
+        }
+        this.#setContent(content);
       }
-      history[options?.replace ? "replaceState" : "pushState"]({}, "", href);
+      history[options?.replace ? "replaceState" : "pushState"]({}, "", url);
       this.#updateNavLinks();
       // scroll to the top of the page after navigation
       window.scrollTo(0, 0);
@@ -91,18 +98,23 @@ customElements.define(
       }
     }
 
-    navigate(href: string, options?: { replace?: boolean }) {
+    navigate(href: string, options?: { replace?: boolean; refresh?: boolean }) {
       const url = new URL(href, loc.href);
       if (url.origin !== loc.origin || href.startsWith("#")) {
         loc.href = href;
         return;
       }
       if (!isActivated(url)) {
-        this.#load(href, options);
+        this.#load(url, options);
       }
     }
 
     connectedCallback() {
+      if (win.$router) {
+        throw new Error("Only one <m-router> element is allowed on the page");
+      }
+      win.$router = this;
+
       // set a timeout to wait for the element to be fully parsed
       setTimeout(() => {
         if (!this.#fallback) {
@@ -120,6 +132,7 @@ customElements.define(
             }
           }
         }
+        this.#cache.set(loc.href, [...this.childNodes]);
       });
 
       this.#onClick = (e: MouseEvent) => {
@@ -152,14 +165,13 @@ customElements.define(
 
       this.#onPopstate = () => {
         if (getRouteKey(loc) !== this.#currentRoute) {
-          this.#load(loc.href);
+          this.#load(new URL(loc.href));
         }
       };
 
       win.addEventListener("popstate", this.#onPopstate);
       doc.addEventListener("click", this.#onClick);
       setTimeout(() => this.#updateNavLinks());
-      win.$router = this;
     }
 
     disconnectedCallback() {
