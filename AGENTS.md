@@ -71,9 +71,10 @@ deno task fmt    # dprint; same as: dprint fmt
 Publishing is automated by GitHub Actions on `main` when a version tag is pushed.
 
 When the user asks to publish a new version:
+
 1. Check the current version in `package.json`.
-2. Show the user a selectable list of possible next versions.
+2. Show the user a consise list of possible next versions, and ask the user to choose one.
 3. After the user confirms the target version, update both `package.json` and `version.ts`.
-4. Create a commit with the message "chore: Bump package version to v<new-version>".
-5. Create a new git tag as `v<new-version>`.
-6. Push the tag to the remote repository without asking for confirmation.
+4. Commit only the release-related changes with the message "chore: Bump package version to v<new-version>".
+5. Create a git tag named `v<new-version>` on that commit.
+6. Push both the commit and tag to the remote repository without asking for additional confirmation.
