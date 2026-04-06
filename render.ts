@@ -136,6 +136,7 @@ class IdGen<T> extends Map<T, number> {
 const cdn = "https://raw.esm.sh"; // the cdn for loading htmx and its extensions
 const encoder = new TextEncoder();
 const voidTags = new Set("area,base,br,col,embed,hr,img,input,keygen,link,meta,param,source,track,wbr".split(","));
+const defaultMetadata = { viewport: "width=device-width, initial-scale=1.0" };
 const cache = new Map<string, { html: string; expiresAt?: number }>();
 const componentsMap = new IdGen<ComponentType>();
 const subtle = crypto.subtle;
@@ -802,12 +803,15 @@ async function renderNode(rc: RenderContext, node: ChildType, stripSlotProp?: bo
                 }
                 metadata = await getMetadata.call(createInvokeScope(request, context, session));
               }
-              let buf = "";
-              for (const [key, value] of Object.entries(Object.assign({}, rc.metadata, metadata))) {
+              let buf = '<meta charset="utf-8">';
+              for (const [key, value] of Object.entries(Object.assign(defaultMetadata, rc.metadata, metadata))) {
                 if (key === "title") {
-                  buf += "<title>" + value + "</title>";
+                  buf += "<title>" + escapeHTML(value) + "</title>";
                 } else {
-                  buf += "<meta name=" + toAttrStringLit(key) + " content=" + toAttrStringLit(value) + ">";
+                  buf += "<meta "
+                    + (key.startsWith("og:") ? "property" : "name") + "=" + toAttrStringLit(key)
+                    + " content=" + toAttrStringLit(value)
+                    + ">";
                 }
               }
               write(buf);

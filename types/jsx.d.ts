@@ -56,10 +56,38 @@ export type VNode = readonly [
   $vnode: symbol,
 ];
 
+export type Metadata = {
+  title?: string;
+  description?: string;
+  keywords?: string;
+  robots?: string;
+  canonical?: string;
+  author?: string;
+  "og:title"?: string;
+  "og:description"?: string;
+  "og:image"?: string;
+  "og:image:type"?: string;
+  "og:image:width"?: string;
+  "og:image:height"?: string;
+  "og:image:alt"?: string;
+  "og:url"?: string;
+  "og:type"?: string;
+  "og:locale"?: string;
+  "og:site_name"?: string;
+  "twitter:card"?: "summary_large_image" | "summary" | "app" | "player";
+  "twitter:title"?: string;
+  "twitter:description"?: string;
+  "twitter:image"?: string;
+  "twitter:imagewidth"?: string;
+  "twitter:imageheight"?: string;
+  "twitter:site"?: `@${string}`;
+  [key: string]: string | undefined;
+};
+
 export interface ComponentConfig {
   FormHandler?: ComponentType<FormData>;
-  getMetadata?: () => MaybePromise<Record<string, string>>;
-  metadata?: Record<string, string>;
+  getMetadata?: () => MaybePromise<Metadata>;
+  metadata?: Metadata;
   dynamic?: boolean;
   rendering?: string;
 }

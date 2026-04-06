@@ -1253,6 +1253,20 @@ Deno.test("[runtime] global metadata and merge with route", sanitizeFalse, async
   await page.close();
 });
 
+Deno.test("[runtime] default metadata (viewport)", sanitizeFalse, async () => {
+  const page = await browser.newPage();
+  await page.goto("http://localhost:8687/about");
+  assertEquals(
+    await page.$eval('meta[charset]', (el: HTMLMetaElement) => el.getAttribute("charset")),
+    "utf-8",
+  );
+  assertEquals(
+    await page.$eval('meta[name="viewport"]', (el: HTMLMetaElement) => el.content),
+    "width=device-width, initial-scale=1.0",
+  );
+  await page.close();
+});
+
 Deno.test("[runtime] <router> navigate(href, options)", sanitizeFalse, async () => {
   function App(this: WithRefs<FC, { router: RouterElement }>) {
     return (

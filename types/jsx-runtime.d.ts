@@ -19,4 +19,5 @@ declare global {
   }
   type ComponentElement = Mono.ComponentElement;
   type RouterElement = Mono.RouterElement;
+  type Metadata = import("./jsx.d.ts").Metadata;
 }
