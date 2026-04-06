@@ -66,6 +66,6 @@ deno lint
 deno task fmt    # dprint; same as: dprint fmt
 ```
 
-## CI
+## Publishing
 
-GitHub Actions on `main` runs `deno lint` then `deno task test` (Deno 2.7). Match that locally before pushing.
+This process is automated by GitHub Actions on `main` when a tag is pushed. When the user ask you to publish a new version, you display a select list for the new version, then create a new git tag based on the user's choice. The git tag is then pushed to the remote repository.
