@@ -1,4 +1,4 @@
-import type { ChildType, ComponentType, MaybeModule, VNode } from "./types/jsx.d.ts";
+import type { ChildType, ComponentType, MaybeModule, Metadata, VNode } from "./types/jsx.d.ts";
 import type { Session } from "./types/mono.d.ts";
 import type { RenderOptions, SessionOptions } from "./types/render.d.ts";
 import { customElements } from "./jsx.ts";
@@ -56,7 +56,7 @@ interface RenderContext {
   request?: Request;
   session?: Session;
   routeFC?: MaybeModule<ComponentType<any>>;
-  metadata?: Record<string, string>;
+  metadata?: Metadata;
   svg?: boolean;
 }
 
@@ -805,13 +805,15 @@ async function renderNode(rc: RenderContext, node: ChildType, stripSlotProp?: bo
               }
               let buf = '<meta charset="utf-8">';
               for (const [key, value] of Object.entries(Object.assign(defaultMetadata, rc.metadata, metadata))) {
-                if (key === "title") {
-                  buf += "<title>" + escapeHTML(value) + "</title>";
-                } else {
-                  buf += "<meta "
-                    + (key.startsWith("og:") ? "property" : "name") + "=" + toAttrStringLit(key)
-                    + " content=" + toAttrStringLit(value)
-                    + ">";
+                if (value) {
+                  if (key === "title") {
+                    buf += "<title>" + escapeHTML(value) + "</title>";
+                  } else {
+                    buf += "<meta "
+                      + (key.startsWith("og:") ? "property" : "name") + "=" + toAttrStringLit(key)
+                      + " content=" + toAttrStringLit(value)
+                      + ">";
+                  }
                 }
               }
               write(buf);

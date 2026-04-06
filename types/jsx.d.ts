@@ -57,6 +57,7 @@ export type VNode = readonly [
 ];
 
 export type Metadata = {
+  viewport?: "width=device-width, initial-scale=1.0" | (string & {});
   title?: string;
   description?: string;
   keywords?: string;

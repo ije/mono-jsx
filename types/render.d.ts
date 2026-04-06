@@ -1,6 +1,6 @@
 /// <reference path="./htmx.d.ts" />
 
-import type { ComponentType, MaybeModule } from "./jsx.d.ts";
+import type { ComponentType, MaybeModule, Metadata } from "./jsx.d.ts";
 
 /**
  * Htmx extensions.
@@ -89,7 +89,7 @@ export interface RenderOptions extends Partial<HtmxExts> {
   /**
    * Global metadata.
    */
-  metadata?: Record<string, string>;
+  metadata?: Metadata;
   /**
    * Current `Request` object to be passed to components.
    */
