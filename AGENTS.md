@@ -52,6 +52,13 @@ deno task build
 deno test -A --no-lock test/<name>.test.tsx
 ```
 
+To run a single test file with a specific filter:
+
+```bash
+deno task build
+test -A --no-lock test/<name>.test.tsx --filter "<search>"
+```
+
 ## Linting and formatting
 
 ```bash
