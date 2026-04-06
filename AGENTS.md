@@ -68,4 +68,11 @@ deno task fmt    # dprint; same as: dprint fmt
 
 ## Publishing
 
-This process is automated by GitHub Actions on `main` when a tag is pushed. When the user ask you to publish a new version, you display a select list for the new version, then create a new git tag based on the user's choice. The git tag is then pushed to the remote repository.
+Publishing is automated by GitHub Actions on `main` when a version tag is pushed.
+
+When the user asks to publish a new version:
+1. Check the current version in `package.json`.
+2. Show the user a selectable list of possible next versions.
+3. After the user confirms the target version, update both `package.json` and `version.ts`.
+4. Create a new git tag as `v<new-version>`.
+5. Push the tag to the remote repository.
