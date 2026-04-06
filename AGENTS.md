@@ -74,5 +74,6 @@ When the user asks to publish a new version:
 1. Check the current version in `package.json`.
 2. Show the user a selectable list of possible next versions.
 3. After the user confirms the target version, update both `package.json` and `version.ts`.
-4. Create a new git tag as `v<new-version>`.
-5. Push the tag to the remote repository.
+4. Create a commit with the message "chore: Bump package version to v<new-version>".
+5. Create a new git tag as `v<new-version>`.
+6. Push the tag to the remote repository without asking for confirmation.
