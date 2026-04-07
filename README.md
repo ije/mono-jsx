@@ -1313,6 +1313,7 @@ You can add metadata to the route component by setting the `metadata` property o
 function Home(this: FC) {
   return <p>Home</p>
 }
+
 Home.metadata = {
   title: "Home",
   description: "Home page",
@@ -1348,15 +1349,26 @@ const routes = {
 }
 ```
 
-You can also add metadata to the root `<html>` element by setting the `metadata` prop on the root `<html>` element. This will be added to all the pages in your app.
+You can define global metadata with the `metadata` prop on the root `<html>` element. It applies to every page in your app, and page-specific metadata takes precedence over these global values.
+
+To render metadata, add `<metadata />` inside the `head` tag:
 
 ```tsx
 export default {
   fetch: (req) => (
-    <html request={req} routes={routes} metadata={{ title: "My App" }}>
+    <html
+      request={req}
+      routes={routes}
+      metadata={{ title: "My App" }}
+    >
       <head>
-        <metadata />
+        <metadata /> { /* <- `<title>My App<title>` will be rendered here */}
       </head>
+      <body>
+        <rouer>
+          <p>Page not found</p>
+        </rouer>
+      </body>
     </html>
   )
 }
