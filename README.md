@@ -1499,14 +1499,14 @@ mono-jsx provides a built-in RPC API that allows you to call functions on the se
 import { createRPC } from "mono-jsx"
 
 const rpc = createRPC({
-  whoami: () => ({ name: "John" })
+  whoami: () => ({ name: "John Wick" })
 })
 
-function App(this: FC<{ user?: { name: string } }>) {
+function App(this: FC<{ user?: { id: number, name: string } }>) {
   return (
     <div>
       <show when={this.user}>
-        <p>Welcome, {this.user!.name}!</p>
+        <p>Welcome, {this.user!.name}</p>
       </show>
       <button onClick={async () => this.user = await rpc.whoami()}>Who am I?</button>
     </div>
@@ -1534,27 +1534,16 @@ You can access the request info in RPC functions by using the `this` scope:
 - `this.session`: The [session](#session-storage-api) storage.
 
 ```tsx
-type Admin = {
-  isAdmin: (id: number) => boolean;
-}
-
 const rpc = createRPC({
-  whoami: function (this: WithContext<RPC, { admin: Admin }>) {
-    const { admin } = this.context;
-    const user =  this.session.get<{ name: string }>("user")
+  whoami: function (this: WithContext<RPC, { group: string }>) {
+    const user =  this.session.get<{ id: number, name: string }>("user")
     return {
+      ...user,
+      group: this.context.group,
       ip: this.request.headers.get("x-real-ip"),
-      isAdmin: user ? admin.isAdmin(user.id) : false,
-      user: user,
     }
   },
 })
-
-function App(this: FC) {
-  return (
-    <button onClick={async () => console.log(await rpc.whoami())}>Who am I?</button>
-  )
-}
 
 export default {
   fetch: (req) => (
@@ -1562,9 +1551,9 @@ export default {
       request={req}
       expose={{ rpc }}
       session={{ cookie: { secret: "..." } }}
-      context={{ admin: { isAdmin: (id: number) => id === 1 } }}
+      context={{ group: "admin" }}
     >
-      <App />
+      <button onClick={async () => console.log(await rpc.whoami())}>Who am I?</button>
     </html>
   )
 }
