@@ -306,8 +306,8 @@ function renderToWebStream(root: VNode, options: RenderOptions): Response | Prom
             }
             controller.enqueue(encoder.encode(buf + "]"));
           } catch (err) {
-            controller.enqueue(encoder.encode(stringify({ error: errorStringify(err) })));
             console.error(err);
+            controller.enqueue(encoder.encode(stringify({ error: errorStringify(err) })));
           } finally {
             controller.close();
           }
@@ -337,6 +337,9 @@ function renderToWebStream(root: VNode, options: RenderOptions): Response | Prom
               }
             }
           }
+        } catch (err) {
+          console.error(err);
+          write("<script>console.error(" + stringify(errorStringify(err)) + ")</script>");
         } finally {
           controller.close();
         }
@@ -1078,7 +1081,7 @@ async function renderFC(rc: RenderContext, fcFn: ComponentType, props: JSX.Intri
       await renderNode(rc, catchFn(err)).catch(() => {});
     } else {
       console.error(err);
-      write("<script>console.error(" + stringify(err) + ")</script>");
+      write("<script>console.error(" + stringify(errorStringify(err)) + ")</script>");
     }
   }
 }
