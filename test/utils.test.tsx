@@ -31,8 +31,8 @@ Deno.test("[utils] create routes for bun server", async () => {
       `</m-router>`,
       `</html>`,
       `<script data-mono-jsx="${VERSION}">`,
-      ROUTER_JS,
       `window.$FLAGS="1|0|${ROUTER}|0";`,
+      ROUTER_JS,
       `</script>`,
     ].join(""),
   );
@@ -46,8 +46,8 @@ Deno.test("[utils] create routes for bun server", async () => {
       `</m-router>`,
       `</html>`,
       `<script data-mono-jsx="${VERSION}">`,
-      ROUTER_JS,
       `window.$FLAGS="1|0|${ROUTER}|0";`,
+      ROUTER_JS,
       `</script>`,
     ].join(""),
   );
@@ -61,8 +61,8 @@ Deno.test("[utils] create routes for bun server", async () => {
       `</m-router>`,
       `</html>`,
       `<script data-mono-jsx="${VERSION}">`,
-      ROUTER_JS,
       `window.$FLAGS="1|0|${ROUTER}|0";`,
+      ROUTER_JS,
       `</script>`,
     ].join(""),
   );
@@ -76,8 +76,8 @@ Deno.test("[utils] create routes for bun server", async () => {
       `</m-router>`,
       `</html>`,
       `<script data-mono-jsx="${VERSION}">`,
-      ROUTER_JS,
       `window.$FLAGS="1|0|${ROUTER}|0";`,
+      ROUTER_JS,
       `</script>`,
     ].join(""),
   );

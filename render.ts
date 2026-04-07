@@ -467,7 +467,7 @@ async function render(
     }
     if ((runtimeFlag & COMPONENT) || (runtimeFlag & ROUTER) || (runtimeFlag & FORM)) {
       const { scope, chunk } = flags;
-      js += 'window.$FLAGS="' + scope + "|" + chunk + "|" + runtimeFlag + "|" + fidGenerator.seq + '";';
+      js = 'window.$FLAGS="' + scope + "|" + chunk + "|" + runtimeFlag + "|" + fidGenerator.seq + '";' + js;
     }
     if (session && session.isDirty) {
       const sessionStore = session.all();
