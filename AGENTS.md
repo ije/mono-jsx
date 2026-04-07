@@ -73,7 +73,7 @@ Publishing is automated by GitHub Actions on `main` when a version tag is pushed
 When the user asks to publish a new version:
 
 1. Check the current version in `package.json`.
-2. Show the user a consise list of possible next versions, and ask the user to choose one.
+2. Show the user a selectable list of possible next versions, ask the user to choose which one to publish.
 3. After the user confirms the target version, update both `package.json` and `version.ts`.
 4. Commit only the release-related changes with the message "chore: Bump package version to v<new-version>".
 5. Create a git tag named `v<new-version>` on that commit.
