@@ -251,6 +251,14 @@ export namespace HTML {
      * @mono-jsx
      */
     route?: boolean;
+    /**
+     * Where to insert handler output nodes that are not targeted at a `<formslot>` (nodes with a `formslot` attribute are routed separately).
+     * - "append" (default): append the handler output into the form element.
+     * - "prepend": prepend the handler output into the form element.
+     * - "replace": replace the form element with the handler output.
+     * @mono-jsx
+     */
+    mode?: "replace" | "append" | "prepend";
   }
 
   interface InputAttributes<T extends EventTarget> extends GlobalAttributes<T>, InputElementAttributes<T> {

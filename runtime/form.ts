@@ -74,7 +74,15 @@ window.$onRFS = async (e) => {
     if (formslotEl) {
       slots.set(content, formslotEl);
     } else {
-      formEl.append(content);
+      const mode = getAttr(formEl, "mode");
+      if (mode === "replace") {
+        formEl.replaceWith(content);
+      } else if (mode === "prepend") {
+        formEl.prepend(content);
+      } else {
+        // default mode is "append"
+        formEl.append(content);
+      }
     }
     for (const [el, formslotEl] of slots) {
       const updateFid = getAttr(formslotEl, "onupdate");

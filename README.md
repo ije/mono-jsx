@@ -1162,14 +1162,35 @@ const routes = {
 }
 ```
 
-> [!NOTE]
+> [!TIP]
 > You can use `:invalid` CSS selector to style the form elements with invalid state.
 
-mono-jsx also provides a built-in `<formslot>` element that allows you to control where the form handler content should be inserted. It supports the following modes:
+You can return regular HTML elements in the form handler function, by default it will be appended to the form element. You can add the `mode` attribute on the `<form route>` element to decide where the content should be inserted.
 
-- `replaceChildren`(default): Replace children of the `formslot` element with the returned HTML.
-- `insertafter`: Insert HTML after the `formslot` element.
-- `insertbefore`: Insert HTML before the `formslot` element.
+- **"append"** (default): Append the handler output into the form element.
+- **"prepend"**: Prepend the handler output into the form element.
+- **"replace"**: Replace the form element with the handler output.
+
+```tsx
+function MyRoute(this: FC) {
+  return (
+    { /* this form element will be replaced with "Hey 👋" after submitting */ }
+    <form route mode="replace">
+      <input type="submit" value="Submit" />
+    </form>
+  )
+}
+
+MyRoute.FormHandler = function(this: FC, data: FormData) {
+  return <p>Hey 👋</p>
+}
+```
+
+mono-jsx also provides a built-in `<formslot>` element that is used to control where the form handler content should be inserted. If any `<formslot>` element exists the `mode` attribute on the `<form route>` element will be ignored. It accepts the following modes:
+
+- **"replaceChildren"** (default): Replace children of the `<formslot>` element with the returned HTML.
+- **"insertafter"**: Insert HTML after the `<formslot>` element.
+- **"insertbefore"**: Insert HTML before the `<formslot>` element.
 
 ```tsx
 function MyRoute(this: FC) {
@@ -1215,7 +1236,7 @@ MyRoute.FormHandler = function(this: FC, data: FormData) {
 }
 ```
 
-The `onUpdate` prop of a `<formslot>` element will be invoked when the formslot element is updated.
+The `<formslot>` element accepts a `onUpdate` prop as a callback function that will be invoked when the formslot element is updated.
 
 ```tsx
 function MyRoute(this: FC) {
