@@ -1165,12 +1165,11 @@ const routes = {
 > [!NOTE]
 > You can use `:invalid` CSS selector to style the form elements with invalid state.
 
-You can also return regular HTML elements from the route form post response. The `formslot` element is used to
-mark the position where the returned HTML elements will be inserted.
+mono-jsx also provides a built-in `<formslot>` element that allows you to control where the form handler content should be inserted. It supports the following modes:
 
-- `<formslot mode="replaceChildren" />`: Replace the `formslot` element's children with the HTML. This is the default mode.
-- `<formslot mode="insertafter" />`: Insert HTML after the `formslot` element.
-- `<formslot mode="insertbefore" />`: Insert HTML before the `formslot` element.
+- `replaceChildren`(default): Replace children of the `formslot` element with the returned HTML.
+- `insertafter`: Insert HTML after the `formslot` element.
+- `insertbefore`: Insert HTML before the `formslot` element.
 
 ```tsx
 function MyRoute(this: FC) {
@@ -1193,26 +1192,30 @@ MyRoute.FormHandler = function(this: FC, data: FormData) {
 }
 ```
 
-You can also use the `name` prop to specify the name of the formslot element. And you can use the `formslot` prop to specify the name of the slot to insert the HTML into.
+You can add the `name` prop to specify the name of the formslot element. And `formslot` prop to specify the name of the slot to insert the HTML into.
 
 ```tsx
 function MyRoute(this: FC) {
   return (
     <div>
-      <formslot name="message" />
+      <formslot name="info" /> { /* <- "This is info message" will be inserted into the formslot element after submitting the form */ }
       <form route>
         <button type="submit">Send</button>
+        <formslot name="error" /> { /* <- "This is error message" will be inserted into the formslot element after submitting the form */ }
       </form>
     </div>
   )
 }
 
 MyRoute.FormHandler = function(this: FC, data: FormData) {
-  return <p formslot="message">Hello, world!</p>
+  return <>
+    <p formslot="info">This is info message</p>
+    <p formslot="error">This is error message</p>
+  </>
 }
 ```
 
-`formslot` element accepts the `onUpdate` prop to set a callback function that will be called when the formslot element is updated.
+The `onUpdate` prop of a `<formslot>` element will be invoked when the formslot element is updated.
 
 ```tsx
 function MyRoute(this: FC) {
@@ -1230,10 +1233,21 @@ MyRoute.FormHandler = function(this: FC, data: FormData) {
 }
 ```
 
-The `hidden` prop can be used to hide the formslot payload from the form handler.
+If you only want to know what content is returned from the form handler and don't want to display it on the page, you can use the `hidden` prop with the `onUpdate` prop:
 
 ```tsx
-<formslot onUpdate={(evt) => console.log("message updated:", evt.target.textContent)} hidden />
+function MyRoute(this: FC) {
+  return (
+    <form>
+      <button type="submit">Send</button>
+      <formslot onUpdate={(evt) => console.log("form handler:", evt.target.textContent)} hidden />
+    </form>
+  )
+}
+
+MyRoute.FormHandler = function(this: FC, data: FormData) {
+  return <p>Hey 👋</p>
+}
 ```
 
 ### Using `this.app.url` Signal
@@ -1305,7 +1319,7 @@ export default {
 }
 ```
 
-## Adding Page Metadata
+### Adding Page Metadata
 
 You can add metadata to the route component by setting the `metadata` property on the route component.
 
