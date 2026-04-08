@@ -39,76 +39,79 @@ window.$onRFS = async (e) => {
   if (!formEl.checkValidity()) {
     return;
   }
-  const data = new FormData(formEl);
+  const submittingClassName = getAttr(formEl, "data-submitting-class") ?? "submitting";
+  const formData = new FormData(formEl);
   const inputEls = [...formEl.elements] as (HTMLInputElement & { _disabled?: boolean })[];
   for (const inputEl of inputEls) {
     inputEl._disabled = inputEl.disabled;
     inputEl.disabled = true;
   }
-  const res = await fetch(location.href, {
-    method: "POST",
-    headers: { "x-route-form": "true", "x-flags": $FLAGS },
-    body: data,
-  });
-  if (res.ok) {
-    const [html, js] = await res.json();
-    const slots = new Map<Element | DocumentFragment, Element>();
-    const tpl = document.createElement("template");
-    tpl.innerHTML = html;
+  formEl.querySelectorAll("formslot").forEach(el => el.innerHTML = "");
+  formEl.classList.add(submittingClassName);
+  try {
+    const res = await fetch(location.href, {
+      method: "POST",
+      headers: { "x-route-form": "true", "x-flags": $FLAGS },
+      body: formData,
+    });
+    if (res.ok) {
+      const [html, js] = await res.json();
+      const slots = new Map<Element | DocumentFragment, Element>();
+      const tpl = document.createElement("template");
+      tpl.innerHTML = html;
+      const { content } = tpl;
+      content.querySelectorAll("[formslot]").forEach(el => {
+        const slotName = getAttr(el, "formslot");
+        if (slotName) {
+          const formslotEl = queryFormslot(formEl, 'm-formslot[name="' + slotName + '"]');
+          if (formslotEl) {
+            el.remove();
+            slots.set(el, formslotEl);
+          }
+        }
+      });
+      const formslotEl = queryFormslot(formEl);
+      if (formslotEl) {
+        slots.set(content, formslotEl);
+      } else {
+        const mode = getAttr(formEl, "mode");
+        if (mode === "replace") {
+          formEl.replaceWith(content);
+        } else if (mode === "prepend") {
+          formEl.prepend(content);
+        } else {
+          // default mode is "append"
+          formEl.append(content);
+        }
+      }
+      for (const [el, formslotEl] of slots) {
+        const scope = getAttr(formslotEl, "scope");
+        const mode = getAttr(formslotEl, "mode");
+        const onupdateFid = getAttr(formslotEl, "onupdate");
+        if (mode === "insertbefore") {
+          formslotEl.before(el);
+        } else if (mode === "insertafter") {
+          formslotEl.after(el);
+        } else {
+          formslotEl.replaceChildren(el);
+        }
+        if (onupdateFid) {
+          $fmap.get(Number(onupdateFid))?.call(
+            $signals?.(Number(scope)) ?? formslotEl,
+            { type: "update", target: formslotEl },
+          );
+        }
+      }
+      setTimeout(() => formEl.checkValidity() && formEl.reset());
+      if (js) {
+        document.body.appendChild(document.createElement("script")).textContent = js + ";document.currentScript.remove();";
+      }
+    }
+  } finally {
+    formEl.classList.remove(submittingClassName);
     for (const inputEl of inputEls) {
       inputEl.disabled = inputEl._disabled!;
       delete inputEl._disabled;
-    }
-    const { content } = tpl;
-    content.querySelectorAll("[formslot]").forEach(el => {
-      const slotName = getAttr(el, "formslot");
-      if (slotName) {
-        const formslotEl = queryFormslot(formEl, 'm-formslot[name="' + slotName + '"]');
-        if (formslotEl) {
-          el.remove();
-          slots.set(el, formslotEl);
-        }
-      }
-    });
-    const formslotEl = queryFormslot(formEl);
-    if (formslotEl) {
-      slots.set(content, formslotEl);
-    } else {
-      const mode = getAttr(formEl, "mode");
-      if (mode === "replace") {
-        formEl.replaceWith(content);
-      } else if (mode === "prepend") {
-        formEl.prepend(content);
-      } else {
-        // default mode is "append"
-        formEl.append(content);
-      }
-    }
-    for (const [el, formslotEl] of slots) {
-      const updateFid = getAttr(formslotEl, "onupdate");
-      const scope = getAttr(formslotEl, "scope");
-      const mode = getAttr(formslotEl, "mode");
-      if (mode === "insertbefore") {
-        formslotEl.before(el);
-      } else if (mode === "insertafter") {
-        formslotEl.after(el);
-      } else {
-        formslotEl.replaceChildren(el);
-      }
-      if (updateFid) {
-        $fmap.get(Number(updateFid))?.call(
-          $signals?.(Number(scope)) ?? formslotEl,
-          { type: "update", target: formslotEl },
-        );
-      }
-    }
-    setTimeout(() => {
-      if (!inputEls.some(el => !el.validity.valid)) {
-        formEl.reset();
-      }
-    }, 0);
-    if (js) {
-      document.body.appendChild(document.createElement("script")).textContent = js + ";document.currentScript.remove();";
     }
   }
 };

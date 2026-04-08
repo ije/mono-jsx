@@ -56,11 +56,11 @@ customElements.define(
     #updateNavLinks() {
       doc.querySelectorAll<HTMLAnchorElement>("nav a").forEach((link) => {
         const { href, classList } = link;
-        const activeClass = link.closest("nav")?.getAttribute("data-active-class") ?? "active";
+        const activeClassname = link.closest("nav")?.getAttribute("data-active-class") ?? "active";
         if (isActivated(new URL(href))) {
-          classList.add(activeClass);
+          classList.add(activeClassname);
         } else {
-          classList.remove(activeClass);
+          classList.remove(activeClassname);
         }
       });
     }

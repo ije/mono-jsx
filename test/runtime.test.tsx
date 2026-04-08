@@ -24,54 +24,36 @@ const browser = await puppeteer.launch({
 const ac = new AbortController();
 const sanitizeFalse = { sanitizeResources: false, sanitizeOps: false };
 
-Deno.test.beforeAll(async () => {
-  Deno.serve({ port: 8687, onListen: () => {}, signal: ac.signal }, (request) => {
-    const url = new URL(request.url);
-    if (url.pathname === "/favicon.ico") {
-      return new Response(null, { status: 404 });
-    }
+const components = {
+  greeting: async (props: { message: string }) => {
+    await sleep(20);
+    return <h1>{props.message}</h1>;
+  },
+  count: async () => {
+    await sleep(20);
+    return <span>{count++}</span>;
+  },
+  a: async (props: { name: string }) => {
+    await sleep(20);
+    return <strong>{props.name.toUpperCase()}</strong>;
+  },
+  b: async (props: { name: string }) => {
+    await sleep(20);
+    return <strong>{props.name.toUpperCase()}</strong>;
+  },
+  c: async (props: { name: string }) => {
+    await sleep(20);
+    return <strong>{props.name.toUpperCase()}</strong>;
+  },
+};
 
-    // for htmx integration testing
-    if (url.pathname === "/clicked") {
-      return (
-        <html>
-          <h1>Clicked!</h1>
-        </html>
-      );
-    }
-
-    function Login(this: FC) {
-      this.session.set("user", "@ije");
-      return <redirect to="/dash" />;
-    }
-    Login.dynamic = true;
-
-    function Logout(this: FC) {
-      this.session.destroy();
-      return <redirect to="/" />;
-    }
-    Logout.dynamic = true;
-
-    function MetaHome(this: FC) {
-      return <h1 class="meta-home">Meta Home</h1>;
-    }
-    MetaHome.metadata = {
-      title: "Meta Home Title",
-      description: "Meta home description",
-    };
-
-    function MetaPost(this: FC) {
-      return <h1 class="meta-post">Post: {this.request.params!.slug}</h1>;
-    }
-    MetaPost.getMetadata = async function(this: FC) {
-      const slug = this.request.params!.slug;
-      await Promise.resolve();
-      return {
-        title: `Post ${slug}`,
-        description: `Description for ${slug}`,
-      };
-    };
-
+const routes = {
+  "/": () => <h1>Home</h1>,
+  "/about": () => <h1>About</h1>,
+  "/post/:slug": function(this: FC) {
+    return <h1>Post: {this.request.params!.slug}</h1>;
+  },
+  "/dash": (() => {
     function Dash(this: FC) {
       const user = this.session.get<string>("user");
       if (!user) {
@@ -89,6 +71,129 @@ Deno.test.beforeAll(async () => {
       );
     }
     Dash.dynamic = true;
+    return Dash;
+  })(),
+  "/login": (() => {
+    function Login(this: FC) {
+      this.session.set("user", "@ije");
+      return <redirect to="/dash" />;
+    }
+    Login.dynamic = true;
+    return Login;
+  })(),
+  "/logout": (() => {
+    function Logout(this: FC) {
+      this.session.destroy();
+      return <redirect to="/" />;
+    }
+    Logout.dynamic = true;
+    return Logout;
+  })(),
+  "/meta": (() => {
+    function MetaHome(this: FC) {
+      return <h1 class="meta-home">Meta Home</h1>;
+    }
+    MetaHome.metadata = {
+      title: "Meta Home Title",
+      description: "Meta home description",
+    };
+    return MetaHome;
+  })(),
+  "/meta/post/:slug": (() => {
+    function MetaPost(this: FC) {
+      return <h1 class="meta-post">Post: {this.request.params!.slug}</h1>;
+    }
+    MetaPost.getMetadata = async function(this: FC) {
+      const slug = this.request.params!.slug;
+      await Promise.resolve();
+      return {
+        title: `Post ${slug}`,
+        description: `Description for ${slug}`,
+      };
+    };
+    return MetaPost;
+  })(),
+  "/chat": (() => {
+    function Chat(this: FC) {
+      return (
+        <>
+          <formslot name="chat-message" />
+          <form route>
+            <formslot mode="insertbefore" />
+            <input style={{ ":invalid": { borderColor: "red" } }} type="text" name="message" placeholder="Type Message..." />
+            <input type="submit" value={"Send"} />
+          </form>
+        </>
+      );
+    }
+    Chat.FormHandler = function(this: FC, data: FormData) {
+      const message = data.get("message") as string | null;
+      if (message === null || message.trim() === "") {
+        return <invalid for="message">Message is required</invalid>;
+      }
+      return (
+        <>
+          {this.request.URL.searchParams.has("debug") && <p class="debug-message" formslot="debug-message">{message}</p>}
+          <p class="chat-message" formslot="chat-message">{message}</p>
+          <p class="message">{message}</p>
+        </>
+      );
+    };
+    return Chat;
+  })(),
+  "/routeform/prepend": (() => {
+    function ChatPrepend() {
+      return (
+        <form route mode="prepend" data-submitting-class="sending">
+          <input type="text" name="message" placeholder="Type Message..." />
+          <input type="submit" value={"Send"} />
+        </form>
+      );
+    }
+    ChatPrepend.FormHandler = function(this: FC, data: FormData) {
+      const message = data.get("message") as string | null;
+      if (message === null || message.trim() === "") {
+        return <invalid for="message">Message is required</invalid>;
+      }
+      return <p class="message">{message}</p>;
+    };
+    return ChatPrepend;
+  })(),
+  "/routeform/replace": (() => {
+    function ChatReplace() {
+      return (
+        <form route mode="replace">
+          <input type="text" name="message" placeholder="Type Message..." />
+          <input type="submit" value={"Send"} />
+        </form>
+      );
+    }
+    ChatReplace.FormHandler = function(this: FC, data: FormData) {
+      const message = data.get("message") as string | null;
+      if (message === null || message.trim() === "") {
+        return <invalid for="message">Message is required</invalid>;
+      }
+      return <p class="message">{message}</p>;
+    };
+    return ChatReplace;
+  })(),
+};
+
+Deno.test.beforeAll(async () => {
+  Deno.serve({ port: 8687, onListen: () => {}, signal: ac.signal }, (request) => {
+    const url = new URL(request.url);
+    if (url.pathname === "/favicon.ico") {
+      return new Response(null, { status: 404 });
+    }
+
+    // for htmx integration testing
+    if (url.pathname === "/clicked") {
+      return (
+        <html>
+          <h1>Clicked!</h1>
+        </html>
+      );
+    }
 
     return (
       <html
@@ -101,104 +206,8 @@ Deno.test.beforeAll(async () => {
           count: 0,
           themeColor: "",
         }}
-        components={{
-          greeting: async (props: { message: string }) => {
-            await sleep(20);
-            return <h1>{props.message}</h1>;
-          },
-          count: async () => {
-            await sleep(20);
-            return <span>{count++}</span>;
-          },
-          a: async (props: { name: string }) => {
-            await sleep(20);
-            return <strong>{props.name.toUpperCase()}</strong>;
-          },
-          b: async (props: { name: string }) => {
-            await sleep(20);
-            return <strong>{props.name.toUpperCase()}</strong>;
-          },
-          c: async (props: { name: string }) => {
-            await sleep(20);
-            return <strong>{props.name.toUpperCase()}</strong>;
-          },
-        }}
-        routes={{
-          "/": () => <h1>Home</h1>,
-          "/about": () => <h1>About</h1>,
-          "/post/:slug": function(this: FC) {
-            return <h1>Post: {this.request.params!.slug}</h1>;
-          },
-          "/dash": Dash,
-          "/login": Login,
-          "/logout": Logout,
-          "/meta": MetaHome,
-          "/meta/post/:slug": MetaPost,
-          "/chat": (() => {
-            function Chat(this: FC) {
-              return (
-                <>
-                  <formslot name="chat-message" />
-                  <form route>
-                    <formslot mode="insertbefore" />
-                    <input style={{ ":invalid": { borderColor: "red" } }} type="text" name="message" placeholder="Type Message..." />
-                    <input type="submit" value={"Send"} />
-                  </form>
-                </>
-              );
-            }
-            Chat.FormHandler = function(this: FC, data: FormData) {
-              const message = data.get("message") as string | null;
-              if (message === null || message.trim() === "") {
-                return <invalid for="message">Message is required</invalid>;
-              }
-              return (
-                <>
-                  {this.request.URL.searchParams.has("debug") && <p class="debug-message" formslot="debug-message">{message}</p>}
-                  <p class="chat-message" formslot="chat-message">{message}</p>
-                  <p class="message">{message}</p>
-                </>
-              );
-            };
-            return Chat;
-          })(),
-          "/routeform/prepend": (() => {
-            function ChatPrepend() {
-              return (
-                <form route mode="prepend">
-                  <input type="text" name="message" placeholder="Type Message..." />
-                  <input type="submit" value={"Send"} />
-                </form>
-              );
-            }
-            ChatPrepend.FormHandler = function(this: FC, data: FormData) {
-              const message = data.get("message") as string | null;
-              if (message === null || message.trim() === "") {
-                return <invalid for="message">Message is required</invalid>;
-              }
-              return <p class="message">{message}</p>;
-            };
-            return ChatPrepend;
-          })(),
-          "/routeform/replace": (() => {
-            function ChatReplace() {
-              return (
-                <form route mode="replace">
-                  <input type="text" name="message" placeholder="Type Message..." />
-                  <input type="submit" value={"Send"} />
-                </form>
-              );
-            }
-            ChatReplace.FormHandler = function(this: FC, data: FormData) {
-              const message = data.get("message") as string | null;
-              if (message === null || message.trim() === "") {
-                return <invalid for="message">Message is required</invalid>;
-              }
-              return <p class="message">{message}</p>;
-            };
-            return ChatReplace;
-          })(),
-        }}
+        components={components}
+        routes={routes}
         session={{
           cookie: {
             secret: "secret",
@@ -1591,6 +1600,53 @@ Deno.test("[runtime] route form", sanitizeFalse, async () => {
   await page.close();
 });
 
+Deno.test("[runtime] route form submitting class", sanitizeFalse, async () => {
+  const testUrl = addTestPage(
+    <>
+      <nav>
+        <a href="/chat">Chat</a>
+      </nav>
+      <router>
+        <p>Page not found</p>
+      </router>
+    </>,
+  );
+
+  const page = await browser.newPage();
+  await page.goto(testUrl);
+
+  const link = await page.$("nav a");
+  assert(link);
+  await link.click();
+  await page.waitForNetworkIdle();
+
+  await page.evaluate(() => {
+    const fetch_ = fetch.bind(globalThis);
+    globalThis.fetch = async (...args) => {
+      await new Promise(resolve => setTimeout(resolve, 100));
+      return fetch_(...args);
+    };
+  });
+
+  const form = await page.$("form");
+  assert(form);
+  const input = await form.$("input[type='text']");
+  assert(input);
+  const submit = await form.$("input[type='submit']");
+  assert(submit);
+
+  await input.type("hello");
+  await submit.evaluate((el: HTMLInputElement) => el.click());
+
+  await page.waitForFunction(() => document.querySelector("form")?.classList.contains("submitting"));
+  assert(await form.evaluate((el: HTMLFormElement) => el.classList.contains("submitting")));
+
+  await page.waitForNetworkIdle();
+  assert(!(await form.evaluate((el: HTMLFormElement) => el.classList.contains("submitting"))));
+
+  await page.close();
+});
+
 Deno.test("[runtime] route form (mode=prepend)", sanitizeFalse, async () => {
   const page = await browser.newPage();
   await page.goto("http://localhost:8687/routeform/prepend");
@@ -1628,6 +1684,38 @@ Deno.test("[runtime] route form (mode=prepend)", sanitizeFalse, async () => {
   assertEquals(list.length, 2);
   assertEquals(await list[0].evaluate((el: HTMLElement) => el.textContent), "World");
   assertEquals(await list[1].evaluate((el: HTMLElement) => el.textContent), "Hello");
+
+  await page.close();
+});
+
+Deno.test("[runtime] route form custom submitting class", sanitizeFalse, async () => {
+  const page = await browser.newPage();
+  await page.goto("http://localhost:8687/routeform/prepend");
+
+  await page.evaluate(() => {
+    const fetch_ = fetch.bind(globalThis);
+    globalThis.fetch = async (...args) => {
+      await new Promise(resolve => setTimeout(resolve, 100));
+      return fetch_(...args);
+    };
+  });
+
+  const form = await page.$("form");
+  assert(form);
+  const input = await form.$("input[type='text']");
+  assert(input);
+  const submit = await form.$("input[type='submit']");
+  assert(submit);
+
+  await input.type("Hello");
+  await submit.evaluate((el: HTMLInputElement) => el.click());
+
+  await page.waitForFunction(() => document.querySelector("form")?.classList.contains("sending"));
+  assert(await form.evaluate((el: HTMLFormElement) => el.classList.contains("sending")));
+  assert(!(await form.evaluate((el: HTMLFormElement) => el.classList.contains("submitting"))));
+
+  await page.waitForNetworkIdle();
+  assert(!(await form.evaluate((el: HTMLFormElement) => el.classList.contains("sending"))));
 
   await page.close();
 });

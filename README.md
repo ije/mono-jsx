@@ -1126,151 +1126,6 @@ function Post(this: FC) {
 }
 ```
 
-### Using Route Form
-
-mono-jsx allows you to define a `FormHandler` function for route components to handle form data from form submissions on the current route page on the client side. To submit the form data to the `FormHandler` function, you need to set the `route` prop on the `<form>` element.
-
-mono-jsx provides two built-in elements to allow you to control the post-submit behavior:
-
-- `<invalid for="...">{message}</invalid>` to set custom validation state for the form elements.
-- `<redirect to="..." />` to redirect to a new route/URL.
-
-```tsx
-async function Login(this: FC) {
-  return (
-    <form route style={{ "& input:invalid": { borderColor: "red" } }}>
-      <input type="text" name="username" placeholder="Username" />
-      <input type="password" name="password" placeholder="Password" />
-      <button type="submit">Login</button>
-    </form>
-  )
-}
-
-// `FormHandler` function will be called when the form in '/login' route is submitted.
-Login.FormHandler = function(this: FC, data: FormData) {
-  const user = await auth(data)
-  if (!user) {
-    return <invalid for="username,password">Invalid Username/Password</invalid>
-  }
-  this.session.set("user", user)
-  return <redirect to="/dash" />
-}
-
-const routes = {
-  "/login": Login,
-  // ... other routes ...
-}
-```
-
-> [!TIP]
-> You can use `:invalid` CSS selector to style the form elements with invalid state.
-
-You can return regular HTML elements in the form handler function, by default it will be appended to the form element. You can add the `mode` attribute on the `<form route>` element to decide where the content should be inserted.
-
-- **"append"** (default): Append the handler output into the form element.
-- **"prepend"**: Prepend the handler output into the form element.
-- **"replace"**: Replace the form element with the handler output.
-
-```tsx
-function MyRoute(this: FC) {
-  return (
-    { /* this form element will be replaced with "Hey 👋" after submitting */ }
-    <form route mode="replace">
-      <input type="submit" value="Submit" />
-    </form>
-  )
-}
-
-MyRoute.FormHandler = function(this: FC, data: FormData) {
-  return <p>Hey 👋</p>
-}
-```
-
-mono-jsx also provides a built-in `<formslot>` element that is used to control where the form handler content should be inserted. If any `<formslot>` element exists the `mode` attribute on the `<form route>` element will be ignored. It accepts the following modes:
-
-- **"replaceChildren"** (default): Replace children of the `<formslot>` element with the returned HTML.
-- **"insertafter"**: Insert HTML after the `<formslot>` element.
-- **"insertbefore"**: Insert HTML before the `<formslot>` element.
-
-```tsx
-function MyRoute(this: FC) {
-  return (
-    <form route>
-      {/* <- new message will be inserted here */}
-      <formslot mode="insertbefore" />
-      <input type="text" name="message" placeholder="Type Message..." style={{ ":invalid": { borderColor: "red" } }} />
-      <button type="submit">Send</button>
-    </form>
-  )
-}
-
-MyRoute.FormHandler = function(this: FC, data: FormData) {
-  const message = data.get("message") as string | null;
-  if (!message) {
-    return <invalid for="message">Message is required</invalid>
-  }
-  return <p>{message}</p>
-}
-```
-
-You can add the `name` prop to specify the name of the formslot element. And `formslot` prop to specify the name of the slot to insert the HTML into.
-
-```tsx
-function MyRoute(this: FC) {
-  return (
-    <div>
-      <formslot name="info" /> { /* <- "This is info message" will be inserted into the formslot element after submitting the form */ }
-      <form route>
-        <button type="submit">Send</button>
-        <formslot name="error" /> { /* <- "This is error message" will be inserted into the formslot element after submitting the form */ }
-      </form>
-    </div>
-  )
-}
-
-MyRoute.FormHandler = function(this: FC, data: FormData) {
-  return <>
-    <p formslot="info">This is info message</p>
-    <p formslot="error">This is error message</p>
-  </>
-}
-```
-
-The `<formslot>` element accepts a `onUpdate` prop as a callback function that will be invoked when the formslot element is updated.
-
-```tsx
-function MyRoute(this: FC) {
-  return (
-    <form>
-      <input type="text" name="message" placeholder="Type Message..." />
-      <button type="submit">Send</button>
-      <formslot onUpdate={(evt) => console.log("message updated:", evt.target.textContent)} />
-    </form>
-  )
-}
-
-MyRoute.FormHandler = function(this: FC, data: FormData) {
-  return <p>{data.get("message")}</p>
-}
-```
-
-If you only want to know what content is returned from the form handler and don't want to display it on the page, you can use the `hidden` prop with the `onUpdate` prop:
-
-```tsx
-function MyRoute(this: FC) {
-  return (
-    <form>
-      <button type="submit">Send</button>
-      <formslot onUpdate={(evt) => console.log("form handler:", evt.target.textContent)} hidden />
-    </form>
-  )
-}
-
-MyRoute.FormHandler = function(this: FC, data: FormData) {
-  return <p>Hey 👋</p>
-}
-```
-
 ### Using `this.app.url` Signal
 
 The `this.app.url` in a component is an app-level signal that contains the current route URL and parameters. It is automatically updated when the route changes, so you can use it to display the current URL in your components or control the view with `<show>`, `<hidden>` or `<switch>` elements:
@@ -1426,7 +1281,7 @@ export default {
 }
 ```
 
-### Route Caching
+### Route Client Caching
 
 By default, the router client caches the html content from the server. To disable the caching, you can add the `dynamic` option to the route component.
 
@@ -1447,6 +1302,171 @@ Dash.dynamic = true;
 const routes = {
   "/": Home,
   "/dash": Dash,
+}
+```
+
+## Using Route Form
+
+mono-jsx allows you to define a `FormHandler` function for route components to handle form data from client side form submissions. To submit the form data to the `FormHandler` function, you need to add the `route` prop to the `<form>` element.
+
+The `FormHandler` function is also a component, so you can use all the features of the component system in it. mono-jsx provides two built-in elements to allow you to control the post-submit behavior:
+
+- `<invalid for="...">{message}</invalid>` to set custom validation state for the form elements.
+- `<redirect to="..." />` to redirect to a new route/URL.
+
+```tsx
+async function Login(this: FC) {
+  return (
+    <form route style={{ "& input:invalid": { borderColor: "red" } }}>
+      <input type="text" name="username" placeholder="Username" />
+      <input type="password" name="password" placeholder="Password" />
+      <button type="submit">Login</button>
+    </form>
+  )
+}
+
+// `FormHandler` function will be called when the form in '/login' route is submitted.
+Login.FormHandler = function(this: FC, data: FormData) {
+  const user = await auth(data)
+  if (!user) {
+    return <invalid for="username,password">Invalid Username/Password</invalid>
+  }
+  this.session.set("user", user)
+  return <redirect to="/dash" />
+}
+
+const routes = {
+  "/login": Login,
+}
+```
+
+> [!TIP]
+> You can use `:invalid` CSS selector to style the form elements with invalid state.
+
+### Handling Route Form Submissions
+
+You can return regular HTML elements in the form handler function, by default it will be appended to the form element. You can add the `mode` attribute on the `<form route>` element to decide where the content should be inserted.
+
+- **"append"** (default): Append the handler output into the form element.
+- **"prepend"**: Prepend the handler output into the form element.
+- **"replace"**: Replace the form element with the handler output.
+
+```tsx
+function MyRoute(this: FC) {
+  return (
+    { /* this form element will be replaced with "Hey 👋" after submitting */ }
+    <form route mode="replace">
+      <input type="submit" value="Submit" />
+    </form>
+  )
+}
+
+MyRoute.FormHandler = function(this: FC, data: FormData) {
+  return <p>Hey 👋</p>
+}
+```
+
+mono-jsx also provides a built-in `<formslot>` element that is used to control where the form handler content should be inserted. If any `<formslot>` element exists the `mode` attribute on the `<form route>` element will be ignored. It accepts the following modes:
+
+- **"replaceChildren"** (default): Replace children of the `<formslot>` element with the returned HTML.
+- **"insertafter"**: Insert HTML after the `<formslot>` element.
+- **"insertbefore"**: Insert HTML before the `<formslot>` element.
+
+```tsx
+function MyRoute(this: FC) {
+  return (
+    <form route>
+      {/* <- new message will be inserted here */}
+      <formslot mode="insertbefore" />
+      <input type="text" name="message" placeholder="Type Message..." style={{ ":invalid": { borderColor: "red" } }} />
+      <button type="submit">Send</button>
+    </form>
+  )
+}
+
+MyRoute.FormHandler = function(this: FC, data: FormData) {
+  const message = data.get("message") as string | null;
+  if (!message) {
+    return <invalid for="message">Message is required</invalid>
+  }
+  return <p>{message}</p>
+}
+```
+
+You can add the `name` prop to specify the name of the formslot element. And `formslot` prop to specify the name of the slot to insert the HTML into.
+
+```tsx
+function MyRoute(this: FC) {
+  return (
+    <div>
+      <formslot name="info" /> { /* <- "This is info message" will be inserted into the formslot element after submitting the form */ }
+      <form route>
+        <button type="submit">Send</button>
+        <formslot name="error" /> { /* <- "This is error message" will be inserted into the formslot element after submitting the form */ }
+      </form>
+    </div>
+  )
+}
+
+MyRoute.FormHandler = function(this: FC, data: FormData) {
+  return <>
+    <p formslot="info">This is info message</p>
+    <p formslot="error">This is error message</p>
+  </>
+}
+```
+
+The `<formslot>` element accepts a `onUpdate` prop as a callback function that will be invoked when the formslot element is updated.
+
+```tsx
+function MyRoute(this: FC) {
+  return (
+    <form>
+      <input type="text" name="message" placeholder="Type Message..." />
+      <button type="submit">Send</button>
+      <formslot hiddenonUpdate={(evt) => console.log("message updated:", evt.target.textContent)} />
+    </form>
+  )
+}
+
+MyRoute.FormHandler = function(this: FC, data: FormData) {
+  return <p>{data.get("message")}</p>
+}
+```
+
+> [!TIP]
+> You can use the `hidden` prop with the `onUpdate` prop to hide the formslot element. It is useful when you only want to know what content is returned from the form handler and don't want to display it on the page.
+
+### Submitting State
+
+When a `<form route>` is submitted, mono-jsx automatically manages a short "submitting" state on the client:
+
+- Adds a CSS class to the form while the request is in flight (default: `submitting`).
+- Disables all form controls to prevent double submit, then restores their original disabled state.
+- Clears the current content of local `<formslot>` elements before inserting the next response payload.
+
+You can use the `data-submitting-class` attribute to customize the submitting state class name:
+
+```tsx
+function Contact(this: FC) {
+  return (
+    <form route data-submitting-class="is-loading">
+      <input type="email" name="email" required />
+      <button type="submit">Subscribe</button>
+      <formslot />
+    </form>
+  )
+}
+
+Contact.FormHandler = function(this: FC, data: FormData) {
+  return <p>Thanks, {data.get("email")}!</p>
+}
+```
+
+```css
+form.is-loading {
+  opacity: 0.6;
+  pointer-events: none;
 }
 ```
 
