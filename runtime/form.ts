@@ -2,9 +2,10 @@ declare global {
   var $onRFS: (event: SubmitEvent) => Promise<void>;
 }
 
-const document = window.document;
-const getAttr = (el: HTMLElement, name: string) => el.getAttribute(name);
-const appendChild = (el: HTMLElement, child: Node) => el.appendChild(child);
+const { document } = window;
+const getAttr = (el: Element, name: string) => el.getAttribute(name);
+const queryFormslot = (formEl: HTMLFormElement, selector = "m-formslot") =>
+  formEl.querySelector(selector) ?? document.querySelector(selector);
 
 customElements.define(
   "m-invalid",
@@ -51,49 +52,45 @@ window.$onRFS = async (e) => {
   });
   if (res.ok) {
     const [html, js] = await res.json();
+    const slots = new Map<Element | DocumentFragment, Element>();
     const tpl = document.createElement("template");
-    const formslots = new Map<HTMLElement, HTMLElement>();
-    formEl.querySelectorAll("m-formslot").forEach(el => {
-      el.innerHTML = "";
-    });
     tpl.innerHTML = html;
     for (const inputEl of inputEls) {
       inputEl.disabled = inputEl._disabled!;
       delete inputEl._disabled;
     }
-    for (const child of tpl.content.childNodes) {
-      if (child.nodeType === 1) {
-        const el = child as HTMLElement;
-        const slot = getAttr(el, "formslot");
-        const selector = slot ? 'm-formslot[name="' + slot + '"]' : "m-formslot";
-        const formslot = slot
-          ? formEl.querySelector(selector) ?? document.querySelector(selector)
-          : formEl.querySelector(selector);
-        if (formslot) {
-          formslot.innerHTML = "";
-          formslots.set(el, formslot as HTMLElement);
-          continue;
+    const { content } = tpl;
+    content.querySelectorAll("[formslot]").forEach(el => {
+      const slotName = getAttr(el, "formslot");
+      if (slotName) {
+        const formslotEl = queryFormslot(formEl, 'm-formslot[name="' + slotName + '"]');
+        if (formslotEl) {
+          el.remove();
+          slots.set(el, formslotEl);
         }
       }
-      appendChild(formEl, child);
+    });
+    const formslotEl = queryFormslot(formEl);
+    if (formslotEl) {
+      slots.set(content, formslotEl);
+    } else {
+      formEl.append(content);
     }
-    for (const [child, formslot] of formslots) {
-      const updateFid = getAttr(formslot, "onupdate");
-      const scope = getAttr(formslot, "scope");
-      switch (getAttr(formslot, "mode")) {
-        case "insertbefore":
-          formslot.before(child);
-          break;
-        case "insertafter":
-          formslot.after(child);
-          break;
-        default:
-          appendChild(formslot, child);
+    for (const [el, formslotEl] of slots) {
+      const updateFid = getAttr(formslotEl, "onupdate");
+      const scope = getAttr(formslotEl, "scope");
+      const mode = getAttr(formslotEl, "mode");
+      if (mode === "insertbefore") {
+        formslotEl.before(el);
+      } else if (mode === "insertafter") {
+        formslotEl.after(el);
+      } else {
+        formslotEl.replaceChildren(el);
       }
       if (updateFid) {
         $fmap.get(Number(updateFid))?.call(
-          $signals?.(Number(scope)) ?? formslot,
-          { type: "update", target: formslot },
+          $signals?.(Number(scope)) ?? formslotEl,
+          { type: "update", target: formslotEl },
         );
       }
     }
@@ -103,7 +100,7 @@ window.$onRFS = async (e) => {
       }
     }, 0);
     if (js) {
-      appendChild(document.body, document.createElement("script")).textContent = js + ";document.currentScript.remove();";
+      document.body.appendChild(document.createElement("script")).textContent = js + ";document.currentScript.remove();";
     }
   }
 };
