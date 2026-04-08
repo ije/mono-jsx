@@ -451,7 +451,7 @@ async function render(
       }
       fidGenerator.clear();
     }
-    if (options.expose) {
+    if (options.expose && !componentMode) {
       for (const [key, value] of Object.entries(options.expose)) {
         if (identifierRegex.test(key)) {
           if (isPlainObject(value)) {
