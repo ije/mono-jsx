@@ -1340,11 +1340,6 @@ const routes = {
 }
 ```
 
-> [!TIP]
-> You can use `:invalid` CSS selector to style the form elements with invalid state.
-
-### Handling Route Form Submissions
-
 You can return regular HTML elements in the form handler function, by default it will be appended to the form element. You can add the `mode` attribute on the `<form route>` element to decide where the content should be inserted.
 
 - **"append"** (default): Append the handler output into the form element.
@@ -1366,7 +1361,12 @@ MyRoute.FormHandler = function(this: FC, data: FormData) {
 }
 ```
 
-mono-jsx also provides a built-in `<formslot>` element that is used to control where the form handler content should be inserted. If any `<formslot>` element exists the `mode` attribute on the `<form route>` element will be ignored. It accepts the following modes:
+> [!TIP]
+> You can use `:invalid` CSS selector to style the form elements with invalid state.
+
+### Using `<formslot>` element
+
+mono-jsx provides a built-in `<formslot>` element that is used to control where the form handler content should be inserted. If any `<formslot>` element exists the `mode` attribute on the `<form route>` element will be ignored. It accepts the following modes:
 
 - **"replaceChildren"** (default): Replace children of the `<formslot>` element with the returned HTML.
 - **"insertafter"**: Insert HTML after the `<formslot>` element.
@@ -1393,26 +1393,28 @@ MyRoute.FormHandler = function(this: FC, data: FormData) {
 }
 ```
 
-You can add the `name` prop to specify the name of the formslot element. And `formslot` prop to specify the name of the slot to insert the HTML into.
+You can add the `name` prop to specify the name of the formslot element. And use `formslot` prop in the form handler function to specify the name of the slot to insert the HTML into.
 
 ```tsx
 function MyRoute(this: FC) {
   return (
     <div>
-      <formslot name="info" /> { /* <- "This is info message" will be inserted into the formslot element after submitting the form */ }
       <form route>
         <button type="submit">Send</button>
-        <formslot name="error" /> { /* <- "This is error message" will be inserted into the formslot element after submitting the form */ }
+        <formslot name="info" /> { /* <- "This is info message" will be inserted here */ }
+        <formslot name="error" /> { /* <- "This is error message" will be inserted here */ }
       </form>
     </div>
   )
 }
 
 MyRoute.FormHandler = function(this: FC, data: FormData) {
-  return <>
-    <p formslot="info">This is info message</p>
-    <p formslot="error">This is error message</p>
-  </>
+  return (
+    <>
+      <p formslot="info">This is info message</p>
+      <p formslot="error">This is error message</p>
+    </>
+  )
 }
 ```
 
@@ -1424,7 +1426,7 @@ function MyRoute(this: FC) {
     <form>
       <input type="text" name="message" placeholder="Type Message..." />
       <button type="submit">Send</button>
-      <formslot hiddenonUpdate={(evt) => console.log("message updated:", evt.target.textContent)} />
+      <formslot hidden onUpdate={(evt) => console.log("message updated:", evt.target.textContent)} />
     </form>
   )
 }

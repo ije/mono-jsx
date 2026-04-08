@@ -4,8 +4,6 @@ declare global {
 
 const { document } = window;
 const getAttr = (el: Element, name: string) => el.getAttribute(name);
-const queryFormslot = (formEl: HTMLFormElement, selector = "m-formslot") =>
-  formEl.querySelector(selector) ?? document.querySelector(selector);
 
 customElements.define(
   "m-invalid",
@@ -63,14 +61,15 @@ window.$onRFS = async (e) => {
       content.querySelectorAll("[formslot]").forEach(el => {
         const slotName = getAttr(el, "formslot");
         if (slotName) {
-          const formslotEl = queryFormslot(formEl, 'm-formslot[name="' + slotName + '"]');
+          const selector = 'm-formslot[name="' + slotName + '"]';
+          const formslotEl = formEl.querySelector(selector) ?? document.querySelector(selector);
           if (formslotEl) {
             el.remove();
             slots.set(el, formslotEl);
           }
         }
       });
-      const formslotEl = queryFormslot(formEl);
+      const formslotEl = formEl.querySelector("m-formslot:not([name])");
       if (formslotEl) {
         slots.set(content, formslotEl);
       } else {
