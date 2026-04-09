@@ -141,6 +141,19 @@ const routes = {
     };
     return Chat;
   })(),
+  "/form-replace": (() => {
+    function FormReplace(this: FC) {
+      return (
+        <form route>
+          <button type="submit">Send</button>
+        </form>
+      );
+    }
+    FormReplace.FormHandler = function(this: FC) {
+      return <p formslot=":form">Form submitted</p>;
+    };
+    return FormReplace;
+  })(),
 };
 
 Deno.test.beforeAll(async () => {
@@ -1607,6 +1620,42 @@ Deno.test("[runtime] route form submitting class", sanitizeFalse, async () => {
 
   await page.waitForNetworkIdle();
   assert(!(await form.evaluate((el: HTMLFormElement) => el.classList.contains("submitting"))));
+
+  await page.close();
+});
+
+Deno.test("[runtime] route formslot :form", sanitizeFalse, async () => {
+  const testUrl = addTestPage(
+    <>
+      <nav>
+        <a href="/form-replace">Form Replace</a>
+      </nav>
+      <router>
+        <p>Page not found</p>
+      </router>
+    </>,
+  );
+  const page = await browser.newPage();
+  await page.goto(testUrl);
+
+  const link = await page.$("nav a");
+  assert(link);
+  await link.click();
+  await page.waitForNetworkIdle();
+
+  let form = await page.$("form");
+  assert(form);
+  const submit = await form.$("button[type='submit']");
+  assert(submit);
+  await submit.click();
+  await page.waitForNetworkIdle();
+
+  form = await page.$("form");
+  assert(!form);
+
+  const message = await page.$("p");
+  assert(message);
+  assertEquals(await message.evaluate((el: HTMLElement) => el.textContent), "Form submitted");
 
   await page.close();
 });

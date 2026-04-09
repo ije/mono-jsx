@@ -1397,6 +1397,23 @@ MyRoute.FormHandler = function(this: FC, data: FormData) {
 }
 ```
 
+You can set the `formslot` prop to `:form` to replace the form element with the returned HTML.
+
+```tsx
+function MyRoute(this: FC) {
+  return (
+    { /* the form will be replaced with the returned HTML after the form is submitted */ }
+    <form route>
+      <button type="submit">Send</button>
+    </form>
+  )
+}
+
+MyRoute.FormHandler = function(this: FC, data: FormData) {
+  return <p formslot=":form">Form submitted</p>
+}
+```
+
 The `<formslot>` element accepts a `onUpdate` prop as a callback function that will be invoked when the formslot element is updated.
 
 ```tsx

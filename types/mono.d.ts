@@ -78,6 +78,36 @@ export interface Elements {
   static: BaseAttributes;
 
   /**
+   * The `<formslot>` element is used to display the content of the route form
+   * in the `form` element.
+   * @mono-jsx
+   */
+  formslot: BaseAttributes & {
+    /**
+     * The name of the formslot element.
+     */
+    name?: ":form" | (string & string);
+    /**
+     * The insert mode of the formslot.
+     * - "insertbefore": Insert HTML before the formslot element.
+     * - "insertafter": Insert HTML after the formslot element.
+     * - "replaceChildren": Replace the formslot element's children with the HTML.
+     * @default "replaceChildren"
+     */
+    mode?: "insertbefore" | "insertafter" | "replaceChildren";
+
+    /**
+     * If true, the formslot element will be hidden.
+     */
+    hidden?: boolean;
+
+    /**
+     * The callback function to be called when the formslot element is updated.
+     */
+    onUpdate?: (evt: { type: "update"; target: HTMLElement }) => void | Promise<void>;
+  };
+
+  /**
    * The `<redirect>` element redirects to the given URL in the client side.
    * @mono-jsx
    */
@@ -103,36 +133,6 @@ export interface Elements {
      * Which form elements to set the custom validation state for.
      */
     for?: string;
-  };
-
-  /**
-   * The `<formslot>` element is used to display the content of the route form
-   * in the `form` element.
-   * @mono-jsx
-   */
-  formslot: BaseAttributes & {
-    /**
-     * The name of the formslot element.
-     */
-    name?: string;
-    /**
-     * The insert mode of the formslot.
-     * - "insertbefore": Insert HTML before the formslot element.
-     * - "insertafter": Insert HTML after the formslot element.
-     * - "replaceChildren": Replace the formslot element's children with the HTML.
-     * @default "replaceChildren"
-     */
-    mode?: "insertbefore" | "insertafter" | "replaceChildren";
-
-    /**
-     * If true, the formslot element will be hidden.
-     */
-    hidden?: boolean;
-
-    /**
-     * The callback function to be called when the formslot element is updated.
-     */
-    onUpdate?: (evt: { type: "update"; target: HTMLElement }) => void | Promise<void>;
   };
 }
 
