@@ -7,6 +7,7 @@ export type MaybeGetter<T> = T | { get: () => T };
 export type MaybePromise<T> = T | Promise<T>;
 export type MaybeModule<T> = T | Promise<{ default: T } & ComponentConfig>;
 export type MaybePromiseOrGenerator<T> = T | Promise<T> | Generator<T> | AsyncGenerator<T>;
+export type WithParams<T> = T & { params?: Record<string, string> };
 
 export interface BaseAttributes {
   /**

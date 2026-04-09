@@ -1,6 +1,7 @@
 /// <reference path="./htmx.d.ts" />
 
 import type { ComponentType, MaybeModule, MaybePromise, Metadata } from "./jsx.d.ts";
+import type { MonoRequest } from "./mono.d.ts";
 
 /**
  * Htmx extensions.
@@ -130,5 +131,5 @@ export interface RenderOptions extends Partial<HtmxExts> {
    * @param request - The current request; `URL` is a parsed {@link URL} for `request.url`.
    * @param context - The same object as the {@link RenderOptions.context | `context`} option, if any.
    */
-  onFetch?: (request: Request & { URL?: URL }, context: RenderOptions["context"]) => MaybePromise<Response> | void;
+  onFetch?: (request: MonoRequest, context: RenderOptions["context"]) => MaybePromise<Response> | void;
 }

@@ -1,5 +1,5 @@
 import type { ChildType, ComponentType, MaybeModule, Metadata, VNode } from "./types/jsx.d.ts";
-import type { Session } from "./types/mono.d.ts";
+import type { MonoRequest, Session } from "./types/mono.d.ts";
 import type { RenderOptions, SessionOptions } from "./types/render.d.ts";
 import { customElements } from "./jsx.ts";
 import { $fragment, $html, $rpc, $vnode } from "./symbols.ts";
@@ -175,7 +175,7 @@ const errorStringify = (err: unknown) => err instanceof Error ? err.message : St
 /** Renders a `<html>` element to a `Response` object. */
 function renderToWebStream(root: VNode, options: RenderOptions): Response | Promise<Response> {
   const { routes, components } = options;
-  const request: Request & { URL?: URL; params?: Record<string, string> } | undefined = options.request;
+  const request = options.request as unknown as MonoRequest | undefined;
   const headers = new Headers();
   const reqHeaders = request?.headers;
   const componentName = reqHeaders?.get("x-component");

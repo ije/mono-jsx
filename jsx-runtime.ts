@@ -13,6 +13,21 @@ declare global {
   }
 }
 
+const optionsKeys = new Set([
+  "app",
+  "context",
+  "components",
+  "expose",
+  "routes",
+  "request",
+  "session",
+  "status",
+  "headers",
+  "htmx",
+  "metadata",
+  "onFetch",
+]);
+
 export const Fragment = $fragment as unknown as ComponentType;
 
 export const jsx = (
@@ -31,20 +46,6 @@ export const jsx = (
       return props as unknown as VNode;
     }
     const renderOptions = new NullPrototypeObject();
-    const optionsKeys = new Set([
-      "app",
-      "context",
-      "components",
-      "expose",
-      "routes",
-      "request",
-      "session",
-      "status",
-      "headers",
-      "htmx",
-      "metadata",
-      "onFetch",
-    ]);
     for (const [key, value] of Object.entries(props)) {
       if (optionsKeys.has(key) || key.startsWith("htmx-ext-")) {
         renderOptions[key] = value;

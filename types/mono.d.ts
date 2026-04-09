@@ -1,6 +1,4 @@
-import type { AsyncComponentAttributes, BaseAttributes, ComponentType, MaybeGetter } from "./jsx.d.ts";
-
-export type WithParams<T> = T & { params?: Record<string, string> };
+import type { AsyncComponentAttributes, BaseAttributes, ComponentType, MaybeGetter, WithParams } from "./jsx.d.ts";
 
 export interface Elements {
   /**
@@ -210,6 +208,12 @@ export interface Session {
   destroy(): void;
 }
 
+/**
+ * Mono request type.
+ * It is a extended request object with the parsed `URL` object and the optional `params` property.
+ */
+export type MonoRequest = WithParams<Request & { URL: URL }>;
+
 declare global {
   interface FCExtension<FC> {
     /**
@@ -233,14 +237,7 @@ declare global {
      *
      * **⚠ This is a server-side only API.**
      */
-    readonly request: WithParams<
-      Request & {
-        /**
-         * Returns the URL of the request as a URL object.
-         */
-        URL: URL;
-      }
-    >;
+    readonly request: MonoRequest;
     /**
      * The `context` represents the current context.
      *

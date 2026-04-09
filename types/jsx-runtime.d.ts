@@ -19,6 +19,7 @@ declare global {
   }
   type ComponentElement = Mono.ComponentElement;
   type RouterElement = Mono.RouterElement;
+  type MonoRequest = Mono.MonoRequest;
   type Metadata = import("./jsx.d.ts").Metadata;
   type CookieOptions = import("./render.d.ts").CookieOptions;
   type SessionOptions = import("./render.d.ts").SessionOptions;
