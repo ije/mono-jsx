@@ -1340,33 +1340,12 @@ const routes = {
 }
 ```
 
-You can return regular HTML elements in the form handler function, by default it will be appended to the form element. You can add the `mode` attribute on the `<form route>` element to decide where the content should be inserted.
-
-- **"append"** (default): Append the handler output into the form element.
-- **"prepend"**: Prepend the handler output into the form element.
-- **"replace"**: Replace the form element with the handler output.
-
-```tsx
-function MyRoute(this: FC) {
-  return (
-    { /* this form element will be replaced with "Hey 👋" after submitting */ }
-    <form route mode="replace">
-      <input type="submit" value="Submit" />
-    </form>
-  )
-}
-
-MyRoute.FormHandler = function(this: FC, data: FormData) {
-  return <p>Hey 👋</p>
-}
-```
-
 > [!TIP]
 > You can use `:invalid` CSS selector to style the form elements with invalid state.
 
 ### Using `<formslot>` element
 
-mono-jsx provides a built-in `<formslot>` element that is used to control where the form handler content should be inserted. If any `<formslot>` element exists the `mode` attribute on the `<form route>` element will be ignored. It accepts the following modes:
+You can return regular HTML elements from the form handler function. By default, the returned HTML is appended to the form element. Use the `<formslot>` element to control where the returned content is inserted. If any `<formslot>` element exists, the `mode` attribute on the `<form route>` element is ignored. `<formslot>` supports the following modes:
 
 - **"replaceChildren"** (default): Replace children of the `<formslot>` element with the returned HTML.
 - **"insertafter"**: Insert HTML after the `<formslot>` element.

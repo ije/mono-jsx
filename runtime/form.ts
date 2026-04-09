@@ -73,15 +73,7 @@ window.$onRFS = async (e) => {
       if (formslotEl) {
         slots.set(content, formslotEl);
       } else {
-        const mode = getAttr(formEl, "mode");
-        if (mode === "replace") {
-          formEl.replaceWith(content);
-        } else if (mode === "prepend") {
-          formEl.prepend(content);
-        } else {
-          // default mode is "append"
-          formEl.append(content);
-        }
+        formEl.append(content);
       }
       for (const [el, formslotEl] of slots) {
         const scope = getAttr(formslotEl, "scope");

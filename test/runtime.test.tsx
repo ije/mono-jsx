@@ -141,42 +141,6 @@ const routes = {
     };
     return Chat;
   })(),
-  "/routeform/prepend": (() => {
-    function ChatPrepend() {
-      return (
-        <form route mode="prepend" data-submitting-class="sending">
-          <input type="text" name="message" placeholder="Type Message..." />
-          <input type="submit" value={"Send"} />
-        </form>
-      );
-    }
-    ChatPrepend.FormHandler = function(this: FC, data: FormData) {
-      const message = data.get("message") as string | null;
-      if (message === null || message.trim() === "") {
-        return <invalid for="message">Message is required</invalid>;
-      }
-      return <p class="message">{message}</p>;
-    };
-    return ChatPrepend;
-  })(),
-  "/routeform/replace": (() => {
-    function ChatReplace() {
-      return (
-        <form route mode="replace">
-          <input type="text" name="message" placeholder="Type Message..." />
-          <input type="submit" value={"Send"} />
-        </form>
-      );
-    }
-    ChatReplace.FormHandler = function(this: FC, data: FormData) {
-      const message = data.get("message") as string | null;
-      if (message === null || message.trim() === "") {
-        return <invalid for="message">Message is required</invalid>;
-      }
-      return <p class="message">{message}</p>;
-    };
-    return ChatReplace;
-  })(),
 };
 
 Deno.test.beforeAll(async () => {
@@ -1647,50 +1611,23 @@ Deno.test("[runtime] route form submitting class", sanitizeFalse, async () => {
   await page.close();
 });
 
-Deno.test("[runtime] route form (mode=prepend)", sanitizeFalse, async () => {
-  const page = await browser.newPage();
-  await page.goto("http://localhost:8687/routeform/prepend");
-
-  let form = await page.$("form");
-  assert(form);
-
-  const input = await form.$("input[type='text']");
-  assert(input);
-  const submit = await form.$("input[type='submit']");
-  assert(submit);
-
-  await input.type("Hello");
-  await submit.evaluate((el: HTMLInputElement) => el.click());
-  await page.waitForNetworkIdle();
-
-  let list = await page.$$("form > p.message");
-  assertEquals(list.length, 1);
-  assertEquals(await list[0].evaluate((el: HTMLElement) => el.textContent), "Hello");
-  assertEquals(await list[0].evaluate((el: HTMLElement) => el.previousElementSibling?.tagName), undefined);
-
-  form = await page.$("form");
-  assert(form);
-  const inputAfterSubmit = await form.$("input[type='text']");
-  assert(inputAfterSubmit);
-  assertEquals(await inputAfterSubmit.evaluate((el: HTMLInputElement) => el.value), "");
-
-  await inputAfterSubmit.type("World");
-  const submitAfterSubmit = await form.$("input[type='submit']");
-  assert(submitAfterSubmit);
-  await submitAfterSubmit.evaluate((el: HTMLInputElement) => el.click());
-  await page.waitForNetworkIdle();
-
-  list = await page.$$("form > p.message");
-  assertEquals(list.length, 2);
-  assertEquals(await list[0].evaluate((el: HTMLElement) => el.textContent), "World");
-  assertEquals(await list[1].evaluate((el: HTMLElement) => el.textContent), "Hello");
-
-  await page.close();
-});
-
 Deno.test("[runtime] route form custom submitting class", sanitizeFalse, async () => {
+  function Contact(this: FC) {
+    return (
+      <form route data-submitting-class="sending">
+        <input type="text" name="message" placeholder="Type Message..." />
+        <input type="submit" value={"Send"} />
+        <formslot />
+      </form>
+    );
+  }
+  Contact.FormHandler = function(this: FC, data: FormData) {
+    return <p class="message">{data.get("message") as string}</p>;
+  };
+
+  const testUrl = addTestPage(<Contact />);
   const page = await browser.newPage();
-  await page.goto("http://localhost:8687/routeform/prepend");
+  await page.goto(testUrl);
 
   await page.evaluate(() => {
     const fetch_ = fetch.bind(globalThis);
@@ -1716,30 +1653,6 @@ Deno.test("[runtime] route form custom submitting class", sanitizeFalse, async (
 
   await page.waitForNetworkIdle();
   assert(!(await form.evaluate((el: HTMLFormElement) => el.classList.contains("sending"))));
-
-  await page.close();
-});
-
-Deno.test("[runtime] route form (mode=replace)", sanitizeFalse, async () => {
-  const page = await browser.newPage();
-  await page.goto("http://localhost:8687/routeform/replace");
-
-  const form = await page.$("form");
-  assert(form);
-
-  const input = await form.$("input[type='text']");
-  assert(input);
-  const submit = await form.$("input[type='submit']");
-  assert(submit);
-
-  await input.type("Hello");
-  await submit.evaluate((el: HTMLInputElement) => el.click());
-  await page.waitForNetworkIdle();
-
-  assert(!(await page.$("form")));
-  const p = await page.$("p.message");
-  assert(p);
-  assertEquals(await p.evaluate((el: HTMLElement) => el.textContent), "Hello");
 
   await page.close();
 });
