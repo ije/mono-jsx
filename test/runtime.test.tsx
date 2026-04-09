@@ -154,6 +154,32 @@ const routes = {
     };
     return FormReplace;
   })(),
+  "/form-replace-router": (() => {
+    function FormReplaceRouter(this: FC) {
+      return (
+        <form route>
+          <button type="submit">Send</button>
+        </form>
+      );
+    }
+    FormReplaceRouter.FormHandler = function(this: FC) {
+      return <p formslot=":router">Router replaced</p>;
+    };
+    return FormReplaceRouter;
+  })(),
+  "/form-replace-root": (() => {
+    function FormReplaceRoot(this: FC) {
+      return (
+        <form route>
+          <button type="submit">Send</button>
+        </form>
+      );
+    }
+    FormReplaceRoot.FormHandler = function(this: FC) {
+      return <p formslot=":root">Root replaced</p>;
+    };
+    return FormReplaceRoot;
+  })(),
 };
 
 Deno.test.beforeAll(async () => {
@@ -1656,6 +1682,83 @@ Deno.test("[runtime] route formslot :form", sanitizeFalse, async () => {
   const message = await page.$("p");
   assert(message);
   assertEquals(await message.evaluate((el: HTMLElement) => el.textContent), "Form submitted");
+
+  await page.close();
+});
+
+Deno.test("[runtime] route formslot :router", sanitizeFalse, async () => {
+  const testUrl = addTestPage(
+    <>
+      <nav>
+        <a href="/form-replace-router">Form Replace Router</a>
+      </nav>
+      <router>
+        <p>Page not found</p>
+      </router>
+    </>,
+  );
+  const page = await browser.newPage();
+  await page.goto(testUrl);
+
+  const link = await page.$("nav a");
+  assert(link);
+  await link.click();
+  await page.waitForNetworkIdle();
+
+  let form = await page.$("form");
+  assert(form);
+  const submit = await form.$("button[type='submit']");
+  assert(submit);
+  await submit.click();
+  await page.waitForNetworkIdle();
+
+  form = await page.$("form");
+  assert(!form);
+
+  const message = await page.$("m-router p");
+  assert(message);
+  assertEquals(await message.evaluate((el: HTMLElement) => el.textContent), "Router replaced");
+
+  await page.close();
+});
+
+Deno.test("[runtime] route formslot :root", sanitizeFalse, async () => {
+  const testUrl = addTestPage(
+    <>
+      <header id="sticky-header">Header</header>
+      <nav>
+        <a href="/form-replace-root">Form Replace Root</a>
+      </nav>
+      <router>
+        <p>Page not found</p>
+      </router>
+    </>,
+  );
+  const page = await browser.newPage();
+  await page.goto(testUrl);
+
+  const link = await page.$("nav a");
+  assert(link);
+  await link.click();
+  await page.waitForNetworkIdle();
+
+  const form = await page.$("form");
+  assert(form);
+  const submit = await form.$("button[type='submit']");
+  assert(submit);
+  await submit.click();
+  await page.waitForNetworkIdle();
+
+  const header = await page.$("#sticky-header");
+  assert(!header);
+  const nav = await page.$("nav");
+  assert(!nav);
+  const router = await page.$("m-router");
+  assert(!router);
+
+  const message = await page.$("body > p");
+  assert(message);
+  assertEquals(await message.evaluate((el: HTMLElement) => el.textContent), "Root replaced");
 
   await page.close();
 });

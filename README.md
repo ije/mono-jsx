@@ -1397,7 +1397,11 @@ MyRoute.FormHandler = function(this: FC, data: FormData) {
 }
 ```
 
-You can set the `formslot` prop to `:form` to replace the form element with the returned HTML.
+The `formslot` prop also accepts the following special values:
+
+- `:form`: Replace the form element with the returned HTML.
+- `:router`: Replace the children of current `<router>` element with the returned HTML.
+- `:root`: Replace the children of the page with the returned HTML.
 
 ```tsx
 function MyRoute(this: FC) {

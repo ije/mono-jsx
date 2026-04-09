@@ -4,8 +4,9 @@ declare global {
 
 const { document } = window;
 const getAttr = (el: Element, name: string) => el.getAttribute(name);
+const createElement = (tag: string) => document.createElement(tag);
 const renderHtml = (html: string): DocumentFragment => {
-  const tpl = document.createElement("template");
+  const tpl = createElement("template") as HTMLTemplateElement;
   tpl.innerHTML = html;
   return tpl.content;
 };
@@ -61,11 +62,15 @@ window.$onRFS = async (e) => {
       const [html, js] = await res.json();
       const content = renderHtml(html);
       const slots = new Map<Element | DocumentFragment, Element>();
-      let replaceSlot: Element | undefined;
+      let replace: [Element, Element] | undefined;
       content.querySelectorAll("[formslot]").forEach(el => {
         const slotName = getAttr(el, "formslot");
-        if (slotName === ":form") {
-          replaceSlot = el;
+        if (slotName === ":root" || slotName === ":router") {
+          const div = createElement("div");
+          (slotName === ":root" ? document.body : $router as unknown as HTMLElement).replaceChildren(div);
+          replace = [el, div];
+        } else if (slotName === ":form") {
+          replace = [el, formEl];
         } else if (slotName) {
           const selector = 'm-formslot[name="' + slotName + '"]';
           const formslotEl = formEl.querySelector(selector) ?? document.querySelector(selector);
@@ -75,8 +80,8 @@ window.$onRFS = async (e) => {
           }
         }
       });
-      if (replaceSlot) {
-        formEl.replaceWith(replaceSlot);
+      if (replace) {
+        replace[1].replaceWith(replace[0]);
       } else {
         const formslotEl = formEl.querySelector("m-formslot:not([name])");
         if (formslotEl) {
@@ -105,7 +110,7 @@ window.$onRFS = async (e) => {
         setTimeout(() => formEl.checkValidity() && formEl.reset());
       }
       if (js) {
-        document.body.appendChild(document.createElement("script")).textContent = js + ";document.currentScript.remove();";
+        document.body.appendChild(createElement("script")).textContent = js + ";document.currentScript.remove();";
       }
     }
   } finally {
