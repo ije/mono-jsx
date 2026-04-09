@@ -81,17 +81,35 @@ interface Signals {
 }
 
 class FunctionIdGenerator extends Map<string, number> {
-  constructor(public seq = 0) {
-    super();
-  }
+  public seq = 0;
+  #fnRef = new Map<CallableFunction, number>();
+
   genId(fn: CallableFunction | string): number {
+    if (typeof fn === "string") {
+      let id = this.get(fn);
+      if (id === undefined) {
+        id = this.seq++;
+        this.set(fn, id);
+      }
+      return id;
+    }
+    const cached = this.#fnRef.get(fn);
+    if (cached !== undefined) {
+      return cached;
+    }
     const fnStr = String(fn);
     let id = this.get(fnStr);
     if (id === undefined) {
       id = this.seq++;
       this.set(fnStr, id);
     }
+    this.#fnRef.set(fn, id);
     return id;
+  }
+
+  override clear(): void {
+    super.clear();
+    this.#fnRef.clear();
   }
 }
 
@@ -121,30 +139,35 @@ class Ref {
 
 class IdGen<T> extends Map<T, number> {
   #seq = 0;
+  #byId = new Map<number, T>();
   gen(v: T) {
-    return this.get(v) ?? this.set(v, this.#seq++).get(v)!;
+    const existing = this.get(v);
+    if (existing !== undefined) {
+      return existing;
+    }
+    const id = this.#seq++;
+    this.set(v, id);
+    this.#byId.set(id, v);
+    return id;
   }
   getById(id: number): T | void {
-    for (const [v, i] of this.entries()) {
-      if (i === id) {
-        return v;
-      }
-    }
+    return this.#byId.get(id);
   }
 }
 
-const cdn = "https://raw.esm.sh"; // the cdn for loading htmx and its extensions
+const stringify = JSON.stringify;
+const subtle = crypto.subtle;
 const encoder = new TextEncoder();
+const identifierRegex = /^[A-Za-z_$][0-9A-Za-z_$]*$/;
+const cdn = "https://raw.esm.sh"; // the cdn for loading htmx and its extensions
 const voidTags = new Set("area,base,br,col,embed,hr,img,input,keygen,link,meta,param,source,track,wbr".split(","));
 const defaultMetadata = { viewport: "width=device-width, initial-scale=1.0" };
-const cache = new Map<string, { html: string; expiresAt?: number }>();
 const componentsMap = new IdGen<ComponentType>();
+const cache = new Map<string, { html: string; expiresAt?: number }>();
 const urlPatternCache = new Map<string, URLPattern>();
-const subtle = crypto.subtle;
-const stringify = JSON.stringify;
+const hmacKeyCache = new Map<string, Promise<CryptoKey>>();
 const isVNode = (v: unknown): v is VNode => Array.isArray(v) && v.length === 3 && v[2] === $vnode;
 const isReactive = (v: unknown): v is Signal | Compute => v instanceof Signal || v instanceof Compute;
-const identifierRegex = /^[A-Za-z_$][0-9A-Za-z_$]*$/;
 const escapeCSSText = (str: string): string => str.replace(/[><]/g, (m) => m.charCodeAt(0) === 60 ? "&lt;" : "&gt;");
 const toAttrStringLit = (str: string) => '"' + escapeHTML(str) + '"';
 const errorStringify = (err: unknown) => err instanceof Error ? err.message : String(err);
@@ -283,8 +306,8 @@ function renderToWebStream(root: VNode, options: RenderOptions): Response | Prom
             }
             let propsHeader = reqHeaders?.get("x-props");
             let props = propsHeader ? JSON.parse(propsHeader) : {};
-            let html = "";
-            let js = "";
+            const htmlChunks: string[] = [];
+            const jsChunks: string[] = [];
             let buf = "";
             let vnode: VNode = [component as ComponentType<any>, props, $vnode];
             if (routeForm && request?.method === "POST") {
@@ -297,11 +320,17 @@ function renderToWebStream(root: VNode, options: RenderOptions): Response | Prom
             await render(
               vnode,
               options,
-              (chunk) => html += chunk,
-              (chunk) => js += chunk,
+              (chunk) => {
+                htmlChunks.push(chunk);
+              },
+              (chunk) => {
+                jsChunks.push(chunk);
+              },
               true,
               routeForm,
             );
+            const html = htmlChunks.join("");
+            const js = jsChunks.join("");
             buf = "[" + stringify(html);
             if (js) {
               buf += "," + stringify(js);
@@ -330,7 +359,20 @@ function renderToWebStream(root: VNode, options: RenderOptions): Response | Prom
   return new Response(
     new ReadableStream<Uint8Array>({
       async start(controller) {
-        const write = (chunk: string) => controller.enqueue(encoder.encode(chunk));
+        let buffer = "";
+        const flush = () => {
+          if (buffer.length) {
+            controller.enqueue(encoder.encode(buffer));
+            buffer = "";
+          }
+        };
+        const write = (chunk: string) => {
+          buffer += chunk;
+          // coalesce small `write` chunks before `TextEncoder.encode` to cut allocation churn on large SSR pages
+          if (buffer.length >= 64 * 1024) {
+            flush();
+          }
+        };
         Reflect.set(options, "routeFC", routeFC);
         try {
           write("<!DOCTYPE html>");
@@ -347,6 +389,7 @@ function renderToWebStream(root: VNode, options: RenderOptions): Response | Prom
           console.error(err);
           write("<script>console.error(" + stringify(errorStringify(err)) + ")</script>");
         } finally {
+          flush();
           controller.close();
         }
       },
@@ -487,7 +530,7 @@ async function render(
           ]);
           const signature = await subtle.sign(
             "HMAC",
-            await subtle.importKey("raw", encoder.encode(secret), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]),
+            await importHmacKey(secret),
             encoder.encode(data),
           );
           cookie += btoa(data) + "." + btoa(String.fromCharCode(...new Uint8Array(signature)));
@@ -595,17 +638,24 @@ async function renderNode(rc: RenderContext, node: ChildType, stripSlotProp?: bo
           case "slot": {
             const fcSlots = rc.fc?.slots;
             if (fcSlots) {
-              let slots: ChildType[];
+              const slots: ChildType[] = [];
               if (props.name) {
-                slots = fcSlots.filter((v) => isVNode(v) && v[1].slot === props.name);
+                for (let i = 0, n = fcSlots.length; i < n; i++) {
+                  const v = fcSlots[i];
+                  if (isVNode(v) && v[1].slot === props.name) {
+                    slots.push(v);
+                  }
+                }
               } else {
-                slots = fcSlots.filter((v) => !isVNode(v) || !v[1].slot);
+                for (let i = 0, n = fcSlots.length; i < n; i++) {
+                  const v = fcSlots[i];
+                  if (!isVNode(v) || !v[1].slot) {
+                    slots.push(v);
+                  }
+                }
               }
               // use the children of the slot as fallback if nothing is slotted
-              if (slots.length === 0) {
-                slots = props.children;
-              }
-              await renderChildren(rc, slots, true);
+              await renderChildren(rc, slots.length === 0 ? props.children : slots, true);
             }
             break;
           }
@@ -742,10 +792,16 @@ async function renderNode(rc: RenderContext, node: ChildType, stripSlotProp?: bo
             attrs += renderViewTransitionAttr(props);
             let buf = "<m-component" + attrs + ">";
             if (pending) {
-              const write = (chunk: string) => {
-                buf += chunk;
-              };
-              await renderChildren({ ...rc, write }, pending);
+              const chunks: string[] = [];
+              await renderChildren(
+                forkRenderContext(rc, {
+                  write: (chunk: string) => {
+                    chunks.push(chunk);
+                  },
+                }),
+                pending,
+              );
+              buf += chunks.join("");
             }
             buf += "</m-component>";
             if (attrModifiers) {
@@ -784,10 +840,16 @@ async function renderNode(rc: RenderContext, node: ChildType, stripSlotProp?: bo
               if (routeFC) {
                 buf += "<template m-fallback>";
               }
-              const write = (chunk: string) => {
-                buf += chunk;
-              };
-              await renderChildren({ ...rc, write }, children);
+              const chunks: string[] = [];
+              await renderChildren(
+                forkRenderContext(rc, {
+                  write: (chunk: string) => {
+                    chunks.push(chunk);
+                  },
+                }),
+                children,
+              );
+              buf += chunks.join("");
               if (routeFC) {
                 buf += "</template>";
               }
@@ -813,7 +875,8 @@ async function renderNode(rc: RenderContext, node: ChildType, stripSlotProp?: bo
                 metadata = await getMetadata.call(createInvokeScope(request, context, session));
               }
               let buf = '<meta charset="utf-8">';
-              for (const [key, value] of Object.entries(Object.assign(defaultMetadata, rc.metadata, metadata))) {
+              const mergedMeta = Object.assign({}, defaultMetadata, rc.metadata, metadata);
+              for (const [key, value] of Object.entries(mergedMeta)) {
                 if (value) {
                   if (key === "title") {
                     buf += "<title>" + escapeHTML(value) + "</title>";
@@ -842,17 +905,17 @@ async function renderNode(rc: RenderContext, node: ChildType, stripSlotProp?: bo
                   write(value.html);
                   write("<!-- /" + tag + " -->");
                 } else {
-                  let buf = "";
+                  const chunks: string[] = [];
                   await renderChildren(
-                    {
-                      ...rc,
+                    forkRenderContext(rc, {
                       write: (chunk: string) => {
-                        buf += chunk;
+                        chunks.push(chunk);
                       },
-                    },
+                    }),
                     children,
                     true,
                   );
+                  const buf = chunks.join("");
                   cache.set(key, { html: buf, expiresAt: typeof maxAge === "number" && maxAge > 0 ? now + (maxAge * 1000) : undefined });
                   rc.write(buf);
                 }
@@ -908,12 +971,16 @@ async function renderNode(rc: RenderContext, node: ChildType, stripSlotProp?: bo
             }
             buf += ">";
             if (children) {
-              await renderChildren({
-                ...rc,
-                write: (chunk: string) => {
-                  buf += chunk;
-                },
-              }, children);
+              const chunks: string[] = [];
+              await renderChildren(
+                forkRenderContext(rc, {
+                  write: (chunk: string) => {
+                    chunks.push(chunk);
+                  },
+                }),
+                children,
+              );
+              buf += chunks.join("");
             }
             write(buf + "</m-" + tag + ">");
             rc.flags.runtime |= FORM;
@@ -970,7 +1037,11 @@ async function renderNode(rc: RenderContext, node: ChildType, stripSlotProp?: bo
                   write(attrModifiers);
                 }
                 if (!noChildren) {
-                  await renderChildren(tag === "svg" ? { ...rc, svg: true } : rc, props.children);
+                  if (tag === "svg") {
+                    await renderChildren(forkRenderContext(rc, { svg: true }), props.children);
+                  } else {
+                    await renderChildren(rc, props.children);
+                  }
                 }
                 if (!isSvgSelfClosingElement) {
                   write("</" + tag + ">");
@@ -1000,6 +1071,10 @@ async function renderChildren(rc: RenderContext, children: ChildType | ChildType
   }
 }
 
+function forkRenderContext(rc: RenderContext, overrides: Partial<RenderContext>): RenderContext {
+  return Object.assign(Object.create(rc), overrides);
+}
+
 async function renderFC(rc: RenderContext, fcFn: ComponentType, props: JSX.IntrinsicAttributes, eager?: boolean) {
   const { write } = rc;
   const { children } = props;
@@ -1019,8 +1094,9 @@ async function renderFC(rc: RenderContext, fcFn: ComponentType, props: JSX.Intri
           promise = promise.catch(catchFn);
         }
         if (eager || (props.rendering ?? fcFn.rendering) === "eager") {
-          await renderNode({ ...rc, fc }, (await promise) as ChildType);
-          markSignals(rc, signals);
+          const fcRc = forkRenderContext(rc, { fc });
+          await renderNode(fcRc, (await promise) as ChildType);
+          markSignals(fcRc, signals);
         } else {
           const chunkIdAttr = 'chunk-id="' + (rc.flags.chunk++).toString(36) + '"';
           write("<m-portal " + chunkIdAttr + ">");
@@ -1029,22 +1105,26 @@ async function renderFC(rc: RenderContext, fcFn: ComponentType, props: JSX.Intri
           }
           write("</m-portal>");
           rc.suspenses.push(promise.then(async (node) => {
-            let buf = "";
-            let write = (chunk: string) => {
-              buf += chunk;
-            };
-            buf += "<m-chunk " + chunkIdAttr + "><template>";
-            await renderNode({ ...rc, fc, write }, node as ChildType);
-            markSignals({ ...rc, write }, signals);
-            return buf + "</template></m-chunk>";
+            const chunks: string[] = [];
+            const chunkRc = forkRenderContext(rc, {
+              fc,
+              write: (chunk: string) => {
+                chunks.push(chunk);
+              },
+            });
+            chunks.push("<m-chunk " + chunkIdAttr + "><template>");
+            await renderNode(chunkRc, node as ChildType);
+            markSignals(chunkRc, signals);
+            return chunks.join("") + "</template></m-chunk>";
           }));
         }
       } else if (Symbol.asyncIterator in v) {
         if (eager || (props.rendering ?? fcFn.rendering) === "eager") {
+          const fcRc = forkRenderContext(rc, { fc });
           for await (const c of v) {
-            await renderNode({ ...rc, fc }, c as ChildType);
+            await renderNode(fcRc, c as ChildType);
           }
-          markSignals(rc, signals);
+          markSignals(fcRc, signals);
         } else {
           const chunkIdAttr = 'chunk-id="' + (rc.flags.chunk++).toString(36) + '"';
           write("<m-portal " + chunkIdAttr + ">");
@@ -1055,32 +1135,37 @@ async function renderFC(rc: RenderContext, fcFn: ComponentType, props: JSX.Intri
           const iter = () =>
             rc.suspenses.push(
               v.next().then(async ({ done, value }) => {
-                let buf = "<m-chunk " + chunkIdAttr;
-                let write = (chunk: string) => {
-                  buf += chunk;
-                };
+                const chunks: string[] = [];
+                const chunkRc = forkRenderContext(rc, {
+                  fc,
+                  write: (chunk: string) => {
+                    chunks.push(chunk);
+                  },
+                });
                 if (done) {
-                  buf += " done>";
-                  markSignals({ ...rc, write }, signals);
-                  return buf + "</m-chunk>";
+                  chunks.push("<m-chunk " + chunkIdAttr + " done>");
+                  markSignals(chunkRc, signals);
+                  return chunks.join("") + "</m-chunk>";
                 }
-                buf += " next><template>";
-                await renderNode({ ...rc, fc, write }, value as ChildType);
+                chunks.push("<m-chunk " + chunkIdAttr + " next><template>");
+                await renderNode(chunkRc, value as ChildType);
                 iter();
-                return buf + "</template></m-chunk>";
+                return chunks.join("") + "</template></m-chunk>";
               }),
             );
           iter();
         }
       } else if (Symbol.iterator in v) {
+        const fcRc = forkRenderContext(rc, { fc });
         for (const node of v) {
-          await renderNode({ ...rc, fc }, node as ChildType);
+          await renderNode(fcRc, node as ChildType);
         }
-        markSignals(rc, signals);
+        markSignals(fcRc, signals);
       }
     } else if (v) {
-      await renderNode({ ...rc, fc }, v as ChildType);
-      markSignals(rc, signals);
+      const fcRc = forkRenderContext(rc, { fc });
+      await renderNode(fcRc, v as ChildType);
+      markSignals(fcRc, signals);
     }
   } catch (err) {
     if (catchFn) {
@@ -1477,7 +1562,7 @@ async function createSession(request: Request, options: SessionOptions): Promise
         signature = atob(signature);
         const verified = await subtle.verify(
           "HMAC",
-          await subtle.importKey("raw", encoder.encode(secret), { name: "HMAC", hash: "SHA-256" }, false, ["verify"]),
+          await importHmacKey(secret),
           Uint8Array.from(signature, char => char.charCodeAt(0)),
           encoder.encode(data),
         );
@@ -1526,6 +1611,15 @@ function traverseProps(
     }
   }
   return copy;
+}
+
+function importHmacKey(secret: string): Promise<CryptoKey> {
+  let key = hmacKeyCache.get(secret);
+  if (!key) {
+    key = subtle.importKey("raw", encoder.encode(secret), { name: "HMAC", hash: "SHA-256" }, false, ["sign", "verify"]);
+    hmacKeyCache.set(secret, key);
+  }
+  return key;
 }
 
 export { cache, isReactive, renderToWebStream };

@@ -543,6 +543,45 @@ Deno.test("[ssr] async component", async () => {
   }
 });
 
+Deno.test("[ssr] async component keeps suspense chunks isolated", async () => {
+  async function Inner({ label, delay }: { label: string; delay: number }) {
+    await new Promise((resolve) => setTimeout(resolve, delay));
+    return <span>{label}</span>;
+  }
+
+  async function Outer({ label, outerDelay, innerDelay }: { label: string; outerDelay: number; innerDelay: number }) {
+    await new Promise((resolve) => setTimeout(resolve, outerDelay));
+    return (
+      <div>
+        start-{label}
+        <Inner label={label} delay={innerDelay} rendering="eager" />
+        end-{label}
+      </div>
+    );
+  }
+
+  assertEquals(
+    await renderToString(
+      <>
+        <Outer label="A" outerDelay={0} innerDelay={30} />
+        <Outer label="B" outerDelay={10} innerDelay={50} />
+      </>,
+    ),
+    [
+      `<!DOCTYPE html>`,
+      `<html lang="en"><body>`,
+      `<m-portal chunk-id="0"></m-portal>`,
+      `<m-portal chunk-id="1"></m-portal>`,
+      `</body></html>`,
+      `<script data-mono-jsx="${VERSION}">`,
+      SUSPENSE_JS,
+      `</script>`,
+      `<m-chunk chunk-id="0"><template><div>start-A<span>A</span>end-A</div></template></m-chunk>`,
+      `<m-chunk chunk-id="1"><template><div>start-B<span>B</span>end-B</div></template></m-chunk>`,
+    ].join(""),
+  );
+});
+
 Deno.test("[ssr] async generator component", async () => {
   const words = ["Welcome", "to", "mono-jsx", "!"];
 
@@ -1634,6 +1673,31 @@ Deno.test("[ssr] <static>", async () => {
     ].join(""),
   );
   assertEquals(cache.size, 2);
+});
+
+Deno.test("[ssr] async svg child keeps svg mode", async () => {
+  async function AsyncCircle() {
+    await new Promise((resolve) => setTimeout(resolve, 10));
+    return <circle cx="10" cy="10" r="10" />;
+  }
+
+  assertEquals(
+    await renderToString(
+      <svg>
+        <AsyncCircle />
+      </svg>,
+    ),
+    [
+      `<!DOCTYPE html>`,
+      `<html lang="en"><body>`,
+      `<svg><m-portal chunk-id="0"></m-portal></svg>`,
+      `</body></html>`,
+      `<script data-mono-jsx="${VERSION}">`,
+      SUSPENSE_JS,
+      `</script>`,
+      `<m-chunk chunk-id="0"><template><circle cx="10" cy="10" r="10" /></template></m-chunk>`,
+    ].join(""),
+  );
 });
 
 Deno.test("[ssr] <toggle>", async () => {
