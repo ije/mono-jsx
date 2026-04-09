@@ -86,7 +86,7 @@ export interface Elements {
     /**
      * The name of the formslot element.
      */
-    name?: ":form" | (string & string);
+    name?: string;
     /**
      * The insert mode of the formslot.
      * - "insertbefore": Insert HTML before the formslot element.
