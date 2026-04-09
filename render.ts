@@ -139,6 +139,7 @@ const voidTags = new Set("area,base,br,col,embed,hr,img,input,keygen,link,meta,p
 const defaultMetadata = { viewport: "width=device-width, initial-scale=1.0" };
 const cache = new Map<string, { html: string; expiresAt?: number }>();
 const componentsMap = new IdGen<ComponentType>();
+const urlPatternCache = new Map<string, URLPattern>();
 const subtle = crypto.subtle;
 const stringify = JSON.stringify;
 const isVNode = (v: unknown): v is VNode => Array.isArray(v) && v.length === 3 && v[2] === $vnode;
@@ -156,6 +157,16 @@ function renderToWebStream(root: VNode, options: RenderOptions): Response | Prom
   const reqHeaders = request?.headers;
   const componentName = reqHeaders?.get("x-component");
   const routeForm = reqHeaders?.has("x-route-form");
+
+  if (request) {
+    request.URL = new URL(request.url);
+    if (options.onFetch) {
+      const res = options.onFetch(request, options.context);
+      if (res !== undefined) {
+        return res;
+      }
+    }
+  }
 
   if (reqHeaders?.has("x-rpc")) {
     if (!request || request.method !== "POST") {
@@ -209,29 +220,24 @@ function renderToWebStream(root: VNode, options: RenderOptions): Response | Prom
     ? (componentName.startsWith("@comp_") ? componentsMap.getById(Number(componentName.slice(6))) : components?.[componentName])
     : null;
 
-  if (request) {
-    request.URL = new URL(request.url);
-  }
-
   if (routes && !routeFC) {
     if (request) {
-      const patterns = Object.keys(routes);
-      const dynamicPatterns = [];
-      for (const pattern of patterns) {
-        if (pattern.includes(":") || pattern.includes("*")) {
-          dynamicPatterns.push(pattern);
-        } else if (request.URL!.pathname === pattern) {
-          routeFC = routes[pattern];
-          break;
-        }
-      }
+      routeFC = routes[request.URL!.pathname];
       if (!routeFC) {
-        for (const path of dynamicPatterns) {
-          const match = new URLPattern({ pathname: path }).exec(request.url);
-          if (match) {
-            routeFC = routes[path];
-            request.params = match.pathname.groups as Record<string, string>;
-            break;
+        for (const pattern of Object.keys(routes)) {
+          if (pattern.includes(":") || pattern.includes("*")) {
+            let urlPattern = urlPatternCache.get(pattern);
+            let match: URLPatternResult | null;
+            if (!urlPattern) {
+              urlPattern = new URLPattern({ pathname: pattern });
+              urlPatternCache.set(pattern, urlPattern);
+            }
+            match = urlPattern.exec(request.URL!);
+            if (match) {
+              routeFC = routes[pattern];
+              request.params = match.pathname.groups as Record<string, string>;
+              break;
+            }
           }
         }
       }

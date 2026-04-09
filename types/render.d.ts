@@ -1,6 +1,6 @@
 /// <reference path="./htmx.d.ts" />
 
-import type { ComponentType, MaybeModule, Metadata } from "./jsx.d.ts";
+import type { ComponentType, MaybeModule, MaybePromise, Metadata } from "./jsx.d.ts";
 
 /**
  * Htmx extensions.
@@ -120,4 +120,15 @@ export interface RenderOptions extends Partial<HtmxExts> {
    * @defaultValue `false`
    */
   htmx?: number | string | boolean;
+  /**
+   * Runs once per render when {@link RenderOptions.request | `request`} is provided, immediately
+   * after `request.URL` is set and before RPC handling, routing, and HTML streaming.
+   *
+   * Return a `Response` or `Promise<Response>` to send that response and skip the rest of the
+   * pipeline. Return `undefined` or omit a return value to continue with normal rendering.
+   *
+   * @param request - The current request; `URL` is a parsed {@link URL} for `request.url`.
+   * @param context - The same object as the {@link RenderOptions.context | `context`} option, if any.
+   */
+  onFetch?: (request: Request & { URL?: URL }, context: RenderOptions["context"]) => MaybePromise<Response> | void;
 }

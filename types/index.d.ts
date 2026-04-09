@@ -5,6 +5,9 @@ export function buildRoutes(
   handler: (req: Request) => Response,
 ): Record<string, (req: Request) => Response>;
 
+/**
+ * `createRPC` creates a RPC for the given functions.
+ */
 export function createRPC<V extends Record<string, (...args: any[]) => any>>(
   rpcFunctions: V,
 ): { [K in keyof V]: (...args: Parameters<V[K]>) => Promise<Awaited<ReturnType<V[K]>>> };

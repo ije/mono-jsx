@@ -43,6 +43,7 @@ export const jsx = (
       "headers",
       "htmx",
       "metadata",
+      "onFetch",
     ]);
     for (const [key, value] of Object.entries(props)) {
       if (optionsKeys.has(key) || key.startsWith("htmx-ext-")) {
