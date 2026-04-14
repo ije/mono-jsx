@@ -164,7 +164,7 @@ const voidTags = new Set("area,base,br,col,embed,hr,img,input,keygen,link,meta,p
 const defaultMetadata = { viewport: "width=device-width, initial-scale=1.0" };
 const componentsMap = new IdGen<ComponentType>();
 const cache = new Map<string, { html: string; expiresAt?: number }>();
-const urlPatternCache = new Map<string, URLPattern>();
+const urlPatternCache = new Map<string, URLPattern | null>();
 const hmacKeyCache = new Map<string, Promise<CryptoKey>>();
 const isVNode = (v: unknown): v is VNode => Array.isArray(v) && v.length === 3 && v[2] === $vnode;
 const isReactive = (v: unknown): v is Signal | Compute => v instanceof Signal || v instanceof Compute;
@@ -244,14 +244,24 @@ function renderToWebStream(root: VNode, options: RenderOptions): Response | Prom
       routeFC = routes[request.URL!.pathname];
       if (!routeFC) {
         for (const pattern of Object.keys(routes)) {
-          if (pattern.includes(":") || pattern.includes("*")) {
-            let urlPattern = urlPatternCache.get(pattern);
-            let match: URLPatternResult | null;
-            if (!urlPattern) {
-              urlPattern = new URLPattern({ pathname: pattern });
-              urlPatternCache.set(pattern, urlPattern);
+          let urlPattern = urlPatternCache.get(pattern);
+          if (urlPattern === undefined) {
+            let withParams = false;
+            for (const char of pattern) {
+              if (char === ":" || char === "*") {
+                withParams = true;
+                break;
+              }
             }
-            match = urlPattern.exec(request.URL!);
+            if (withParams) {
+              urlPattern = new URLPattern({ pathname: pattern });
+            } else {
+              urlPattern = null;
+            }
+            urlPatternCache.set(pattern, urlPattern);
+          }
+          if (urlPattern) {
+            const match = urlPattern.exec(request.URL!);
             if (match) {
               routeFC = routes[pattern];
               request.params = match.pathname.groups as Record<string, string>;
