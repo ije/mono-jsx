@@ -175,19 +175,15 @@ const errorStringify = (err: unknown) => err instanceof Error ? err.message : St
 /** Renders a `<html>` element to a `Response` object. */
 function renderToWebStream(root: VNode, options: RenderOptions): Response | Promise<Response> {
   const { routes, components } = options;
-  const request = options.request as unknown as MonoRequest | undefined;
+  const request = options.request as MonoRequest | undefined;
   const headers = new Headers();
   const reqHeaders = request?.headers;
   const componentName = reqHeaders?.get("x-component");
   const routeForm = reqHeaders?.has("x-route-form");
 
   if (request) {
-    request.URL = new URL(request.url);
-    if (options.onFetch) {
-      const res = options.onFetch(request, options.context);
-      if (res !== undefined) {
-        return res;
-      }
+    if (!request.URL || !(request.URL instanceof URL)) {
+      request.URL = new URL(request.url);
     }
   }
 

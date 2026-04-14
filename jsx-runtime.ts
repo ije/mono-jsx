@@ -25,7 +25,6 @@ const optionsKeys = new Set([
   "headers",
   "htmx",
   "metadata",
-  "onFetch",
 ]);
 
 export const Fragment = $fragment as unknown as ComponentType;
