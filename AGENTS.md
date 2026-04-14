@@ -56,7 +56,7 @@ To run a single test file with a specific filter:
 
 ```bash
 deno task build
-test -A --no-lock test/<name>.test.tsx --filter "<search>"
+deno test -A --no-lock test/<name>.test.tsx --filter "<search>"
 ```
 
 ## Linting and formatting
@@ -72,9 +72,11 @@ Publishing is automated by GitHub Actions on `main` when a version tag is pushed
 
 When the user asks to publish a new version:
 
+0. Run `deno task test` first, **if the tests fail, stop the process and notify the user.**
 1. Check the current version in `package.json`.
 2. Show the user a selectable list of possible next versions, ask the user to choose which one to publish.
 3. After the user confirms the target version, update both `package.json` and `version.ts`.
-4. Commit only the release-related changes with the message "chore: Bump package version to v<new-version>".
-5. Create a git tag named `v<new-version>` on that commit.
-6. Show the user a prompt window to confirm the publish action, and if the user confirms, push both the commit and tag to the remote repository.
+4. Run `deno task build` to build the package dist.
+5. Commit only the release-related changes with `git commit -m "chore: bump package version to v<new-version>"`.
+6. Create a git tag named `v<new-version>` on that commit.
+7. Show the user a prompt window to confirm the publish action, and if the user confirms, push both the commit and tag to the remote repository.
