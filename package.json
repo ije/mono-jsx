@@ -3,6 +3,7 @@
   "version": "0.10.0-beta.21",
   "description": "`<html>` as a `Response` (Yet another JSX runtime for server-side rendering).",
   "type": "module",
+  "main": "./index.mjs",
   "module": "./index.mjs",
   "types": "./types/index.d.ts",
   "bin": {
@@ -11,18 +12,18 @@
   "exports": {
     ".": {
       "types": "./types/index.d.ts",
-      "node": "./index.mjs",
-      "import": "./index.mjs"
+      "import": "./index.mjs",
+      "node": "./index.mjs"
     },
     "./jsx-runtime": {
       "types": "./types/jsx-runtime.d.ts",
-      "node": "./jsx-runtime.mjs",
-      "import": "./jsx-runtime.mjs"
+      "import": "./jsx-runtime.mjs",
+      "node": "./jsx-runtime.mjs"
     },
     "./jsx-dev-runtime": {
       "types": "./types/jsx-runtime.d.ts",
-      "node": "./jsx-runtime.mjs",
-      "import": "./jsx-runtime.mjs"
+      "import": "./jsx-runtime.mjs",
+      "node": "./jsx-runtime.mjs"
     }
   },
   "scripts": {
