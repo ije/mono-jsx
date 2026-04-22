@@ -796,7 +796,7 @@ async function renderNode(rc: RenderContext, node: ChildType, stripSlotProp?: bo
             }
             writeAttr("ref");
             attrs += renderViewTransitionAttr(props);
-            let buf = "<m-component" + attrs + ">";
+            let buf = "<m-component" + attrs + ' style="display:contents">';
             if (pending) {
               const chunks: string[] = [];
               await renderChildren(
@@ -830,7 +830,7 @@ async function renderNode(rc: RenderContext, node: ChildType, stripSlotProp?: bo
             if (!routeFC) {
               attrs += " fallback";
             }
-            write("<m-router" + attrs + ">");
+            write("<m-router" + attrs + ' style="display:contents">');
             if (routeFC) {
               if (routeFC instanceof Promise) {
                 routeFC = (await routeFC).default;
@@ -941,7 +941,7 @@ async function renderNode(rc: RenderContext, node: ChildType, stripSlotProp?: bo
               if (replace) {
                 buf += " replace";
               }
-              buf += "></m-redirect>";
+              buf += " hidden></m-redirect>";
               write(buf);
               rc.flags.runtime |= REDIRECT;
             }
@@ -975,7 +975,7 @@ async function renderNode(rc: RenderContext, node: ChildType, stripSlotProp?: bo
               // ignore `invalid` element without `for` attribute
               break;
             }
-            buf += ">";
+            buf += ' style="display:contents">';
             if (children) {
               const chunks: string[] = [];
               await renderChildren(
@@ -1105,7 +1105,7 @@ async function renderFC(rc: RenderContext, fcFn: ComponentType, props: JSX.Intri
           markSignals(fcRc, signals);
         } else {
           const chunkIdAttr = 'chunk-id="' + (rc.flags.chunk++).toString(36) + '"';
-          write("<m-portal " + chunkIdAttr + ">");
+          write("<m-portal " + chunkIdAttr + ' style="display:contents">');
           if (props.pending) {
             await renderNode(rc, props.pending);
           }
@@ -1133,7 +1133,7 @@ async function renderFC(rc: RenderContext, fcFn: ComponentType, props: JSX.Intri
           markSignals(fcRc, signals);
         } else {
           const chunkIdAttr = 'chunk-id="' + (rc.flags.chunk++).toString(36) + '"';
-          write("<m-portal " + chunkIdAttr + ">");
+          write("<m-portal " + chunkIdAttr + ' style="display:contents">');
           if (props.pending) {
             await renderNode(rc, props.pending);
           }
@@ -1373,7 +1373,7 @@ function renderSignal(
   if (mode && mode !== "html" && close) {
     buffer += " hidden";
   }
-  buffer += ">";
+  buffer += ' style="display:contents">';
   if (!mode || mode === "html") {
     let text: string | undefined;
     switch (typeof value) {
